@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User represents a user of the platform, including B2C clients and B2B admins.
+// The role field allows for Role-Based Access Control (RBA).
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  password        String
+  firstName       String
+  lastName        String
+  role            Role             @default(USER)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  sessions        Session[]
+  orders          Order[]
+  aiConversations AIConversation[]
+}
+
+// Session can be used for persistent login sessions.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+// AIConversation stores the history of user interactions with the AI service.
+model AIConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Product represents both physical and digital products for sale.
+enum ProductType {
+  PHYSICAL
+  DIGITAL
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  images      Json
+  type        ProductType
+  stock       Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+}
+
+// Webinar represents a video-based workshop.
+model Webinar {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  muxVideoId    String   @unique
+  muxPlaybackId String   @unique
+  isPublished   Boolean  @default(false)
+  isPremium     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isFeatured    Boolean  @default(false)
+  duration      Int // in seconds
+}
+
+// Podcast represents audio or video podcast episodes.
+model Podcast {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  muxAssetId    String   @unique
+  muxPlaybackId String   @unique
+  isPublished   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isFeatured    Boolean  @default(false)
+  duration      Int // in seconds
+}
+
+// Order represents a user's purchase.
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  status      String
+  totalAmount Float
+  paymentId   String?     @unique
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+// OrderItem links an order to the products within it.
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float
+}
