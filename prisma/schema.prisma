@@ -12,7 +12,7 @@ datasource db {
 
 // User represents a user of the platform, including B2C clients and B2B admins.
 // The role field allows for Role-Based Access Control (RBA).
-enum Role {
+enum UserRole {
   USER
   ADMIN
 }
@@ -23,22 +23,11 @@ model User {
   password        String
   firstName       String
   lastName        String
-  role            Role             @default(USER)
+  role            UserRole         @default(USER)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-  sessions        Session[]
   orders          Order[]
   aiConversations AIConversation[]
-}
-
-// Session can be used for persistent login sessions.
-model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  token     String   @unique
-  createdAt DateTime @default(now())
-  expiresAt DateTime
 }
 
 // AIConversation stores the history of user interactions with the AI service.
