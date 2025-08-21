@@ -1,0 +1,1 @@
+d$ turso db shell fifty-firstwellness < './prisma/migrations/20250821163613_init/migration.sql' 

@@ -13,7 +13,7 @@ export class PrismaService
     console.log('config servce', configService);
     super({
       adapter: new PrismaLibSQL({
-        url: configService.get(ENV.TURSO_DATABASE_URL),
+        url: configService.get(ENV.DATABASE_URL),
         authToken: configService.get(ENV.TURSO_AUTH_TOKEN),
       }),
     });
