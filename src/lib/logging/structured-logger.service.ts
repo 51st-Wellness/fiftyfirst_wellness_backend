@@ -18,8 +18,8 @@ export class StructuredLoggerService implements LoggerService {
 
     this.logger = WinstonConfigFactory.create({
       service: this.serviceName,
-      environment: this.configService.get(ENV.NODE_ENV, 'development')!,
-      logLevel: this.configService.get(ENV.LOG_LEVEL, 'info')!,
+      environment: this.configService.get(ENV.NODE_ENV, 'development'),
+      logLevel: this.configService.get(ENV.LOG_LEVEL, 'info'),
     });
   }
 

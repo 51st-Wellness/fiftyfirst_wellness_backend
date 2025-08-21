@@ -12,7 +12,10 @@ export class AuthService {
   ) {}
 
   // Validate provided credentials against stored user credentials
-  async validateUser(email: string, password: string): Promise<Omit<User, 'password'>> {
+  async validateUser(
+    email: string,
+    password: string,
+  ): Promise<Omit<User, 'password'>> {
     const user = await this.userService.findByEmail(email);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -26,7 +29,9 @@ export class AuthService {
   }
 
   // Register a user and return the created user without password
-  async register(createUserDto: CreateUserDto): Promise<Omit<User, 'password'>> {
+  async register(
+    createUserDto: CreateUserDto,
+  ): Promise<Omit<User, 'password'>> {
     return this.userService.create(createUserDto);
   }
 
@@ -36,5 +41,3 @@ export class AuthService {
     return this.jwtService.signAsync(payload);
   }
 }
-
-

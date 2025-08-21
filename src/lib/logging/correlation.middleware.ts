@@ -3,14 +3,6 @@ import { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { AsyncLocalStorage } from 'async_hooks';
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: any;
-    }
-  }
-}
-
 export interface RequestContext {
   correlationId: string;
   requestId: string;
@@ -33,8 +25,8 @@ export class CorrelationMiddleware implements NestMiddleware {
       correlationId,
       requestId,
       startTime: Date.now(),
-      userId: req.user?.id,
-      userRole: req.user?.role,
+      userId: (req.user as any).id,
+      userRole: (req.user as any)?.role,
     };
 
     // Set response headers

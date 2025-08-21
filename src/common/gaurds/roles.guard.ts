@@ -9,7 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
-import { JWT_SYMBOL } from 'src/common/constants.common';
+import { JWT_SYMBOL, JWT_COOKIE_NAME } from 'src/common/constants.common';
 import { ROLES_KEY } from 'src/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { UserService } from 'src/modules/user/user.service';
@@ -29,7 +29,7 @@ export class RolesGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    const request = context.switchToHttp().getRequest() as Request;
+    const request = context.switchToHttp().getRequest();
 
     try {
       const user = await this.authenticateRequest(request);
@@ -46,7 +46,7 @@ export class RolesGuard implements CanActivate {
       }
 
       // Check if the user's role matches any of the required roles
-      const authorized = requiredRoles.includes(dbUser.role as UserRole);
+      const authorized = requiredRoles.includes(dbUser.role);
       if (!authorized) {
         throw new ForbiddenException(
           'You do not have permission to access this resource',
@@ -66,8 +66,7 @@ export class RolesGuard implements CanActivate {
 
   private async authenticateRequest(request: Request): Promise<{ id: string }> {
     // Check if token exists in cookies or authorization header
-    console.log('cookies', request.cookies);
-    let token = request.cookies?.authorization;
+    let token = request.cookies?.[JWT_COOKIE_NAME];
 
     if (!token) {
       const authHeader = request.headers.authorization;

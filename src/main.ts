@@ -6,6 +6,7 @@ import { AppConfig } from 'src/config/app.config';
 import helmet from 'helmet';
 import { StructuredLoggerService } from 'src/lib/logging/structured-logger.service';
 import { ValidationPipe } from '@nestjs/common';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -26,6 +27,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Add cookie parser middleware for JWT cookies
+  app.use(cookieParser());
 
   app.enableCors(AppConfig.CORS_OPTIONS);
   app.use(helmet(AppConfig.HELMET_OPTIONS));

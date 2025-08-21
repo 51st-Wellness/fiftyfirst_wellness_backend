@@ -16,15 +16,10 @@ const SENSITIVE_FIELDS = [
   'card_pin',
   'bank_account',
   'payment_token',
-  'gateway_response'
+  'gateway_response',
 ];
 
-const PARTIAL_MASK_FIELDS = [
-  'email',
-  'phone',
-  'license_number',
-  'employeeId'
-];
+const PARTIAL_MASK_FIELDS = ['email', 'phone', 'license_number', 'employeeId'];
 
 export class SensitiveDataFilter {
   static filterObject(obj: any): any {
@@ -43,16 +38,18 @@ export class SensitiveDataFilter {
     }
 
     if (Array.isArray(obj)) {
-      obj.forEach(item => this.recursiveFilter(item));
+      obj.forEach((item) => this.recursiveFilter(item));
       return;
     }
 
-    Object.keys(obj).forEach(key => {
+    Object.keys(obj).forEach((key) => {
       const lowerKey = key.toLowerCase();
-      
-      if (SENSITIVE_FIELDS.some(field => lowerKey.includes(field))) {
+
+      if (SENSITIVE_FIELDS.some((field) => lowerKey.includes(field))) {
         obj[key] = '[REDACTED]';
-      } else if (PARTIAL_MASK_FIELDS.some(field => lowerKey.includes(field))) {
+      } else if (
+        PARTIAL_MASK_FIELDS.some((field) => lowerKey.includes(field))
+      ) {
         obj[key] = this.partialMask(obj[key]);
       } else if (typeof obj[key] === 'object') {
         this.recursiveFilter(obj[key]);
@@ -68,7 +65,7 @@ export class SensitiveDataFilter {
     if (value.includes('@')) {
       // Email masking
       const [user, domain] = value.split('@');
-      return `${user!.substring(0, 2)}***@${domain}`;
+      return `${user.substring(0, 2)}***@${domain}`;
     }
 
     if (value.length > 6) {

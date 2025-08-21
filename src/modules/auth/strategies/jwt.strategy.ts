@@ -23,14 +23,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ]),
       ignoreExpiration: false,
       algorithms: ['RS256'],
-      secretOrKeyProvider: (req: Request, rawJwtToken: string, done: any) => {
-        try {
-          const publicKey = this.config.get(ENV.JWT_PUBLIC_KEY);
-          done(null, publicKey);
-        } catch (e) {
-          done(e, null);
-        }
-      },
+      secretOrKey: config.get(ENV.JWT_PUBLIC_KEY),
     });
   }
 

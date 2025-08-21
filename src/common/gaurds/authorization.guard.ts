@@ -18,7 +18,7 @@ export class AuthorizationGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest() as Request;
+    const request = context.switchToHttp().getRequest();
     // * check if the request cookie has the JWT token
     let token = request.cookies?.[JWT_COOKIE_NAME];
 
@@ -37,15 +37,14 @@ export class AuthorizationGuard implements CanActivate {
       if (!decoded) {
         return false;
       }
-      let user = { id: decoded.sub };
-      const dbUser = await this.userService.findOne(user.id);
+      const dbUser = await this.userService.findOne(decoded.sub);
       if (!dbUser) {
         throw new UnauthorizedException('User not found');
       }
       request.user = dbUser; // Attach the user to the request object
       return true;
     } catch (error) {
-      console.error('Error verifying JWT token:', (error as any).message);
+      console.error('Error verifying JWT token:', error.message);
       return false;
     }
   }

@@ -23,24 +23,21 @@ export class WinstonConfigFactory {
             timestamp(),
             errors({ stack: true }),
             printf(({ timestamp, level, message, context, ...meta }) => {
-              const correlationId = (context as any)?.correlationId || 'no-correlation';
+              const correlationId =
+                (context as any)?.correlationId || 'no-correlation';
               return `${timestamp} [${level.toUpperCase()}] [${correlationId}] ${message} ${
                 Object.keys(meta).length ? JSON.stringify(meta, null, 2) : ''
               }`;
-            })
-          )
-        })
+            }),
+          ),
+        }),
       );
     } else {
       // JSON format for production (CloudWatch compatibility)
       transports.push(
         new winston.transports.Console({
-          format: combine(
-            timestamp(),
-            errors({ stack: true }),
-            json()
-          )
-        })
+          format: combine(timestamp(), errors({ stack: true }), json()),
+        }),
       );
     }
 
@@ -50,12 +47,12 @@ export class WinstonConfigFactory {
         new winston.transports.File({
           filename: `logs/${config.service}-error.log`,
           level: 'error',
-          format: combine(timestamp(), errors({ stack: true }), json())
+          format: combine(timestamp(), errors({ stack: true }), json()),
         }),
         new winston.transports.File({
           filename: `logs/${config.service}-combined.log`,
-          format: combine(timestamp(), errors({ stack: true }), json())
-        })
+          format: combine(timestamp(), errors({ stack: true }), json()),
+        }),
       );
     }
 
@@ -63,11 +60,11 @@ export class WinstonConfigFactory {
       level: config.logLevel,
       defaultMeta: {
         service: config.service,
-        environment: config.environment
+        environment: config.environment,
       },
       transports,
       // Don't exit on handled exceptions
-      exitOnError: false
+      exitOnError: false,
     });
   }
 }
