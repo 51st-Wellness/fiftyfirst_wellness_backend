@@ -9,7 +9,7 @@
     "pnpm": "10.14.0"
   },
   "scripts": {
-    "build": "nest build",
+    "build": "nest build && pnpm run db:generate",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "dev": "nest start --watch",
