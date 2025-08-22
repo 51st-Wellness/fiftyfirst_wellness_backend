@@ -10,7 +10,7 @@
     "node": "22.10.0"
   },
   "scripts": {
-    "build": "nest build && pnpm run db:generate",
+    "build": "pnpm run db:generate && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "dev": "nest start --watch",
