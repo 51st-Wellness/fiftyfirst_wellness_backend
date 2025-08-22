@@ -2,7 +2,7 @@ export const JWT_EXPIRATION = 3600;
 export const JWT_REFRESH_EXPIRATION = 604800;
 
 export const JWT_COOKIE_NAME = 'Authorization';
-export const JWT_SYMBOL = 'JWT_SERVICE';
+export const JWT_SERVICE = 'JWT_SERVICE';
 
 // Response status
 export enum ResponseStatus {
@@ -10,3 +10,6 @@ export enum ResponseStatus {
   ERROR = 'error',
   WARNING = 'warning',
 }
+export const CUSTOM_HEADERS = {
+  rootApiKey: 'root-api-key',
+};

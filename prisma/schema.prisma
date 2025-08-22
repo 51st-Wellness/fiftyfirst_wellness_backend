@@ -23,7 +23,13 @@ model User {
   password         String
   firstName        String
   lastName         String
+  phone            String
   role             UserRole          @default(USER)
+  city             String?
+  address          String?
+  bio              String?
+  profilePicture   String?
+  isActive         Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   orders           Order[]

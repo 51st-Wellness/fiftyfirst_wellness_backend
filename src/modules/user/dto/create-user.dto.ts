@@ -26,6 +26,22 @@ export class CreateUserDto {
   @IsNotEmpty()
   lastName: string;
 
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @IsString()
+  @IsOptional()
+  bio?: string;
+
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole;

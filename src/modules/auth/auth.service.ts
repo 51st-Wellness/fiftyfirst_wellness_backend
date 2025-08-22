@@ -31,6 +31,12 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    // Check if user account is active
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
     const isValid = await this.userService.verifyPassword(user, password);
     if (!isValid) {
       throw new UnauthorizedException('Invalid credentials');

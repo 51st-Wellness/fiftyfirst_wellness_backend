@@ -6,8 +6,11 @@ import {
 import { UserRepository } from './user.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from '@prisma/client';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UserQueryDto } from './dto/user-query.dto';
+import { User, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { DataFormatter } from 'src/lib/helpers/data-formater.helper';
 
 @Injectable()
 export class UserService {
@@ -34,9 +37,8 @@ export class UserService {
       password: hashedPassword,
     });
 
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    // Return user without sensitive data
+    return DataFormatter.formatObject(user, ['password']);
   }
 
   // Find user by ID
@@ -46,8 +48,7 @@ export class UserService {
       return null;
     }
 
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return DataFormatter.formatObject(user, ['password']);
   }
 
   // Find user by email (for authentication)
@@ -61,9 +62,7 @@ export class UserService {
     take?: number,
   ): Promise<Omit<User, 'password'>[]> {
     const users = await this.userRepository.findAll(skip, take);
-    return users.map(
-      ({ password, ...userWithoutPassword }) => userWithoutPassword,
-    );
+    return users.map((user) => DataFormatter.formatObject(user, ['password']));
   }
 
   // Update user
@@ -85,15 +84,13 @@ export class UserService {
       ...(hashedPassword && { password: hashedPassword }),
     });
 
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return DataFormatter.formatObject(user, ['password']);
   }
 
   // Delete user
   async remove(id: string): Promise<Omit<User, 'password'>> {
     const user = await this.userRepository.delete(id);
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return DataFormatter.formatObject(user, ['password']);
   }
 
   // Verify password for authentication
@@ -110,8 +107,7 @@ export class UserService {
       return null;
     }
 
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return DataFormatter.formatObject(user, ['password']);
   }
 
   // Store password reset OTP
@@ -133,5 +129,52 @@ export class UserService {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
     await this.userRepository.resetPassword(userId, hashedPassword);
+  }
+
+  // Update user profile
+  async updateProfile(
+    userId: string,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<Omit<User, 'password'>> {
+    const user = await this.userRepository.update(userId, updateProfileDto);
+
+    return DataFormatter.formatObject(user, ['password']);
+  }
+
+  // Find users with pagination and filters (Admin only)
+  async findManyWithFilters(
+    query: UserQueryDto,
+  ): Promise<{ users: Omit<User, 'password'>[]; total: number }> {
+    const { page = 1, pageSize = 10, search, role, isActive } = query;
+
+    const { users, total } = await this.userRepository.findManyWithFilters(
+      page,
+      pageSize,
+      { search, role, isActive },
+    );
+
+    const formattedUsers = users.map((user) =>
+      DataFormatter.formatObject(user, ['password']),
+    );
+
+    return { users: formattedUsers, total };
+  }
+
+  // Toggle user active status (Admin only)
+  async toggleUserStatus(
+    userId: string,
+    isActive: boolean,
+  ): Promise<Omit<User, 'password'>> {
+    const user = await this.userRepository.toggleUserStatus(userId, isActive);
+    return DataFormatter.formatObject(user, ['password']);
+  }
+
+  // Change user role (requires root api key at controller)
+  async changeUserRole(
+    userId: string,
+    role: UserRole,
+  ): Promise<Omit<User, 'password'>> {
+    const user = await this.userRepository.update(userId, { role });
+    return DataFormatter.formatObject(user, ['password']);
   }
 }

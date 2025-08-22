@@ -2,6 +2,7 @@ import { configService } from 'src/config/config.service';
 import { HelmetOptions } from 'helmet';
 import { ENV } from 'src/config/env.enum';
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
+import { CUSTOM_HEADERS } from './constants.config';
 
 const HELMET_OPTIONS: HelmetOptions = {
   contentSecurityPolicy: false,
@@ -17,7 +18,7 @@ const CORS_OPTIONS: CorsOptions = {
     'Content-Type',
     'Authorization',
     'Access-Control-Expose-Headers',
-    'ROOT-API-KEY',
+    ...Object.values(CUSTOM_HEADERS),
   ],
   credentials: true,
 };

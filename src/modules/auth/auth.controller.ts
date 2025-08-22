@@ -15,8 +15,8 @@ import { LoginDto } from 'src/modules/user/dto/login.dto';
 import { ForgetPasswordDto } from 'src/modules/user/dto/forget-password.dto';
 import { ResetPasswordDto } from 'src/modules/user/dto/reset-password.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { JWT_COOKIE_NAME } from 'src/config/constants.config';
-import { AuthorizationGuard } from 'src/common/gaurds/authorization.guard';
+import { CUSTOM_HEADERS, JWT_COOKIE_NAME } from 'src/config/constants.config';
+import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { User, UserRole } from '@prisma/client';
 import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
@@ -37,7 +37,7 @@ export class AuthController {
   ) {
     if (body.role === UserRole.ADMIN) {
       if (
-        req.headers['root-api-key'] !==
+        req.headers[CUSTOM_HEADERS.rootApiKey] !==
         (this.configService.get(ENV.ROOT_API_KEY) as string)
       ) {
         throw new UnauthorizedException('Invalid root api key');
@@ -70,15 +70,6 @@ export class AuthController {
     return ResponseDto.createSuccessResponse('Login successful', {
       user,
       accessToken,
-    });
-  }
-
-  // Get the current authenticated user's profile
-  @UseGuards(AuthorizationGuard)
-  @Get('profile')
-  async profile(@Req() req: Request) {
-    return ResponseDto.createSuccessResponse('Profile retrieved successfully', {
-      user: req.user,
     });
   }
 

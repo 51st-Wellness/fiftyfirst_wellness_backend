@@ -93,4 +93,56 @@ export class UserRepository {
       }),
     ]);
   }
+
+  // Find users with pagination and filters
+  async findManyWithFilters(
+    page: number = 1,
+    pageSize: number = 10,
+    filters: {
+      search?: string;
+      role?: string;
+      isActive?: boolean;
+    } = {},
+  ): Promise<{ users: User[]; total: number }> {
+    const skip = (page - 1) * pageSize;
+
+    const where: any = {};
+
+    // Apply filters
+    if (filters.role) {
+      where.role = filters.role;
+    }
+
+    if (filters.isActive !== undefined) {
+      where.isActive = filters.isActive;
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { email: { contains: filters.search, mode: 'insensitive' } },
+        { firstName: { contains: filters.search, mode: 'insensitive' } },
+        { lastName: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [users, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { users, total };
+  }
+
+  // Toggle user active status
+  async toggleUserStatus(userId: string, isActive: boolean): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive },
+    });
+  }
 }

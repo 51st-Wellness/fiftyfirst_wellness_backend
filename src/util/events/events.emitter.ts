@@ -7,6 +7,10 @@ import { EVENTS } from './events.enum';
 export class EventsEmitter {
   constructor(private readonly eventEmitter: EventEmitter2) {}
 
+  emit(event: EVENTS, payload: any) {
+    this.eventEmitter.emit(event, payload);
+  }
+
   // Send email notification using the event system
   sendEmail(emailPayload: EmailPayloadDto) {
     this.eventEmitter.emit(EVENTS.NOTIFICATION_EMAIL, emailPayload);

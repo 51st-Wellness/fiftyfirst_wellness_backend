@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -7,7 +7,7 @@ import { UserModule } from 'src/modules/user/user.module';
 import { ConfigModule } from 'src/config/config.module';
 import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
-import { JWT_SYMBOL } from 'src/config/constants.config';
+import { JWT_SERVICE } from 'src/config/constants.config';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { CommonModule } from 'src/common/common.module';
@@ -15,10 +15,11 @@ import { CommonModule } from 'src/common/common.module';
 @Module({
   imports: [
     ConfigModule,
-    UserModule,
-    // CommonModule,
+    forwardRef(() => UserModule),
+    CommonModule,
     PassportModule,
     JwtModule.registerAsync({
+      global: true,
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -40,10 +41,10 @@ import { CommonModule } from 'src/common/common.module';
     LocalStrategy,
     JwtStrategy,
     {
-      provide: JWT_SYMBOL,
+      provide: JWT_SERVICE,
       useExisting: JwtService,
     },
   ],
-  exports: [JwtModule],
+  exports: [JwtModule, JWT_SERVICE],
 })
 export class AuthModule {}
