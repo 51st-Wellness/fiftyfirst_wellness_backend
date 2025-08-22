@@ -7,7 +7,7 @@ import { UserModule } from 'src/modules/user/user.module';
 import { ConfigModule } from 'src/config/config.module';
 import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
-import { JWT_SERVICE } from 'src/config/constants.config';
+import { JWT_EXPIRATION, JWT_SERVICE } from 'src/config/constants.config';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { CommonModule } from 'src/common/common.module';
@@ -27,7 +27,7 @@ import { CommonModule } from 'src/common/common.module';
         publicKey: config.get(ENV.JWT_PUBLIC_KEY),
         signOptions: {
           algorithm: 'RS256',
-          expiresIn: '1h',
+          expiresIn: JWT_EXPIRATION,
         },
         verifyOptions: {
           algorithms: ['RS256'],
