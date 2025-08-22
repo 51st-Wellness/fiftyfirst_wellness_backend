@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
-import { JWT_COOKIE_NAME, JWT_SYMBOL } from 'src/common/constants.common';
+import { JWT_COOKIE_NAME, JWT_SYMBOL } from 'src/config/constants.config';
 import { UserService } from 'src/modules/user/user.service';
 
 @Injectable()

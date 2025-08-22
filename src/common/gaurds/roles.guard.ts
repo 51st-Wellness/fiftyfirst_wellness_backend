@@ -9,7 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
-import { JWT_SYMBOL, JWT_COOKIE_NAME } from 'src/common/constants.common';
+import { JWT_SYMBOL, JWT_COOKIE_NAME } from 'src/config/constants.config';
 import { ROLES_KEY } from 'src/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { UserService } from 'src/modules/user/user.service';

@@ -18,16 +18,27 @@ enum UserRole {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  email           String           @unique
-  password        String
-  firstName       String
-  lastName        String
-  role            UserRole         @default(USER)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  orders          Order[]
-  aiConversations AIConversation[]
+  id               String            @id @default(cuid())
+  email            String            @unique
+  password         String
+  firstName        String
+  lastName         String
+  role             UserRole          @default(USER)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  orders           Order[]
+  aiConversations  AIConversation[]
+  passwordResetOTP PasswordResetOTP?
+}
+
+// Password reset OTP model for secure password resets
+model PasswordResetOTP {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 // AIConversation stores the history of user interactions with the AI service.

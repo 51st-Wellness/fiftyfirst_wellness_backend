@@ -113,4 +113,25 @@ export class UserService {
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
+
+  // Store password reset OTP
+  async storePasswordResetOTP(
+    userId: string,
+    otp: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.userRepository.storePasswordResetOTP(userId, otp, expiresAt);
+  }
+
+  // Verify password reset OTP
+  async verifyPasswordResetOTP(userId: string, otp: string): Promise<boolean> {
+    return this.userRepository.verifyPasswordResetOTP(userId, otp);
+  }
+
+  // Reset password and clear OTP
+  async resetPassword(userId: string, newPassword: string): Promise<void> {
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    await this.userRepository.resetPassword(userId, hashedPassword);
+  }
 }
