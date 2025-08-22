@@ -5,8 +5,9 @@
   "author": "prospercoded",
   "private": true,
   "license": "UNLICENSED",
+  "packageManager": "pnpm@10.14.0",
   "engines": {
-    "pnpm": "10.14.0"
+    "node": "22.10.0"
   },
   "scripts": {
     "build": "nest build && pnpm run db:generate",
