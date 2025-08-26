@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
   Post,
   Req,
   Res,
@@ -11,12 +10,10 @@ import {
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from 'src/modules/user/dto/create-user.dto';
-import { LoginDto } from 'src/modules/user/dto/login.dto';
 import { ForgetPasswordDto } from 'src/modules/user/dto/forget-password.dto';
 import { ResetPasswordDto } from 'src/modules/user/dto/reset-password.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { CUSTOM_HEADERS, JWT_COOKIE_NAME } from 'src/config/constants.config';
-import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { User, UserRole } from '@prisma/client';
 import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';

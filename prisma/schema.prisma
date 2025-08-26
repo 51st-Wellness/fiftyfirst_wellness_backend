@@ -17,24 +17,35 @@ enum UserRole {
   ADMIN
 }
 
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 model User {
-  id               String            @id @default(cuid())
-  email            String            @unique
-  password         String
-  firstName        String
-  lastName         String
-  phone            String
-  role             UserRole          @default(USER)
-  city             String?
-  address          String?
-  bio              String?
-  profilePicture   String?
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id             String   @id @default(cuid())
+  email          String   @unique
+  password       String
+  firstName      String
+  lastName       String
+  phone          String
+  role           UserRole @default(USER)
+  city           String?
+  address        String?
+  bio            String?
+  profilePicture String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  //relations
+  passwordResetOTP PasswordResetOTP?
   orders           Order[]
   aiConversations  AIConversation[]
-  passwordResetOTP PasswordResetOTP?
+  cart             CartItem[]
+  bookmarks        Bookmark[]
+  Review           Review[]
 }
 
 // Password reset OTP model for secure password resets
@@ -51,72 +62,101 @@ model PasswordResetOTP {
 model AIConversation {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
   title     String
   messages  Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  //relations
+  user User @relation(fields: [userId], references: [id])
 }
 
 // Product represents both physical and digital products for sale.
+
 enum ProductType {
-  PHYSICAL
-  DIGITAL
+  STORE
+  PROGRAMME
+  PODCAST
 }
 
 model Product {
-  id          String      @id @default(cuid())
-  name        String
-  description String?
-  price       Float
-  images      Json
-  type        ProductType
-  stock       Int         @default(0)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  orderItems  OrderItem[]
+  id        String      @id @default(cuid())
+  type      ProductType
+  storeItem StoreItem?
+  programme Programme?
+  podcast   Podcast?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  //relations
+  orderItems OrderItem[]
+  CartItem   CartItem[]
+  bookmarks  Bookmark[]
+  Review     Review[]
 }
 
-// Webinar represents a video-based workshop.
-model Webinar {
-  id            String   @id @default(cuid())
-  title         String
-  description   String?
-  muxVideoId    String   @unique
-  muxPlaybackId String   @unique
-  isPublished   Boolean  @default(false)
-  isPremium     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  isFeatured    Boolean  @default(false)
+model StoreItem {
+  // id        String   @id @default(cuid())
+  name        String
+  description String?
+  productId   String   @id @unique
+  product     Product  @relation(fields: [productId], references: [id])
+  price       Float
+  stock       Int      @default(0)
+  display     Json // {url: string, type: image/video}
+  tags        Json
+  isFeatured  Boolean  @default(false)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Programme represents webineers (just a formal name)
+model Programme {
+  title       String
+  description String?
+  productId   String  @id @unique
+  product     Product @relation(fields: [productId], references: [id])
+
+  muxVideoId    String  @unique
+  muxPlaybackId String  @unique
+  isPublished   Boolean @default(true)
+  isPremium     Boolean @default(false)
+  isFeatured    Boolean @default(false)
   duration      Int // in seconds
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Podcast represents audio or video podcast episodes.
 model Podcast {
-  id            String   @id @default(cuid())
+  productId     String  @id @unique
   title         String
   description   String?
-  muxAssetId    String   @unique
-  muxPlaybackId String   @unique
-  isPublished   Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  isFeatured    Boolean  @default(false)
+  muxAssetId    String  @unique
+  muxPlaybackId String  @unique
+  isPublished   Boolean @default(true)
+  isFeatured    Boolean @default(false)
+  isPremium     Boolean @default(false)
   duration      Int // in seconds
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id])
 }
 
 // Order represents a user's purchase.
 model Order {
-  id          String      @id @default(cuid())
+  id          String        @id @default(cuid())
   userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  status      String
+  user        User          @relation(fields: [userId], references: [id])
+  status      PaymentStatus @default(PENDING)
   totalAmount Float
-  paymentId   String?     @unique
+  paymentId   String?       @unique
   orderItems  OrderItem[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 // OrderItem links an order to the products within it.
@@ -128,4 +168,44 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rating    Int // 1-10
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Blogs {
+  id          String   @id @default(cuid())
+  title       String
+  contentKey  String //storage bucket file key
+  isFeatured  Boolean  @default(false)
+  isPublished Boolean  @default(true)
+  tags        Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+}
+
+model Bookmark {
+  id        String  @id @default(cuid())
+  productId String  @unique
+  product   Product @relation(fields: [productId], references: [id])
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
 }
