@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from 'src/config/config.service';
 import { ENV } from '../../../config/env.enum';
 
@@ -24,3 +25,12 @@ export const createStorageConfig = (configService: ConfigService) => ({
 });
 
 export type StorageConfig = ReturnType<typeof createStorageConfig>;
+
+@Injectable()
+export class StorageConfigService {
+  constructor(private configService: ConfigService) {}
+
+  get config() {
+    return createStorageConfig(this.configService);
+  }
+}

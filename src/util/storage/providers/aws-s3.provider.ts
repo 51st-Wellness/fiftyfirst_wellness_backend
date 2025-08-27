@@ -8,6 +8,8 @@ import {
   UploadResult,
 } from '../interfaces/storage.interface';
 
+export const AWS_S3_PROVIDER = 'AWS_S3_PROVIDER';
+
 @Injectable()
 export class AWSS3Provider implements IStorageProvider {
   private s3: S3;
@@ -22,7 +24,7 @@ export class AWSS3Provider implements IStorageProvider {
 
   async uploadFile(
     file: Express.Multer.File,
-    options: UploadOptions
+    options: UploadOptions,
   ): Promise<UploadResult> {
     const bucket = options.bucket;
     const bucketType = options.bucketType || 'private';
@@ -65,7 +67,7 @@ export class AWSS3Provider implements IStorageProvider {
   async getFileUrl(
     fileKey: string,
     bucket: string,
-    expiresIn = 3600
+    expiresIn = 3600,
   ): Promise<string> {
     // Generate signed URL for the specified bucket
     return this.s3.getSignedUrl('getObject', {
