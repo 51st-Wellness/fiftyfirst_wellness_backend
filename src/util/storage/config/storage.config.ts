@@ -1,0 +1,26 @@
+import { ConfigService } from 'src/config/config.service';
+import { ENV } from '../../../config/env.enum';
+
+export const createStorageConfig = (configService: ConfigService) => ({
+  provider: configService.get(ENV.STORAGE_PROVIDER, 'aws'),
+  maxFileSize: parseInt(configService.get(ENV.MAX_FILE_SIZE, '10485760')), // 10MB
+  allowedMimeTypes: [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+  ],
+  aws: {
+    region: configService.get(ENV.AWS_REGION),
+    publicBucket: configService.get(ENV.S3_PUBLIC_BUCKET_NAME),
+    privateBucket: configService.get(ENV.S3_PRIVATE_BUCKET_NAME),
+    accessKeyId: configService.get(ENV.AWS_ACCESS_KEY_ID),
+    secretAccessKey: configService.get(ENV.AWS_SECRET_ACCESS_KEY),
+  },
+});
+
+export type StorageConfig = ReturnType<typeof createStorageConfig>;

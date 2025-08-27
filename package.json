@@ -46,6 +46,7 @@
     "@types/cookie-parser": "^1.4.9",
     "@types/dotenv": "^8.2.3",
     "@types/ejs": "^3.1.5",
+    "@types/multer": "^2.0.0",
     "@types/passport-local": "^1.0.38",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",

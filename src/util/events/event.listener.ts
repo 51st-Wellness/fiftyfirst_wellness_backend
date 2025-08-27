@@ -13,6 +13,7 @@ export class EventsListeners {
   @OnEvent(EVENTS.NOTIFICATION_EMAIL)
   async handleEmailNotification(emailPayload: EmailPayloadDto) {
     try {
+      // TODO: Implement email sending
       // await this.emailService.sendMail(emailPayload);
       this.logger.log(
         `Email sent successfully to ${emailPayload.to} with type ${emailPayload.type}`,

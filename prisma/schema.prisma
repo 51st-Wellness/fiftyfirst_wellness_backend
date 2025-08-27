@@ -15,6 +15,7 @@ datasource db {
 enum UserRole {
   USER
   ADMIN
+  COACH
 }
 
 enum PaymentStatus {
@@ -24,20 +25,21 @@ enum PaymentStatus {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
+  id             String    @id @default(cuid())
+  email          String    @unique
   password       String
   firstName      String
   lastName       String
   phone          String
-  role           UserRole @default(USER)
+  role           UserRole  @default(USER)
   city           String?
   address        String?
   bio            String?
   profilePicture String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
 
   //relations
   passwordResetOTP PasswordResetOTP?
@@ -96,7 +98,6 @@ model Product {
 }
 
 model StoreItem {
-  // id        String   @id @default(cuid())
   name        String
   description String?
   productId   String   @id @unique
@@ -104,7 +105,8 @@ model StoreItem {
   price       Float
   stock       Int      @default(0)
   display     Json // {url: string, type: image/video}
-  tags        Json
+  images      Json // [string] -> just the url of the image
+  tags        Json // [string]
   isFeatured  Boolean  @default(false)
   isPublished Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -113,12 +115,12 @@ model StoreItem {
 
 // Programme represents webineers (just a formal name)
 model Programme {
+  productId   String  @id @unique
   title       String
   description String?
-  productId   String  @id @unique
   product     Product @relation(fields: [productId], references: [id])
 
-  muxVideoId    String  @unique
+  muxAssetId    String  @unique
   muxPlaybackId String  @unique
   isPublished   Boolean @default(true)
   isPremium     Boolean @default(false)
@@ -200,12 +202,16 @@ model CartItem {
   quantity  Int
   userId    String
   user      User    @relation(fields: [userId], references: [id])
+
+  @@unique([productId, userId])
 }
 
 model Bookmark {
   id        String  @id @default(cuid())
-  productId String  @unique
+  productId String
   product   Product @relation(fields: [productId], references: [id])
   userId    String
   user      User    @relation(fields: [userId], references: [id])
+
+  @@unique([productId, userId])
 }
