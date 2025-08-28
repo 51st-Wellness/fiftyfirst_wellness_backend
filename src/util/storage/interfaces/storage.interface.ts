@@ -1,5 +1,5 @@
 export interface UploadOptions {
-  fileName?: string;
+  fileName: string;
   folder?: string;
   bucket: string;
   bucketType?: 'public' | 'private';
@@ -18,12 +18,13 @@ export interface UploadResult {
 export interface IStorageProvider {
   uploadFile(
     file: Express.Multer.File,
-    options: UploadOptions
+    options: UploadOptions,
   ): Promise<UploadResult>;
-  getFileUrl(
+  getSignedFileUrl(
     fileKey: string,
     bucket: string,
-    expiresIn?: number
+    expiresIn?: number,
   ): Promise<string>;
+  getPublicFileUrl(fileKey: string, bucket: string): string;
   deleteFile(fileKey: string, bucket: string): Promise<void>;
 }

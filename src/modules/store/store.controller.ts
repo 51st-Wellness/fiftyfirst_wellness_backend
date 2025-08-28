@@ -23,6 +23,7 @@ import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { ResponseDto } from 'src/util/dto/response.dto';
 
 @Controller('store')
 export class StoreController {
@@ -48,7 +49,7 @@ export class StoreController {
       }),
     )
     files?: Express.Multer.File[],
-  ) {
+  ): Promise<ResponseDto<any>> {
     // Separate display and images from uploaded files
     const displayFile = files?.find((file) => file.fieldname === 'display');
     const imageFiles =
@@ -59,33 +60,31 @@ export class StoreController {
       images: imageFiles.length > 0 ? imageFiles : undefined,
     };
 
-    return this.storeService.create(createStoreItemDto, fileData);
+    const storeItem = await this.storeService.create(
+      createStoreItemDto,
+      fileData,
+    );
+    return ResponseDto.createSuccessResponse(
+      'Store item created successfully',
+      storeItem,
+    );
   }
 
   // Get all store items (public access)
   @Get()
-  async findAll(@Query() query: StoreItemQueryDto) {
-    return this.storeService.findAll(query);
+  async findAll(@Query() query: StoreItemQueryDto): Promise<ResponseDto<any>> {
+    const result = await this.storeService.findAll(query);
+    return ResponseDto.createPaginatedResponse(
+      'Store items retrieved successfully',
+      result.data,
+      {
+        total: result.meta.total,
+        page: result.meta.page,
+        pageSize: result.meta.limit,
+        totalPages: result.meta.totalPages,
+      },
+    );
   }
-
-  // Get featured store items (public access)
-  @Get('featured')
-  async getFeatured() {
-    return this.storeService.getFeatured();
-  }
-
-  // Search store items (public access)
-  @Get('search')
-  async search(@Query('q') query: string) {
-    return this.storeService.search(query);
-  }
-
-  // Get store item by ID (public access)
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.storeService.findOne(id);
-  }
-
   // Update store item (Admin only)
   @Patch(':id')
   @Auth()
@@ -107,7 +106,7 @@ export class StoreController {
       }),
     )
     files?: Express.Multer.File[],
-  ) {
+  ): Promise<ResponseDto<any>> {
     // Separate display and images from uploaded files
     const displayFile = files?.find((file) => file.fieldname === 'display');
     const imageFiles =
@@ -118,7 +117,15 @@ export class StoreController {
       images: imageFiles.length > 0 ? imageFiles : undefined,
     };
 
-    return this.storeService.update(id, updateStoreItemDto, fileData);
+    const updatedItem = await this.storeService.update(
+      id,
+      updateStoreItemDto,
+      fileData,
+    );
+    return ResponseDto.createSuccessResponse(
+      'Store item updated successfully',
+      updatedItem,
+    );
   }
 
   // Delete store item (Admin only)
@@ -126,7 +133,11 @@ export class StoreController {
   @Auth()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  async remove(@Param('id') id: string) {
-    return this.storeService.remove(id);
+  async remove(@Param('id') id: string): Promise<ResponseDto<any>> {
+    const deletedItem = await this.storeService.remove(id);
+    return ResponseDto.createSuccessResponse(
+      'Store item deleted successfully',
+      deletedItem,
+    );
   }
 }

@@ -1,17 +1,8 @@
-import {
-  IsOptional,
-  IsString,
-  IsBoolean,
-  IsNumber,
-  Min,
-} from 'class-validator';
+import { IsOptional, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { PaginationQueryDto } from 'src/lib/dto/pagination.dto';
 
-export class StoreItemQueryDto {
-  @IsOptional()
-  @IsString()
-  search?: string;
-
+export class StoreItemQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => value === 'true')
@@ -21,16 +12,4 @@ export class StoreItemQueryDto {
   @IsBoolean()
   @Transform(({ value }) => value === 'true')
   isPublished?: boolean;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Transform(({ value }) => parseInt(value))
-  page?: number = 1;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Transform(({ value }) => parseInt(value))
-  limit?: number = 10;
 }

@@ -11,5 +11,9 @@ export class UploadFileDto {
 
   @IsOptional()
   @IsString()
+  fileName?: string;
+
+  @IsOptional()
+  @IsString()
   bucket?: string;
 }

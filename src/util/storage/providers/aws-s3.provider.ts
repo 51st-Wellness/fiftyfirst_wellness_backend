@@ -8,8 +8,6 @@ import {
   UploadResult,
 } from '../interfaces/storage.interface';
 
-export const AWS_S3_PROVIDER = 'AWS_S3_PROVIDER';
-
 @Injectable()
 export class AWSS3Provider implements IStorageProvider {
   private s3: S3;
@@ -19,6 +17,11 @@ export class AWSS3Provider implements IStorageProvider {
       accessKeyId: configService.get('AWS_ACCESS_KEY_ID'),
       secretAccessKey: configService.get('AWS_SECRET_ACCESS_KEY'),
       region: configService.get('AWS_REGION'),
+      ...(configService.get('AWS_ENDPOINT') && {
+        endpoint: configService.get('AWS_ENDPOINT'),
+        s3ForcePathStyle: true, // Required for S3-compatible services
+        signatureVersion: 'v4', // Ensure compatibility
+      }),
     });
   }
 
@@ -64,7 +67,7 @@ export class AWSS3Provider implements IStorageProvider {
     };
   }
 
-  async getFileUrl(
+  async getSignedFileUrl(
     fileKey: string,
     bucket: string,
     expiresIn = 3600,
@@ -75,6 +78,21 @@ export class AWSS3Provider implements IStorageProvider {
       Key: fileKey,
       Expires: expiresIn,
     });
+  }
+
+  getPublicFileUrl(fileKey: string, bucket: string): string {
+    const endpoint = this.configService.get('AWS_ENDPOINT');
+    // Use the configured endpoint for public file URLs
+    if (endpoint) {
+      const endpointWithoutProtocol = endpoint
+        .replace('https://', '')
+        .replace('http://', '');
+      return `https://${endpointWithoutProtocol}/${bucket}/${fileKey}`;
+    }
+
+    // Fallback to AWS S3 format if no endpoint is configured
+    const region = this.configService.get('AWS_REGION');
+    return `https://${bucket}.s3.${region}.amazonaws.com/${fileKey}`;
   }
 
   async deleteFile(fileKey: string, bucket: string): Promise<void> {

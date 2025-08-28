@@ -25,6 +25,7 @@ import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
 import { CUSTOM_HEADERS } from 'src/config/constants.config';
 @Controller('user')
+@UseGuards(RolesGuard)
 export class UserController {
   constructor(
     private readonly userService: UserService,
@@ -32,7 +33,6 @@ export class UserController {
   ) {}
 
   // Get current user profile
-  @UseGuards(RolesGuard)
   @Get('me')
   async getProfile(@Req() req: Request) {
     return ResponseDto.createSuccessResponse('Profile retrieved successfully', {
@@ -41,7 +41,6 @@ export class UserController {
   }
 
   // Update current user profile
-  @UseGuards(RolesGuard)
   @Put('me')
   async updateProfile(
     @Body() updateProfileDto: UpdateProfileDto,
@@ -58,7 +57,6 @@ export class UserController {
   }
 
   // Admin: Get all users with pagination and filters (Strict mode for clear suspension messaging)
-  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   @Get()
   async getAllUsers(@Query() query: UserQueryDto) {
@@ -77,7 +75,6 @@ export class UserController {
   }
 
   // Admin: Get user by ID (Strict mode for clear suspension messaging)
-  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   @Get(':id')
   async findUserById(@Param('id') id: string) {
@@ -91,7 +88,6 @@ export class UserController {
   }
 
   // Admin: Toggle user active/inactive status (Strict mode for clear suspension messaging)
-  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   @Put(':id/status')
   async toggleUserStatus(
@@ -119,7 +115,6 @@ export class UserController {
   }
 
   // Admin: Change user role (requires ROOT-API-KEY header)
-  @UseGuards(RolesGuard)
   @Put('role/:id')
   async changeUserRole(
     @Param('id') id: string,

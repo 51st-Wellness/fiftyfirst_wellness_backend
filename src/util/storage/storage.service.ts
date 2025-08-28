@@ -42,7 +42,8 @@ export class StorageService {
     this.validateDocumentTypeForFile(file, uploadOptions.documentType);
 
     // Generate unique file name if not provided
-    const fileName = this.generateFileName(file.originalname);
+    const fileName =
+      uploadOptions.fileName || this.generateFileName(file.originalname);
 
     // Create organized folder structure based on document type
     const folder = this.createFolderStructure(uploadOptions);
@@ -172,10 +173,12 @@ export class StorageService {
       // Determine bucket based on bucket type
       const bucket = this.getBucketForType(bucketType);
 
-      // For public files, return direct URL
+      // For public files, return direct URL using provider-specific method
       if (bucketType === 'public') {
-        const region = this.storageConfig.aws.region;
-        const publicUrl = `https://${bucket}.s3.${region}.amazonaws.com/${fileKey}`;
+        const publicUrl = this.storageProvider.getPublicFileUrl(
+          fileKey,
+          bucket,
+        );
 
         this.logger.log('Public file access granted', {
           fileKey,
@@ -186,7 +189,7 @@ export class StorageService {
       }
 
       // For private files, generate signed URL
-      const signedUrl = await this.storageProvider.getFileUrl(
+      const signedUrl = await this.storageProvider.getSignedFileUrl(
         fileKey,
         bucket,
         expiresIn,

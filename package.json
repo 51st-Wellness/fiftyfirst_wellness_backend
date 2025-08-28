@@ -48,6 +48,7 @@
     "@types/ejs": "^3.1.5",
     "@types/multer": "^2.0.0",
     "@types/passport-local": "^1.0.38",
+    "aws-sdk": "^2.1692.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
