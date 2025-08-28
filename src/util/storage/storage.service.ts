@@ -2,7 +2,7 @@ import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { configService } from 'src/config/config.service';
 import { StructuredLoggerService } from 'src/lib/logging';
 import { IStorageProvider } from './interfaces/storage.interface';
-import { createStorageConfig } from './config/storage.config';
+import { createStorageConfig, CurrentProvider } from './config/storage.config';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { DocumentType } from './constants';
 
@@ -54,7 +54,7 @@ export class StorageService {
     );
 
     // Determine bucket based on bucket type
-    const bucket = this.getBucketForType(bucketType);
+    const bucket = this.getBucketForType(CurrentProvider, bucketType);
 
     try {
       // Upload to storage provider
@@ -129,7 +129,7 @@ export class StorageService {
     const bucketType = options.bucketType || 'private';
 
     // Determine bucket based on bucket type
-    const bucket = this.getBucketForType(bucketType);
+    const bucket = this.getBucketForType(CurrentProvider, bucketType);
 
     try {
       // Upload to storage provider
@@ -171,7 +171,7 @@ export class StorageService {
   ): Promise<string> {
     try {
       // Determine bucket based on bucket type
-      const bucket = this.getBucketForType(bucketType);
+      const bucket = this.getBucketForType(CurrentProvider, bucketType);
 
       // For public files, return direct URL using provider-specific method
       if (bucketType === 'public') {
@@ -218,7 +218,10 @@ export class StorageService {
   ): Promise<void> {
     try {
       // Determine bucket based on bucket type
-      const bucket = this.getBucketForType(bucketType);
+      const bucket = this.getBucketForType(
+        this.storageConfig.provider,
+        bucketType,
+      );
 
       await this.storageProvider.deleteFile(fileKey, bucket);
 
@@ -263,14 +266,17 @@ export class StorageService {
   }
 
   // Determine bucket based on bucket type
-  private getBucketForType(bucketType: 'public' | 'private'): string {
+  public getBucketForType(
+    provider: string,
+    bucketType: 'public' | 'private',
+  ): string {
     switch (bucketType) {
       case 'public':
-        return this.storageConfig.aws.publicBucket;
+        return this.storageConfig[provider].publicBucket;
       case 'private':
-        return this.storageConfig.aws.privateBucket;
+        return this.storageConfig[provider].privateBucket;
       default:
-        return this.storageConfig.aws.privateBucket; // Default to private for security
+        return this.storageConfig[provider].publicBucket;
     }
   }
 

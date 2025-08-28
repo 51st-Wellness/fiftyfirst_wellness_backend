@@ -21,9 +21,9 @@ import { UpdateStoreItemDto } from './dto/update-store-item.dto';
 import { StoreItemQueryDto } from './dto/store-item-query.dto';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { StoreItem, UserRole } from '@prisma/client';
 import { Auth } from 'src/common/decorators/auth.decorator';
-import { ResponseDto } from 'src/util/dto/response.dto';
+import { PaginationResponseDto, ResponseDto } from 'src/util/dto/response.dto';
 
 @Controller('store')
 export class StoreController {
@@ -72,7 +72,9 @@ export class StoreController {
 
   // Get all store items (public access)
   @Get()
-  async findAll(@Query() query: StoreItemQueryDto): Promise<ResponseDto<any>> {
+  async findAll(
+    @Query() query: StoreItemQueryDto,
+  ): Promise<PaginationResponseDto<StoreItem[]>> {
     const result = await this.storeService.findAll(query);
     return ResponseDto.createPaginatedResponse(
       'Store items retrieved successfully',

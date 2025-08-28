@@ -4,10 +4,9 @@ import { StoreController } from './store.controller';
 import { StoreRepository } from './store.repository';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { StorageModule } from 'src/util/storage/storage.module';
-import { LoggingModule } from 'src/lib/logging';
 
 @Module({
-  imports: [PrismaModule, StorageModule, LoggingModule],
+  imports: [PrismaModule, StorageModule],
   controllers: [StoreController],
   providers: [StoreService, StoreRepository],
   exports: [StoreService],

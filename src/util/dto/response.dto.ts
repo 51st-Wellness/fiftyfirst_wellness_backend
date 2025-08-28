@@ -44,16 +44,8 @@ export class ResponseDto<T = any> {
       page: number;
       pageSize: number;
       totalPages?: number;
-      [key: string]: any; // Allow for extra pagination meta if needed
     },
-  ): ResponseDto<{
-    items: T[];
-    pagination: typeof pagination & {
-      totalPages: number;
-      hasMore: boolean;
-      hasPrev: boolean;
-    };
-  }> {
+  ): PaginationResponseDto<T> {
     // Calculate totalPages if not provided
     const totalPages =
       pagination.totalPages ??
@@ -67,7 +59,9 @@ export class ResponseDto<T = any> {
     return new ResponseDto(message, ResponseStatus.SUCCESS, {
       items,
       pagination: {
-        ...pagination,
+        total: pagination.total,
+        page: pagination.page,
+        pageSize: pagination.pageSize,
         totalPages,
         hasMore,
         hasPrev,
@@ -75,3 +69,15 @@ export class ResponseDto<T = any> {
     });
   }
 }
+
+export type PaginationResponseDto<T> = ResponseDto<{
+  items: T[];
+  pagination: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    hasMore: boolean;
+    hasPrev: boolean;
+  };
+}>;

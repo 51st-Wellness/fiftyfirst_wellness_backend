@@ -10,6 +10,7 @@ import { StoreItemQueryDto } from './dto/store-item-query.dto';
 import { StorageService } from 'src/util/storage/storage.service';
 import { DocumentType } from 'src/util/storage/constants';
 import { StructuredLoggerService } from 'src/lib/logging';
+import { StoreItem } from '@prisma/client';
 
 @Injectable()
 export class StoreService {
@@ -61,7 +62,7 @@ export class StoreService {
 
     // Handle additional images upload
     if (files?.images && files.images.length > 0) {
-      const imageUrls = [];
+      const imageUrls: string[] = [];
       for (const imageFile of files.images) {
         const imageUpload = await this.storageService.uploadFileWithMetadata(
           imageFile,
@@ -133,7 +134,7 @@ export class StoreService {
     ]);
 
     return {
-      data: storeItems,
+      data: storeItems as StoreItem[],
       meta: {
         total,
         page,
@@ -174,7 +175,7 @@ export class StoreService {
       const displayFile = files.display[0];
 
       // Delete old display file if it exists
-      if (existingItem.display && typeof existingItem.display === 'object') {
+      if (existingItem.display) {
         const oldDisplay = existingItem.display as { url?: string };
         if (oldDisplay.url) {
           try {
@@ -217,7 +218,7 @@ export class StoreService {
         });
       }
 
-      const imageUrls = [];
+      const imageUrls: string[] = [];
       for (const imageFile of files.images) {
         const imageUpload = await this.storageService.uploadFileWithMetadata(
           imageFile,
@@ -296,11 +297,8 @@ export class StoreService {
       // We'll use the public bucket for deletion
       const bucketType = 'public';
 
-      // Get the actual bucket name from storage config
-      const bucket = this.storageService['getBucketForType'](bucketType);
-
-      await this.storageService.deleteFile(fileKey, bucket);
-      this.logger.log('File deleted from storage', { fileKey, bucket });
+      await this.storageService.deleteFile(fileKey, bucketType);
+      this.logger.log('File deleted from storage', { fileKey, bucketType });
     } catch (error) {
       this.logger.error('Failed to delete file from storage', error, {
         fileUrl,
