@@ -20,10 +20,10 @@ export class StoreService {
     private readonly logger: StructuredLoggerService,
   ) {}
 
-  // Create a new store item with image upload
+  // Create a new store item with display file and additional images
   async create(
     createStoreItemDto: CreateStoreItemDto,
-    files?: { display?: Express.Multer.File[]; images?: Express.Multer.File[] },
+    files: { display: Express.Multer.File; images?: Express.Multer.File[] },
   ) {
     this.logger.log('Creating new store item', {
       name: createStoreItemDto.name,
@@ -42,28 +42,29 @@ export class StoreService {
       images: [],
     };
 
-    // Handle display image upload
-    if (files?.display && files.display.length > 0) {
-      const displayFile = files.display[0];
-      const displayUpload = await this.storageService.uploadFileWithMetadata(
-        displayFile,
-        {
-          documentType: DocumentType.STORE_IMAGE,
-          fileName: `store-display-${Date.now()}`,
-          folder: 'store/display',
-        },
-      );
+    // Handle display file upload (can be image or video)
+    const displayFile = files.display;
+    const displayUpload = await this.storageService.uploadFileWithMetadata(
+      displayFile,
+      {
+        documentType: DocumentType.STORE_IMAGE,
+        fileName: `store-display-${Date.now()}`,
+        folder: 'store/display',
+      },
+    );
 
-      storeItemData.display = {
-        url: displayUpload.url,
-        type: displayFile.mimetype.startsWith('image/') ? 'image' : 'video',
-      };
-    }
+    storeItemData.display = {
+      url: displayUpload.url,
+      type: displayFile.mimetype.startsWith('image/') ? 'image' : 'video',
+    };
 
-    // Handle additional images upload
+    // Handle additional images upload (limited to 5 images)
     if (files?.images && files.images.length > 0) {
+      // Ensure we don't exceed 5 additional images
+      const imagesToProcess = files.images.slice(0, 5);
       const imageUrls: string[] = [];
-      for (const imageFile of files.images) {
+
+      for (const imageFile of imagesToProcess) {
         const imageUpload = await this.storageService.uploadFileWithMetadata(
           imageFile,
           {
@@ -75,6 +76,14 @@ export class StoreService {
         imageUrls.push(imageUpload.url);
       }
       storeItemData.images = imageUrls;
+
+      // Log if we had to truncate images
+      if (files.images.length > 5) {
+        this.logger.warn('Truncated additional images to 5', {
+          providedCount: files.images.length,
+          processedCount: imagesToProcess.length,
+        });
+      }
     }
 
     // Create the store item (this will also create the corresponding product)
@@ -153,11 +162,11 @@ export class StoreService {
     return storeItem;
   }
 
-  // Update store item
+  // Update store item with display file and additional images
   async update(
     id: string,
     updateStoreItemDto: UpdateStoreItemDto,
-    files?: { display?: Express.Multer.File[]; images?: Express.Multer.File[] },
+    files: { display?: Express.Multer.File; images?: Express.Multer.File[] },
   ) {
     this.logger.log('Updating store item', { productId: id });
 
@@ -170,10 +179,11 @@ export class StoreService {
     // Prepare update data
     const updateData: any = { ...updateStoreItemDto };
 
-    // Handle display image upload and deletion of old display
-    if (files?.display && files.display.length > 0) {
-      const displayFile = files.display[0];
+    // Handle display file upload and deletion of old display (can be image or video)
+    const displayFile = files.display;
 
+    // Handle display file upload if provided
+    if (displayFile) {
       // Delete old display file if it exists
       if (existingItem.display) {
         const oldDisplay = existingItem.display as { url?: string };
@@ -207,7 +217,7 @@ export class StoreService {
       };
     }
 
-    // Handle additional images upload and deletion of old images
+    // Handle additional images upload and deletion of old images (limited to 5 images)
     if (files?.images && files.images.length > 0) {
       // Delete all existing images if we're replacing them
       const existingImages = (existingItem.images as string[]) || [];
@@ -218,8 +228,11 @@ export class StoreService {
         });
       }
 
+      // Ensure we don't exceed 5 additional images
+      const imagesToProcess = files.images.slice(0, 5);
       const imageUrls: string[] = [];
-      for (const imageFile of files.images) {
+
+      for (const imageFile of imagesToProcess) {
         const imageUpload = await this.storageService.uploadFileWithMetadata(
           imageFile,
           {
@@ -232,6 +245,14 @@ export class StoreService {
       }
 
       updateData.images = imageUrls;
+
+      // Log if we had to truncate images
+      if (files.images.length > 5) {
+        this.logger.warn('Truncated additional images to 5 during update', {
+          providedCount: files.images.length,
+          processedCount: imagesToProcess.length,
+        });
+      }
     }
 
     // Update the store item

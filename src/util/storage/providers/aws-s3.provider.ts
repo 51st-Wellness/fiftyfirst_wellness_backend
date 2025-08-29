@@ -58,7 +58,9 @@ export class AWSS3Provider implements IStorageProvider {
 
     return {
       fileKey: key,
-      url: result.Location,
+      // url: result.Location,
+      // tempoerary fix cause public route is unactivated
+      url: await this.getPublicFileUrl(key, bucket),
       bucketType,
       size: file.size,
       mimeType: file.mimetype,
@@ -80,14 +82,16 @@ export class AWSS3Provider implements IStorageProvider {
     });
   }
 
-  getPublicFileUrl(fileKey: string, bucket: string): string {
+  getPublicFileUrl(fileKey: string, bucket: string): Promise<string> | string {
     const endpoint = this.configService.get('AWS_ENDPOINT');
     // Use the configured endpoint for public file URLs
     if (endpoint) {
       const endpointWithoutProtocol = endpoint
         .replace('https://', '')
         .replace('http://', '');
-      return `https://${endpointWithoutProtocol}/${bucket}/${fileKey}`;
+      // return `https://${endpointWithoutProtocol}/${bucket}/${fileKey}`;
+      // temporary fix cause public route is unactivated
+      return this.getSignedFileUrl(fileKey, bucket, 3600 * 24 * 7);
     }
 
     // Fallback to AWS S3 format if no endpoint is configured

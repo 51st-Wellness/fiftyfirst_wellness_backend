@@ -13,8 +13,12 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
+  BadRequestException,
+  UsePipes,
+  ValidationPipe,
+  Put,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { StoreService } from './store.service';
 import { CreateStoreItemDto } from './dto/create-store-item.dto';
 import { UpdateStoreItemDto } from './dto/update-store-item.dto';
@@ -31,35 +35,45 @@ export class StoreController {
 
   // Create store item (Admin only)
   @Post()
-  @Auth()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @UseInterceptors(FilesInterceptor('files', 11)) // Allow up to 11 files (1 display + 10 images)
+  @UsePipes(new ValidationPipe({ forbidNonWhitelisted: false })) // Allow file fields for this route
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'display', maxCount: 1 }, // Required display file (image or video)
+      { name: 'images', maxCount: 5 }, // Optional additional images (max 5)
+    ]),
+  )
   async create(
     @Body() createStoreItemDto: CreateStoreItemDto,
     @UploadedFiles(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
-          new FileTypeValidator({
-            fileType: '.(jpg|jpeg|png|gif|webp|mp4|mov)',
-          }),
+          // new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
+          // new FileTypeValidator({
+          //   fileType: '.(jpg|jpeg|png|gif|webp|mp4|mov)',
+          // }),
         ],
         fileIsRequired: false,
       }),
     )
-    files?: Express.Multer.File[],
+    files?: { display?: Express.Multer.File[]; images?: Express.Multer.File[] },
   ): Promise<ResponseDto<any>> {
-    // Separate display and images from uploaded files
-    const displayFile = files?.find((file) => file.fieldname === 'display');
-    const imageFiles =
-      files?.filter((file) => file.fieldname === 'images') || [];
+    // Get display file from the files object
+    const displayFile = files?.display?.[0];
+
+    if (!displayFile) {
+      throw new BadRequestException('Display file is required');
+    }
+
+    const imageFiles = files?.images || [];
 
     const fileData = {
-      display: displayFile ? [displayFile] : undefined,
+      display: displayFile,
       images: imageFiles.length > 0 ? imageFiles : undefined,
     };
 
+    console.log('creating store item', fileData);
     const storeItem = await this.storeService.create(
       createStoreItemDto,
       fileData,
@@ -72,9 +86,7 @@ export class StoreController {
 
   // Get all store items (public access)
   @Get()
-  async findAll(
-    @Query() query: StoreItemQueryDto,
-  ): Promise<PaginationResponseDto<StoreItem[]>> {
+  async findAll(@Query() query: StoreItemQueryDto) {
     const result = await this.storeService.findAll(query);
     return ResponseDto.createPaginatedResponse(
       'Store items retrieved successfully',
@@ -87,35 +99,48 @@ export class StoreController {
       },
     );
   }
+
+  // Get store item by ID (public access)
+  @Get(':id')
+  async findOne(@Param('id') id: string): Promise<ResponseDto<any>> {
+    const storeItem = await this.storeService.findOne(id);
+    return ResponseDto.createSuccessResponse(
+      'Store item retrieved successfully',
+      storeItem,
+    );
+  }
   // Update store item (Admin only)
-  @Patch(':id')
-  @Auth()
+  @Put(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @UseInterceptors(FilesInterceptor('files', 11)) // Allow up to 11 files (1 display + 10 images)
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'display', maxCount: 1 }, // Optional display file (image or video)
+      { name: 'images', maxCount: 5 }, // Optional additional images (max 5)
+    ]),
+  )
   async update(
     @Param('id') id: string,
     @Body() updateStoreItemDto: UpdateStoreItemDto,
     @UploadedFiles(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
-          new FileTypeValidator({
-            fileType: '.(jpg|jpeg|png|gif|webp|mp4|mov)',
-          }),
+          // new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
+          // new FileTypeValidator({
+          //   fileType: '.(jpg|jpeg|png|gif|webp|mp4|mov)',
+          // }),
         ],
         fileIsRequired: false,
       }),
     )
-    files?: Express.Multer.File[],
+    files?: { display?: Express.Multer.File[]; images?: Express.Multer.File[] },
   ): Promise<ResponseDto<any>> {
-    // Separate display and images from uploaded files
-    const displayFile = files?.find((file) => file.fieldname === 'display');
-    const imageFiles =
-      files?.filter((file) => file.fieldname === 'images') || [];
+    // Get files from the files object
+    const displayFile = files?.display?.[0];
+    const imageFiles = files?.images || [];
 
     const fileData = {
-      display: displayFile ? [displayFile] : undefined,
+      display: displayFile,
       images: imageFiles.length > 0 ? imageFiles : undefined,
     };
 
@@ -132,7 +157,6 @@ export class StoreController {
 
   // Delete store item (Admin only)
   @Delete(':id')
-  @Auth()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
   async remove(@Param('id') id: string): Promise<ResponseDto<any>> {

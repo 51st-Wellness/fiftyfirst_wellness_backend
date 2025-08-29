@@ -25,6 +25,6 @@ export interface IStorageProvider {
     bucket: string,
     expiresIn?: number,
   ): Promise<string>;
-  getPublicFileUrl(fileKey: string, bucket: string): string;
+  getPublicFileUrl(fileKey: string, bucket: string): string | Promise<string>;
   deleteFile(fileKey: string, bucket: string): Promise<void>;
 }

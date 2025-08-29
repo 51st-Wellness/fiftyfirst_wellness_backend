@@ -175,7 +175,7 @@ export class StorageService {
 
       // For public files, return direct URL using provider-specific method
       if (bucketType === 'public') {
-        const publicUrl = this.storageProvider.getPublicFileUrl(
+        const publicUrl = await this.storageProvider.getPublicFileUrl(
           fileKey,
           bucket,
         );
@@ -309,6 +309,7 @@ export class StorageService {
       DocumentType.MATERIAL_IMAGE,
       DocumentType.ADVERT_IMAGE,
       DocumentType.GENERAL_IMAGE,
+      DocumentType.STORE_IMAGE,
     ];
 
     if (!imageDocumentTypes.includes(documentType)) {

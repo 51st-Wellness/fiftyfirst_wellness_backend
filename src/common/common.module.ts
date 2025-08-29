@@ -5,6 +5,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { NotificationModule } from 'src/modules/notification/notification.module';
 import { EventsListeners } from 'src/util/events/event.listener';
 import { EventsEmitter } from 'src/util/events/events.emitter';
+import { AuthModule } from 'src/modules/auth/auth.module';
 
 @Global()
 @Module({
@@ -20,6 +21,7 @@ import { EventsEmitter } from 'src/util/events/events.emitter';
       ignoreErrors: false,
     }),
     NotificationModule,
+    // AuthModule,
   ],
   providers: [StructuredLoggerService, EventsEmitter, EventsListeners],
   exports: [
