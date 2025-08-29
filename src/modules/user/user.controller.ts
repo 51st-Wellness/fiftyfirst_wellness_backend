@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Put,
+  Post,
   Body,
   Param,
   Query,
@@ -10,8 +11,11 @@ import {
   NotFoundException,
   UnauthorizedException,
   BadRequestException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UserService } from './user.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserQueryDto } from './dto/user-query.dto';
@@ -24,12 +28,15 @@ import { ChangeRoleDto } from './dto/change-role.dto';
 import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
 import { CUSTOM_HEADERS } from 'src/config/constants.config';
+import { StorageService } from 'src/util/storage/storage.service';
+import { DocumentType } from 'src/util/storage/constants';
 @Controller('user')
 @UseGuards(RolesGuard)
 export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly configService: ConfigService,
+    private readonly storageService: StorageService,
   ) {}
 
   // Get current user profile
@@ -54,6 +61,52 @@ export class UserController {
     return ResponseDto.createSuccessResponse('Profile updated successfully', {
       user: updatedUser,
     });
+  }
+
+  // Update user profile picture
+  @Post('me/profile-picture')
+  @UseInterceptors(FileInterceptor('file'))
+  async updateProfilePicture(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: Request,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    // Validate file type (images only)
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('Only image files are allowed');
+    }
+
+    // Upload file to storage
+    const uploadResult = await this.storageService.uploadFileWithMetadata(
+      file,
+      {
+        documentType: DocumentType.PROFILE_PICTURE,
+        fileName: `${(req.user as User).id}_profile_${Date.now()}`,
+      },
+    );
+
+    // Update user's profile picture URL
+    const updatedUser = await this.userService.updateProfile(
+      (req.user as User).id,
+      {
+        profilePicture: uploadResult.url,
+      },
+    );
+
+    return ResponseDto.createSuccessResponse(
+      'Profile picture updated successfully',
+      {
+        user: updatedUser,
+        upload: {
+          url: uploadResult.url,
+          fileKey: uploadResult.fileKey,
+          size: uploadResult.size,
+        },
+      },
+    );
   }
 
   // Admin: Get all users with pagination and filters (Strict mode for clear suspension messaging)

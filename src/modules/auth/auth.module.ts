@@ -10,6 +10,7 @@ import { ENV } from 'src/config/env.enum';
 import { JWT_EXPIRATION, JWT_SERVICE } from 'src/config/constants.config';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
 import { CommonModule } from 'src/common/common.module';
 
 @Module({
@@ -40,6 +41,7 @@ import { CommonModule } from 'src/common/common.module';
     AuthService,
     LocalStrategy,
     JwtStrategy,
+    GoogleStrategy,
     {
       provide: JWT_SERVICE,
       useExisting: JwtService,

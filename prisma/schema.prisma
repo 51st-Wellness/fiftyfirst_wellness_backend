@@ -27,10 +27,11 @@ enum PaymentStatus {
 model User {
   id             String    @id @default(cuid())
   email          String    @unique
-  password       String
+  password       String? // Optional for Google OAuth users
   firstName      String
   lastName       String
-  phone          String
+  phone          String? // Optional for Google OAuth users
+  googleId       String?   @unique // Google OAuth ID
   role           UserRole  @default(USER)
   city           String?
   address        String?

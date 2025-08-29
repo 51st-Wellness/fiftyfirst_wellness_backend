@@ -13,6 +13,7 @@ import { JWT_COOKIE_NAME } from 'src/config/constants.config';
 import { EventsEmitter } from 'src/util/events/events.emitter';
 import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 import * as crypto from 'crypto';
+import { DataFormatter } from 'src/lib/helpers/data-formater.helper';
 
 @Injectable()
 export class AuthService {
@@ -138,5 +139,71 @@ export class AuthService {
 
     // Update password and clear OTP
     await this.userService.resetPassword(user.id, newPassword);
+  }
+
+  // Validate user with Google OAuth profile
+  async validateUserWithGoogle(
+    email: string,
+    firstName: string,
+    lastName: string,
+    googleId: string,
+    profilePicture?: string,
+  ): Promise<Omit<User, 'password'>> {
+    // Check if user exists by googleId
+    let user = await this.userService.findByGoogleId(googleId);
+    if (user) {
+      // Update profile picture if provided and different
+      if (profilePicture && user.profilePicture !== profilePicture) {
+        let userWithoutPassword = await this.userService.updateProfile(
+          user.id,
+          {
+            profilePicture,
+          },
+        );
+        return userWithoutPassword;
+      }
+      return DataFormatter.formatObject(user, ['password']);
+    }
+
+    // Check if user exists by email
+    try {
+      user = await this.userService.findByEmail(email);
+      if (user) {
+        // Link Google ID to existing account
+        let userWithoutPassword = await this.userService.updateProfile(
+          user.id,
+          {
+            googleId,
+            profilePicture: profilePicture || user.profilePicture || undefined,
+          },
+        );
+        return userWithoutPassword;
+      }
+    } catch (error) {
+      // User not found by email, continue to create new user
+    }
+
+    // Create new user with Google profile
+    const newUser = await this.userService.create({
+      email,
+      firstName,
+      lastName,
+      googleId,
+      profilePicture: profilePicture,
+      role: 'USER' as any,
+      // phone: null, // Can be added later by user
+    });
+
+    // Send welcome email
+    this.eventsEmitter.sendEmail({
+      to: newUser.email,
+      type: EmailType.WELCOME_STUDENT,
+      context: {
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+      },
+    });
+
+    return newUser;
   }
 }

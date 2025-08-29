@@ -26,9 +26,12 @@ export class UserService {
       throw new ConflictException('User with this email already exists');
     }
 
-    // Hash password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    // Hash password if provided (optional for Google OAuth users)
+    let hashedPassword: string | undefined;
+    if (password) {
+      const saltRounds = 12;
+      hashedPassword = await bcrypt.hash(password, saltRounds);
+    }
 
     // Create user
     const user = await this.userRepository.create({
@@ -54,6 +57,11 @@ export class UserService {
   // Find user by email (for authentication)
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findByEmail(email);
+  }
+
+  // Find user by Google ID
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    return this.userRepository.findByGoogleId(googleId);
   }
 
   // Find all users with pagination
@@ -95,6 +103,10 @@ export class UserService {
 
   // Verify password for authentication
   async verifyPassword(user: User, password: string): Promise<boolean> {
+    if (!user.password) {
+      // User has no password (Google OAuth user)
+      return false;
+    }
     return bcrypt.compare(password, user.password);
   }
 

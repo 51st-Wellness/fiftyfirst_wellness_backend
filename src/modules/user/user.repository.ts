@@ -21,6 +21,11 @@ export class UserRepository {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  // Find user by Google ID
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { googleId } });
+  }
+
   // Find all users with optional pagination
   async findAll(skip?: number, take?: number): Promise<User[]> {
     return this.prisma.user.findMany({

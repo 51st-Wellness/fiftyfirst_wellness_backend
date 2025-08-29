@@ -14,9 +14,9 @@ export class CreateUserDto {
   email: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @MinLength(6)
-  password: string;
+  password?: string; // Optional for Google OAuth users
 
   @IsString()
   @IsNotEmpty()
@@ -31,8 +31,16 @@ export class CreateUserDto {
   city?: string;
 
   @IsString()
-  @IsNotEmpty()
-  phone: string;
+  @IsOptional()
+  phone?: string; // Optional for Google OAuth users
+
+  @IsString()
+  @IsOptional()
+  googleId?: string; // Google OAuth ID
+
+  @IsString()
+  @IsOptional()
+  profilePicture?: string; // Profile picture URL
 
   @IsString()
   @IsOptional()
