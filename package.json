@@ -32,6 +32,8 @@
   },
   "dependencies": {
     "@libsql/client": "^0.15.12",
+    "@mux/mux-node": "^12.7.0",
+    "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",

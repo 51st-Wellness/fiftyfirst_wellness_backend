@@ -121,12 +121,13 @@ model Programme {
   description String?
   product     Product @relation(fields: [productId], references: [id])
 
-  muxAssetId    String  @unique
-  muxPlaybackId String  @unique
-  isPublished   Boolean @default(true)
+  muxAssetId    String? @unique
+  muxPlaybackId String? @unique
+  isPublished   Boolean @default(false)
   isPremium     Boolean @default(false)
   isFeatured    Boolean @default(false)
   duration      Int // in seconds
+  tags          Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

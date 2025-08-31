@@ -9,6 +9,7 @@ import { EmailSubjects } from './config/email-subjects.config';
 import { EmailTemplates } from './config/email-templates.config';
 import { EmailSenderProvider } from './providers/email-sender.interface';
 import { ConfigService } from 'src/config/config.service';
+import IONOSProvider from './providers/ionos-provider';
 
 export interface RenderedEmail {
   to: string;
@@ -20,8 +21,12 @@ export class EmailService {
   private readonly logger: Logger = new Logger(EmailService.name);
   private providers: EmailSenderProvider[] = [];
 
-  constructor(private readonly configService: ConfigService) {
-    this.providers = [new BrevoProvider(this.logger, this.configService)];
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly brevoProvider: BrevoProvider,
+    private readonly ionosProvider: IONOSProvider,
+  ) {
+    this.providers = [this.brevoProvider, this.ionosProvider];
   }
 
   async sendMail(emailPayload: EmailPayloadDto): Promise<boolean> {

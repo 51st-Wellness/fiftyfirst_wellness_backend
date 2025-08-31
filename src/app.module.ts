@@ -9,6 +9,7 @@ import { UserModule } from './modules/user/user.module';
 import { CommonModule } from './common/common.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { StoreModule } from './modules/store/store.module';
+import { ProgrammeModule } from './modules/programme/programme.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { StoreModule } from './modules/store/store.module';
     UserModule,
     AuthModule,
     StoreModule,
+    ProgrammeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
