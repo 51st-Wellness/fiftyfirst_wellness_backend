@@ -13,6 +13,7 @@ import {
 } from './dto/create-programme.dto';
 import { ProductType } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { InputJsonValue } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class ProgrammeService {
@@ -111,7 +112,7 @@ export class ProgrammeService {
             updateDto.description ?? existingProduct.programme.description,
           tags: updateDto.tags
             ? JSON.stringify(updateDto.tags)
-            : existingProduct.programme.tags,
+            : (existingProduct.programme.tags as InputJsonValue),
           isPremium: updateDto.isPremium ?? existingProduct.programme.isPremium,
           isFeatured:
             updateDto.isFeatured ?? existingProduct.programme.isFeatured,

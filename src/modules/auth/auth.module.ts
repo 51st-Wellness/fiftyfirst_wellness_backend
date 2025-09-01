@@ -3,7 +3,6 @@ import { JwtModule, JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { UserModule } from 'src/modules/user/user.module';
 import { ConfigModule } from 'src/config/config.module';
 import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
@@ -12,12 +11,17 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { CommonModule } from 'src/common/common.module';
+import { EventsEmitter } from 'src/util/events/events.emitter';
+import { UserModule } from 'src/modules/user/user.module';
+import { RolesGuard } from 'src/common/gaurds/roles.guard';
 
 @Module({
   imports: [
     ConfigModule,
-    forwardRef(() => UserModule),
-    CommonModule,
+    // forwardRef(() => CommonModule),
+    // forwardRef(() => UserModule),
+    UserModule,
+    // CommonModule,
     PassportModule,
     JwtModule.registerAsync({
       global: true,
@@ -42,11 +46,13 @@ import { CommonModule } from 'src/common/common.module';
     LocalStrategy,
     JwtStrategy,
     GoogleStrategy,
+    EventsEmitter,
+    RolesGuard,
     {
       provide: JWT_SERVICE,
       useExisting: JwtService,
     },
   ],
-  exports: [JwtModule, JWT_SERVICE],
+  exports: [JwtModule, JWT_SERVICE, RolesGuard],
 })
 export class AuthModule {}

@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  Inject,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/modules/user/user.service';
@@ -14,11 +15,12 @@ import { EventsEmitter } from 'src/util/events/events.emitter';
 import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 import * as crypto from 'crypto';
 import { DataFormatter } from 'src/lib/helpers/data-formater.helper';
+import { JWT_SERVICE } from 'src/config/constants.config';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly jwtService: JwtService,
+    @Inject(JWT_SERVICE) private readonly jwtService: JwtService,
     private readonly userService: UserService,
     private readonly eventsEmitter: EventsEmitter,
   ) {}
@@ -52,10 +54,13 @@ export class AuthService {
   ): Promise<Omit<User, 'password'>> {
     const user = await this.userService.create(createUserDto);
 
-    // Send welcome email via event emitter
+    // Send welcome email based on user role
+    const emailType =
+      user.role === 'ADMIN' ? EmailType.WELCOME_ADMIN : EmailType.WELCOME_USER;
+
     this.eventsEmitter.sendEmail({
       to: user.email,
-      type: EmailType.WELCOME_STUDENT,
+      type: emailType,
       context: {
         firstName: user.firstName,
         lastName: user.lastName,
@@ -141,6 +146,18 @@ export class AuthService {
     await this.userService.resetPassword(user.id, newPassword);
   }
 
+  // Send login reminder email (for testing purposes)
+  async sendLoginReminder(user: Omit<User, 'password'>): Promise<void> {
+    this.eventsEmitter.sendEmail({
+      to: user.email,
+      type: EmailType.LOGIN_REMINDER,
+      context: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    });
+  }
+
   // Validate user with Google OAuth profile
   async validateUserWithGoogle(
     email: string,
@@ -197,7 +214,7 @@ export class AuthService {
     // Send welcome email
     this.eventsEmitter.sendEmail({
       to: newUser.email,
-      type: EmailType.WELCOME_STUDENT,
+      type: EmailType.WELCOME_USER,
       context: {
         firstName: newUser.firstName,
         lastName: newUser.lastName,

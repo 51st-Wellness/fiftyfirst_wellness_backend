@@ -66,6 +66,9 @@ export class AuthController {
       res,
     );
 
+    // Send login reminder email (for testing purposes)
+    await this.authService.sendLoginReminder(user);
+
     return ResponseDto.createSuccessResponse('Login successful', {
       user,
       accessToken,

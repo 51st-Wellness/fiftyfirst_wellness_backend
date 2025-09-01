@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome Back - Fifty Firsts Wellness</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        background-color: #f8f9fa;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .header {
+        background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+        color: white;
+        padding: 40px 30px;
+        text-align: center;
+      }
+
+      .logo {
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .tagline {
+        font-size: 16px;
+        opacity: 0.9;
+      }
+
+      .content {
+        padding: 40px 30px;
+      }
+
+      .welcome-title {
+        font-size: 24px;
+        color: #2c3e50;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .welcome-message {
+        font-size: 16px;
+        color: #555;
+        margin-bottom: 25px;
+        text-align: center;
+      }
+
+      .welcome-back-box {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 25px;
+        border-radius: 8px;
+        margin: 25px 0;
+        text-align: center;
+      }
+
+      .welcome-back-title {
+        font-size: 20px;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+
+      .wellness-tip {
+        background-color: #e8f5e8;
+        border: 1px solid #27ae60;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 25px 0;
+      }
+
+      .tip-title {
+        font-size: 18px;
+        color: #27ae60;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+
+      .features {
+        margin: 30px 0;
+      }
+
+      .feature-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #9b59b6;
+      }
+
+      .feature-icon {
+        font-size: 24px;
+        margin-right: 15px;
+        color: #9b59b6;
+      }
+
+      .feature-text {
+        font-size: 14px;
+        color: #555;
+      }
+
+      .cta-button {
+        display: inline-block;
+        background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+        color: white;
+        padding: 15px 30px;
+        text-decoration: none;
+        border-radius: 25px;
+        font-weight: bold;
+        margin: 20px 0;
+        text-align: center;
+        transition: transform 0.3s ease;
+      }
+
+      .cta-button:hover {
+        transform: translateY(-2px);
+      }
+
+      .footer {
+        background-color: #2c3e50;
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      .social-links {
+        margin: 20px 0;
+      }
+
+      .social-link {
+        display: inline-block;
+        margin: 0 10px;
+        color: white;
+        text-decoration: none;
+        font-size: 18px;
+      }
+
+      .footer-text {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-top: 15px;
+      }
+
+      .login-time {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 20px 0;
+        color: #856404;
+        font-size: 14px;
+        text-align: center;
+      }
+
+      @media (max-width: 600px) {
+        .container {
+          margin: 10px;
+          border-radius: 8px;
+        }
+
+        .header,
+        .content,
+        .footer {
+          padding: 20px;
+        }
+
+        .welcome-title {
+          font-size: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="logo">💫 Fifty Firsts Wellness</div>
+        <div class="tagline">Continue Your Wellness Journey</div>
+      </div>
+
+      <div class="content">
+        <h1 class="welcome-title">Welcome Back, <%= firstName %>! 💫</h1>
+
+        <p class="welcome-message">
+          Great to see you again! Your wellness journey continues, and we're
+          here to support your ongoing transformation and growth.
+        </p>
+
+        <div class="welcome-back-box">
+          <div class="welcome-back-title">
+            🌟 Your Wellness Journey Continues
+          </div>
+          <p>
+            Every login is a step forward in your midlife transformation. Keep
+            going!
+          </p>
+        </div>
+
+        <div class="login-time">
+          <strong>🕐 Login Time:</strong> <%= new Date().toLocaleString() %>
+        </div>
+
+        <div class="wellness-tip">
+          <div class="tip-title">💚 Today's Wellness Tip</div>
+          <p>
+            "Midlife is not a crisis, it's a calling. It's a time to rediscover
+            your authentic self and embrace the wisdom that comes with
+            experience. Take a moment today to reflect on what truly matters to
+            you and take one small step toward that vision."
+          </p>
+        </div>
+
+        <div class="features">
+          <div class="feature-item">
+            <div class="feature-icon">📚</div>
+            <div class="feature-text">
+              <strong>New Content Available:</strong> Check out our latest
+              wellness articles and resources
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon">🎯</div>
+            <div class="feature-text">
+              <strong>Track Your Progress:</strong> Review your wellness goals
+              and achievements
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon">🤝</div>
+            <div class="feature-text">
+              <strong>Community Connection:</strong> Connect with others on
+              similar wellness journeys
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon">🎓</div>
+            <div class="feature-text">
+              <strong>Learning Opportunities:</strong> Explore workshops and
+              webinars designed for your growth
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center">
+          <a href="<%= companyName %>/dashboard" class="cta-button">
+            Continue Your Journey →
+          </a>
+        </div>
+
+        <p
+          style="
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+          "
+        >
+          Remember, every day is an opportunity for growth and transformation.
+          We're here to support you every step of the way!
+        </p>
+      </div>
+
+      <div class="footer">
+        <div class="social-links">
+          <a href="#" class="social-link">📘</a>
+          <a href="#" class="social-link">📷</a>
+          <a href="#" class="social-link">🐦</a>
+          <a href="#" class="social-link">💼</a>
+        </div>
+
+        <p class="footer-text">
+          © 2024 Fifty Firsts Wellness. All rights reserved.<br />
+          Empowering your continuous wellness transformation.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

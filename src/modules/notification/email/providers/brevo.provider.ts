@@ -12,17 +12,45 @@ export default class BrevoProvider implements EmailSenderProvider {
   private readonly apiUrl: string = 'https://api.brevo.com/v3/smtp/email';
 
   constructor(
-    logger: Logger,
     private readonly configService: ConfigService,
+    logger: Logger,
   ) {
     this.logger = logger;
+
+    // Get configuration values with error handling
     this.apiKey = this.configService.get(ENV.BREVO_API_KEY);
     this.senderEmail = this.configService.get(ENV.BREVO_SENDER_EMAIL);
     this.companyName = this.configService.get(ENV.COMPANY_NAME);
+
+    // Validate required configuration
+    if (!this.apiKey) {
+      this.logger.warn(
+        'BREVO_API_KEY is not configured. Brevo email provider will not work.',
+      );
+    }
+    if (!this.senderEmail) {
+      this.logger.warn(
+        'BREVO_SENDER_EMAIL is not configured. Brevo email provider will not work.',
+      );
+    }
+    if (!this.companyName) {
+      this.logger.warn(
+        'COMPANY_NAME is not configured. Using default company name.',
+      );
+      this.companyName = 'Fifty Firsts Wellness';
+    }
   }
 
   public async sendMail(renderedEmail: RenderedEmailDto): Promise<boolean> {
     try {
+      // Check if required configuration is available
+      if (!this.apiKey || !this.senderEmail) {
+        this.logger.error(
+          'Brevo configuration is incomplete. Cannot send email.',
+        );
+        return false;
+      }
+
       // Prepare the email payload for Brevo API
       const brevoPayload = {
         sender: {

@@ -5,9 +5,10 @@ import { MuxWebhookController } from './mux-webhook.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { MuxConfig } from '../../config/mux.config';
 import { ConfigModule } from '@nestjs/config';
+import { UserModule } from 'src/modules/user/user.module';
 
 @Module({
-  imports: [PrismaModule, ConfigModule],
+  imports: [PrismaModule, ConfigModule, UserModule],
   controllers: [ProgrammeController, MuxWebhookController],
   providers: [ProgrammeService, MuxConfig],
   exports: [ProgrammeService],
