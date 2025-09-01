@@ -15,12 +15,13 @@ export default class IONOSProvider implements EmailSenderProvider {
   ) {}
 
   async sendMail(renderedEmail: RenderedEmailDto): Promise<boolean> {
-    await this.mailerService.sendMail({
+    const result = await this.mailerService.sendMail({
       to: renderedEmail.to,
       from: this.configService.get(ENV.IONOS_SMTP_FROM_EMAIL), // Optional: override default 'from'
       subject: renderedEmail.subject,
       html: renderedEmail.htmlContent,
     });
+    this.logger.log('Email sent successfully via IONOS:', result);
     return true;
   }
 }

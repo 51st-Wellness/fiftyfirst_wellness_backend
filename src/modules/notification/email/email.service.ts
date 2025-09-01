@@ -26,7 +26,7 @@ export class EmailService {
     private readonly brevoProvider: BrevoProvider,
     private readonly ionosProvider: IONOSProvider,
   ) {
-    this.providers = [this.brevoProvider, this.ionosProvider];
+    this.providers = [this.ionosProvider];
   }
 
   async sendMail(emailPayload: EmailPayloadDto): Promise<boolean> {
@@ -37,11 +37,16 @@ export class EmailService {
       // Try each provider until one succeeds
       for (const provider of this.providers) {
         try {
-          await provider.sendMail(renderedEmail);
+          let sent = await provider.sendMail(renderedEmail);
           this.logger.log(
             `Email sent successfully to ${emailPayload.to} via ${provider.constructor.name}`,
           );
-          return true;
+          if (sent === true) return true;
+          if (!sent) {
+            throw new Error(
+              `Email not sent to ${emailPayload.to} via ${provider.constructor.name}`,
+            );
+          }
         } catch (error) {
           this.logger.error(
             `Error sending email to ${emailPayload.to} with ${provider.constructor.name}`,
@@ -85,8 +90,12 @@ export class EmailService {
         );
       }
 
-      // Render the HTML content
-      const templatePath = path.resolve('view/emails', templateFile);
+      // Render the HTML content - templates are now in root view/emails folder
+      const templatePath = path.resolve(
+        process.cwd(),
+        'view/emails',
+        templateFile,
+      );
       const htmlContent = await EmailService.renderTemplate(
         templatePath,
         emailPayload.context,
