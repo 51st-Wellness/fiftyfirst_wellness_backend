@@ -2,18 +2,30 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import Mux from '@mux/mux-node';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MuxConfig } from '../../config/mux.config';
 import {
   CreateProgrammeDto,
-  UpdateProgrammeMetadataDto,
   CreateUploadUrlResponseDto,
+  UpdateProgrammeMetadataDto,
+  UpdateProgrammeThumbnailDto,
 } from './dto/create-programme.dto';
-import { ProductType } from '@prisma/client';
+import {
+  AccessItem,
+  PricingModel,
+  ProductType,
+  User,
+  PaymentStatus,
+} from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { InputJsonValue } from '@prisma/client/runtime/library';
+import { StorageService } from '../../util/storage/storage.service';
+import { DocumentType } from '../../util/storage/constants';
+import { ProgrammeQueryDto } from './dto/programme-query.dto';
+import { ResponseDto } from '../../util/dto/response.dto';
 
 @Injectable()
 export class ProgrammeService {
@@ -22,6 +34,7 @@ export class ProgrammeService {
   constructor(
     private prisma: PrismaService,
     private muxConfig: MuxConfig,
+    private storageService: StorageService,
   ) {
     // Initialize Mux client with credentials
     this.muxClient = new Mux({
@@ -45,6 +58,7 @@ export class ProgrammeService {
         data: {
           id: productId,
           type: ProductType.PROGRAMME,
+          pricingModel: PricingModel.ONE_TIME,
           programme: {
             create: {
               title: createProgrammeDto.title,
@@ -52,8 +66,8 @@ export class ProgrammeService {
               muxAssetId: 'temp_asset_id', // Temporary, will be updated via webhook
               muxPlaybackId: 'temp_playback_id', // Temporary, will be updated via webhook
               isPublished: false,
-              isPremium: false,
               isFeatured: false,
+              requiresAccess: AccessItem.PROGRAMME_ACCESS,
               duration: 0, // Will be updated via webhook
               tags: [],
             },
@@ -90,6 +104,105 @@ export class ProgrammeService {
   }
 
   /**
+   * Uploads a thumbnail image for a programme
+   */
+  async uploadProgrammeThumbnail(
+    file: Express.Multer.File,
+    updateDto: UpdateProgrammeThumbnailDto,
+  ) {
+    try {
+      // Check if the programme exists
+      const existingProduct = await this.prisma.product.findUnique({
+        where: { id: updateDto.productId },
+        include: { programme: true },
+      });
+
+      if (!existingProduct || !existingProduct.programme) {
+        throw new NotFoundException('Programme not found');
+      }
+
+      // If programme already has a thumbnail, we could optionally delete the old one
+      // For now, we'll just overwrite the URL in the database
+      // In a production environment, you might want to delete the old file from storage
+
+      // Upload thumbnail to storage service (public bucket)
+      const uploadResult = await this.storageService.uploadFileWithMetadata(
+        file,
+        {
+          documentType: DocumentType.PROGRAMME_THUMBNAIL,
+          fileName: `programme-thumbnail-${updateDto.productId}`,
+          folder: 'programme-thumbnails',
+        },
+      );
+
+      // Update the programme with the new thumbnail URL
+      const updatedProgramme = await this.prisma.programme.update({
+        where: { productId: updateDto.productId },
+        data: {
+          thumbnail: uploadResult.url,
+        },
+      });
+
+      return {
+        message: 'Thumbnail uploaded successfully',
+        thumbnail: uploadResult.url,
+        programme: updatedProgramme,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Failed to upload programme thumbnail:', error);
+      throw new BadRequestException('Could not upload programme thumbnail');
+    }
+  }
+
+  /**
+   * Removes a programme thumbnail
+   */
+  async removeProgrammeThumbnail(productId: string) {
+    try {
+      // Check if the programme exists
+      const existingProduct = await this.prisma.product.findUnique({
+        where: { id: productId },
+        include: { programme: true },
+      });
+
+      if (!existingProduct || !existingProduct.programme) {
+        throw new NotFoundException('Programme not found');
+      }
+
+      if (!existingProduct.programme.thumbnail) {
+        throw new BadRequestException(
+          'Programme does not have a thumbnail to remove',
+        );
+      }
+
+      // Update the programme to remove the thumbnail URL
+      const updatedProgramme = await this.prisma.programme.update({
+        where: { productId: productId },
+        data: {
+          thumbnail: null,
+        },
+      });
+
+      return {
+        message: 'Thumbnail removed successfully',
+        programme: updatedProgramme,
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      console.error('Failed to remove programme thumbnail:', error);
+      throw new BadRequestException('Could not remove programme thumbnail');
+    }
+  }
+
+  /**
    * Updates programme metadata after upload
    */
   async updateProgrammeMetadata(updateDto: UpdateProgrammeMetadataDto) {
@@ -113,7 +226,6 @@ export class ProgrammeService {
           tags: updateDto.tags
             ? JSON.stringify(updateDto.tags)
             : (existingProduct.programme.tags as InputJsonValue),
-          isPremium: updateDto.isPremium ?? existingProduct.programme.isPremium,
           isFeatured:
             updateDto.isFeatured ?? existingProduct.programme.isFeatured,
         },
@@ -181,7 +293,72 @@ export class ProgrammeService {
   }
 
   /**
-   * Gets all published programmes
+   * Gets all programmes with filtering and pagination
+   */
+  async getAllProgrammes(query: ProgrammeQueryDto) {
+    const { page = 1, limit = 20, isPublished, isFeatured, tags } = query;
+    const skip = (page - 1) * limit;
+
+    // Build where clause for filtering
+    const whereClause: any = {
+      type: ProductType.PROGRAMME,
+    };
+
+    // Add programme-specific filters
+    if (isPublished !== undefined) {
+      whereClause.programme = {
+        ...whereClause.programme,
+        isPublished,
+      };
+    }
+
+    if (isFeatured !== undefined) {
+      whereClause.programme = {
+        ...whereClause.programme,
+        isFeatured,
+      };
+    }
+
+    // Get total count for pagination
+    const total = await this.prisma.product.count({
+      where: whereClause,
+    });
+
+    // Get paginated results
+    const products = await this.prisma.product.findMany({
+      where: whereClause,
+      include: { programme: true },
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    let programmes = products.map((product) => product.programme!);
+
+    // Filter by tags if specified (since SQLite doesn't support array_contains)
+    if (tags && tags.length > 0) {
+      programmes = programmes.filter((programme) => {
+        if (!programme?.tags) return false;
+        const programmeTags = programme.tags as string[];
+        return tags.some((tag) => programmeTags.includes(tag));
+      });
+    }
+
+    return ResponseDto.createPaginatedResponse(
+      'Programmes retrieved successfully',
+      programmes,
+      {
+        total: tags && tags.length > 0 ? programmes.length : total,
+        page,
+        pageSize: limit,
+      },
+    );
+  }
+
+  /**
+   * Gets all published programmes (legacy method for backward compatibility)
    */
   async getAllPublishedProgrammes() {
     const products = await this.prisma.product.findMany({
@@ -195,5 +372,130 @@ export class ProgrammeService {
     });
 
     return products.map((product) => product.programme);
+  }
+
+  /**
+   * Checks if user has active subscription for accessing programmes
+   */
+  private async hasActiveSubscription(
+    userId: string,
+    requiredAccess: AccessItem,
+  ): Promise<boolean> {
+    const now = new Date();
+
+    // Find active subscriptions for the user
+    const activeSubscriptions = await this.prisma.subscription.findMany({
+      where: {
+        userId,
+        status: PaymentStatus.PAID,
+        startDate: { lte: now },
+        endDate: { gte: now },
+      },
+      include: {
+        plan: {
+          include: {
+            subscriptionAccess: true,
+          },
+        },
+      },
+    });
+
+    // Check if any active subscription provides the required access
+    return activeSubscriptions.some((subscription) =>
+      subscription.plan.subscriptionAccess.some(
+        (access) =>
+          access.accessItem === requiredAccess ||
+          access.accessItem === AccessItem.ALL_ACCESS,
+      ),
+    );
+  }
+
+  /**
+   * Generates a signed Mux playback token for secure video access
+   */
+  private async generateSignedPlaybackToken(
+    playbackId: string,
+    userId: string,
+  ): Promise<string> {
+    try {
+      // Generate signed playback token with 5 hours expiry
+      const expirationTime = Math.floor(Date.now() / 1000) + 5 * 60 * 60; // 5 hours from now
+
+      const token = await this.muxClient.jwt.signPlaybackId(playbackId, {
+        keyId: this.muxConfig.muxSigningKeyId,
+        keySecret: this.muxConfig.muxSigningKeyPrivate,
+        expiration: expirationTime.toString(),
+        params: {
+          user_id: userId,
+        },
+      });
+
+      return token;
+    } catch (error) {
+      console.error('Failed to generate signed playback token:', error);
+      throw new BadRequestException('Failed to generate secure video token');
+    }
+  }
+
+  /**
+   * Gets a programme by ID with subscription-based access control and signed playback token
+   */
+  async getSecureProgrammeById(productId: string, user: User) {
+    // Get the programme
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: { programme: true },
+    });
+
+    if (!product || !product.programme) {
+      throw new NotFoundException('Programme not found');
+    }
+
+    const programme = product.programme;
+
+    // Check if programme is published
+    if (!programme.isPublished) {
+      throw new NotFoundException('Programme not available');
+    }
+
+    // Check if user has required access
+    const hasAccess = await this.hasActiveSubscription(
+      user.id,
+      programme.requiresAccess,
+    );
+
+    if (!hasAccess) {
+      throw new ForbiddenException(
+        'You need an active subscription to access this programme. Please upgrade your plan.',
+      );
+    }
+
+    // Verify programme has valid Mux data
+    if (!programme.muxPlaybackId) {
+      throw new BadRequestException('Programme video is not available');
+    }
+
+    // Generate signed playback token
+    const signedToken = await this.generateSignedPlaybackToken(
+      programme.muxPlaybackId,
+      user.id,
+    );
+
+    // Return programme data with signed token
+    return ResponseDto.createSuccessResponse(
+      'Programme retrieved successfully',
+      {
+        programme: {
+          ...programme,
+          // Remove sensitive Mux data from response
+          muxAssetId: undefined,
+        },
+        playback: {
+          playbackId: programme.muxPlaybackId,
+          signedToken,
+          expiresAt: new Date(Date.now() + 5 * 60 * 60 * 1000), // 5 hours from now
+        },
+      },
+    );
   }
 }

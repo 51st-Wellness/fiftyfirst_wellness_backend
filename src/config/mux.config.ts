@@ -17,4 +17,12 @@ export class MuxConfig {
   get muxWebhookSecret(): string {
     return this.configService.getOrThrow<string>(ENV.MUX_WEBHOOK_SECRET);
   }
+
+  get muxSigningKeyId(): string {
+    return this.configService.getOrThrow<string>(ENV.MUX_SIGNING_KEY_ID);
+  }
+
+  get muxSigningKeyPrivate(): string {
+    return this.configService.getOrThrow<string>(ENV.MUX_SIGNING_KEY_PRIVATE);
+  }
 }

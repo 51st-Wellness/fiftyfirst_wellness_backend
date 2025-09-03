@@ -125,6 +125,7 @@ enum ProductType {
 enum PricingModel {
   ONE_TIME
   SUBSCRIPTION
+  FREE
 }
 
 model Product {
@@ -152,7 +153,7 @@ model StoreItem {
   price       Float
   stock       Int      @default(0)
   display     Json // {url: string, type: image/video}
-  images      Json // [string] -> just the url of the image
+  images      Json // [string] -> just the url of the images
   tags        Json // [string]
   isFeatured  Boolean  @default(false)
   isPublished Boolean  @default(true)
@@ -171,6 +172,7 @@ model Programme {
   muxPlaybackId  String?    @unique
   isPublished    Boolean    @default(false)
   isFeatured     Boolean    @default(false)
+  thumbnail      String?
   requiresAccess AccessItem
   duration       Int // in seconds
   tags           Json?
@@ -188,6 +190,7 @@ model Podcast {
   muxPlaybackId  String     @unique
   isPublished    Boolean    @default(true)
   isFeatured     Boolean    @default(false)
+  thumbnail      String?
   requiresAccess AccessItem //Always PODCAST_ACCESS
   duration       Int // in seconds
 

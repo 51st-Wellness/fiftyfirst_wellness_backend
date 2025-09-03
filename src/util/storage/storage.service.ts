@@ -310,6 +310,7 @@ export class StorageService {
       DocumentType.ADVERT_IMAGE,
       DocumentType.GENERAL_IMAGE,
       DocumentType.STORE_IMAGE,
+      DocumentType.PROGRAMME_THUMBNAIL,
     ];
 
     if (!imageDocumentTypes.includes(documentType)) {
@@ -345,6 +346,7 @@ export class StorageService {
       DocumentType.BLOG_IMAGE,
       DocumentType.COURSE_IMAGE,
       DocumentType.ADVERT_IMAGE,
+      DocumentType.PROGRAMME_THUMBNAIL,
     ];
 
     return publicDocumentTypes.includes(documentType) ? 'public' : 'private';

@@ -6,9 +6,10 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { MuxConfig } from '../../config/mux.config';
 import { ConfigModule } from '@nestjs/config';
 import { UserModule } from 'src/modules/user/user.module';
+import { StorageModule } from '../../util/storage/storage.module';
 
 @Module({
-  imports: [PrismaModule, ConfigModule, UserModule],
+  imports: [PrismaModule, ConfigModule, UserModule, StorageModule],
   controllers: [ProgrammeController, MuxWebhookController],
   providers: [ProgrammeService, MuxConfig],
   exports: [ProgrammeService],

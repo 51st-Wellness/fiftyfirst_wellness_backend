@@ -20,11 +20,13 @@ export class UpdateProgrammeMetadataDto {
 
   @IsBoolean()
   @IsOptional()
-  isPremium?: boolean;
-
-  @IsBoolean()
-  @IsOptional()
   isFeatured?: boolean;
+}
+
+export class UpdateProgrammeThumbnailDto {
+  @IsString()
+  @IsNotEmpty()
+  productId: string;
 }
 
 export class CreateUploadUrlResponseDto {
