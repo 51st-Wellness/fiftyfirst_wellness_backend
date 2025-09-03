@@ -24,6 +24,45 @@ enum PaymentStatus {
   FAILED
 }
 
+enum AccessItem {
+  PODCAST_ACCESS
+  PROGRAMME_ACCESS
+  ALL_ACCESS
+}
+
+model SubscriptionAccess {
+  id         String           @id @default(cuid())
+  planId     String
+  plan       SubscriptionPlan @relation(fields: [planId], references: [id])
+  accessItem AccessItem
+}
+
+model SubscriptionPlan {
+  id                 String               @id @default(cuid())
+  name               String
+  description        String?
+  price              Float
+  duration           Int // in days, e.g. 30 for monthly
+  isActive           Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  subscriptionAccess SubscriptionAccess[]
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  planId    String
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id])
+  status    PaymentStatus    @default(PAID)
+  startDate DateTime         @default(now())
+  endDate   DateTime
+  autoRenew Boolean          @default(true)
+}
+
 model User {
   id             String    @id @default(cuid())
   email          String    @unique
@@ -49,6 +88,7 @@ model User {
   cart             CartItem[]
   bookmarks        Bookmark[]
   Review           Review[]
+  subscriptions    Subscription[]
 }
 
 // Password reset OTP model for secure password resets
@@ -82,14 +122,20 @@ enum ProductType {
   PODCAST
 }
 
+enum PricingModel {
+  ONE_TIME
+  SUBSCRIPTION
+}
+
 model Product {
-  id        String      @id @default(cuid())
-  type      ProductType
-  storeItem StoreItem?
-  programme Programme?
-  podcast   Podcast?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id           String       @id @default(cuid())
+  type         ProductType
+  pricingModel PricingModel
+  storeItem    StoreItem?
+  programme    Programme?
+  podcast      Podcast?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   //relations
   orderItems OrderItem[]
@@ -121,13 +167,13 @@ model Programme {
   description String?
   product     Product @relation(fields: [productId], references: [id])
 
-  muxAssetId    String? @unique
-  muxPlaybackId String? @unique
-  isPublished   Boolean @default(false)
-  isPremium     Boolean @default(false)
-  isFeatured    Boolean @default(false)
-  duration      Int // in seconds
-  tags          Json?
+  muxAssetId     String?    @unique
+  muxPlaybackId  String?    @unique
+  isPublished    Boolean    @default(false)
+  isFeatured     Boolean    @default(false)
+  requiresAccess AccessItem
+  duration       Int // in seconds
+  tags           Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -135,19 +181,20 @@ model Programme {
 
 // Podcast represents audio or video podcast episodes.
 model Podcast {
-  productId     String  @id @unique
-  title         String
-  description   String?
-  muxAssetId    String  @unique
-  muxPlaybackId String  @unique
-  isPublished   Boolean @default(true)
-  isFeatured    Boolean @default(false)
-  isPremium     Boolean @default(false)
-  duration      Int // in seconds
+  productId      String     @id @unique
+  title          String
+  description    String?
+  muxAssetId     String     @unique
+  muxPlaybackId  String     @unique
+  isPublished    Boolean    @default(true)
+  isFeatured     Boolean    @default(false)
+  requiresAccess AccessItem //Always PODCAST_ACCESS
+  duration       Int // in seconds
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  product   Product  @relation(fields: [productId], references: [id])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  product          Product  @relation(fields: [productId], references: [id])
+  podcastProductId String
 }
 
 // Order represents a user's purchase.

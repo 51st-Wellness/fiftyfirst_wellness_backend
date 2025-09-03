@@ -15,16 +15,28 @@ import { MailerService } from '@nestjs-modules/mailer';
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        transport: {
+      useFactory: (config: ConfigService) => {
+        // testing
+        console.log({
           host: config.get(ENV.IONOS_SMTP_HOST),
-          port: config.get(ENV.IONOS_SMTP_PORT),
-          auth: {
-            user: config.get(ENV.IONOS_SMTP_USERNAME),
-            pass: config.get(ENV.IONOS_SMTP_PASSWORD),
+          port: parseInt(config.get(ENV.IONOS_SMTP_PORT)),
+          username: config.get(ENV.IONOS_SMTP_USERNAME),
+          password: config.get(ENV.IONOS_SMTP_PASSWORD),
+          from: config.get(ENV.IONOS_SMTP_FROM_EMAIL),
+        });
+        return {
+          transport: {
+            host: 'smtp.ionos.com',
+            port: 465,
+            secure: false,
+            // requireTLS: true,
+            auth: {
+              user: 'info@fiftyfirsts.co.uk',
+              pass: 'Freckle227!',
+            },
           },
-        },
-      }),
+        };
+      },
     }),
   ],
   providers: [
