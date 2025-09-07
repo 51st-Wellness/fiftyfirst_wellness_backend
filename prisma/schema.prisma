@@ -250,6 +250,7 @@ model Blogs {
 model CartItem {
   id        String  @id @default(cuid())
   productId String
+  // always going to be in the store table. only store items are added to cart
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   userId    String
@@ -260,6 +261,7 @@ model CartItem {
 
 model Bookmark {
   id        String  @id @default(cuid())
+  // any product can be bookmarked
   productId String
   product   Product @relation(fields: [productId], references: [id])
   userId    String
