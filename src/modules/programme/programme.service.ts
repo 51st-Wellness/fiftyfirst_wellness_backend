@@ -24,8 +24,8 @@ import { StorageService } from '../../util/storage/storage.service';
 import { DocumentType } from '../../util/storage/constants';
 import { ProgrammeQueryDto } from './dto/programme-query.dto';
 import { ResponseDto } from '../../util/dto/response.dto';
-import { configService } from '../../config/config.service';
 import { ENV } from 'src/config/env.enum';
+import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class ProgrammeService {
@@ -34,11 +34,18 @@ export class ProgrammeService {
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService,
+    private configService: ConfigService,
   ) {
     // Initialize Mux client with credentials
+    const tokenId = this.configService.get(ENV.MUX_TOKEN_ID);
+    const tokenSecret = this.configService.get(ENV.MUX_TOKEN_SECRET);
+
+    console.log('Mux Token ID exists:', tokenId);
+    console.log('Mux Token Secret exists:', tokenSecret);
+
     this.muxClient = new Mux({
-      tokenId: configService.get(ENV.MUX_TOKEN_ID),
-      tokenSecret: configService.get(ENV.MUX_TOKEN_SECRET),
+      tokenId,
+      tokenSecret,
     });
   }
 
@@ -77,6 +84,7 @@ export class ProgrammeService {
       });
 
       // Create Mux direct upload URL
+      console.log('Creating Mux upload URL for product:', product.id);
       const upload = await this.muxClient.video.uploads.create({
         new_asset_settings: {
           playback_policy: ['signed'],
@@ -87,6 +95,7 @@ export class ProgrammeService {
         },
         cors_origin: '*',
       });
+      console.log('Mux upload URL created successfully:', upload.id);
 
       return {
         uploadUrl: upload.url,
@@ -95,6 +104,7 @@ export class ProgrammeService {
       };
     } catch (error) {
       console.error('Failed to create programme upload URL:', error);
+      console.error(error?.error?.messages?.toString());
       throw new BadRequestException(
         'Could not create upload URL for programme',
       );
@@ -420,8 +430,8 @@ export class ProgrammeService {
       const expirationTime = Math.floor(Date.now() / 1000) + 5 * 60 * 60; // 5 hours from now
 
       const token = await this.muxClient.jwt.signPlaybackId(playbackId, {
-        keyId: configService.get(ENV.MUX_SIGNING_KEY_ID),
-        keySecret: configService.get(ENV.MUX_SIGNING_KEY_PRIVATE),
+        keyId: this.configService.get(ENV.MUX_SIGNING_KEY_ID),
+        keySecret: this.configService.get(ENV.MUX_SIGNING_KEY_PRIVATE),
         expiration: expirationTime.toString(),
         params: {
           user_id: userId,

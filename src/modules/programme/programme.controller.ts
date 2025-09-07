@@ -30,9 +30,10 @@ import { RolesGuard } from '../../common/gaurds/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole, User } from '@prisma/client';
 import { Request } from 'express';
+import { ResponseDto } from '../../util/dto/response.dto';
 
 @Controller('programme')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(RolesGuard)
 export class ProgrammeController {
   constructor(private readonly programmeService: ProgrammeService) {}
 
@@ -45,7 +46,12 @@ export class ProgrammeController {
   async createProgrammeUploadUrl(
     @Body() createProgrammeDto: CreateProgrammeDto,
   ) {
-    return this.programmeService.createProgrammeUploadUrl(createProgrammeDto);
+    const result =
+      await this.programmeService.createProgrammeUploadUrl(createProgrammeDto);
+    return ResponseDto.createSuccessResponse(
+      'Programme upload URL created successfully',
+      result,
+    );
   }
 
   /**
@@ -67,7 +73,14 @@ export class ProgrammeController {
     file: Express.Multer.File,
     @Body() updateDto: UpdateProgrammeThumbnailDto,
   ) {
-    return this.programmeService.uploadProgrammeThumbnail(file, updateDto);
+    const result = await this.programmeService.uploadProgrammeThumbnail(
+      file,
+      updateDto,
+    );
+    return ResponseDto.createSuccessResponse(
+      'Programme thumbnail uploaded successfully',
+      result,
+    );
   }
 
   /**
@@ -77,7 +90,12 @@ export class ProgrammeController {
   @Roles(UserRole.ADMIN, UserRole.COACH)
   @HttpCode(HttpStatus.OK)
   async removeProgrammeThumbnail(@Param('productId') productId: string) {
-    return this.programmeService.removeProgrammeThumbnail(productId);
+    const result =
+      await this.programmeService.removeProgrammeThumbnail(productId);
+    return ResponseDto.createSuccessResponse(
+      'Programme thumbnail removed successfully',
+      result,
+    );
   }
 
   /**
@@ -87,7 +105,12 @@ export class ProgrammeController {
   @Roles(UserRole.ADMIN, UserRole.COACH)
   @HttpCode(HttpStatus.OK)
   async updateProgrammeMetadata(@Body() updateDto: UpdateProgrammeMetadataDto) {
-    return this.programmeService.updateProgrammeMetadata(updateDto);
+    const result =
+      await this.programmeService.updateProgrammeMetadata(updateDto);
+    return ResponseDto.createSuccessResponse(
+      'Programme metadata updated successfully',
+      result,
+    );
   }
 
   /**
@@ -107,7 +130,12 @@ export class ProgrammeController {
    */
   @Get(':productId')
   async getProgrammeByProductId(@Param('productId') productId: string) {
-    return this.programmeService.getProgrammeByProductId(productId);
+    const result =
+      await this.programmeService.getProgrammeByProductId(productId);
+    return ResponseDto.createSuccessResponse(
+      'Programme retrieved successfully',
+      result,
+    );
   }
 
   /**
