@@ -54,7 +54,7 @@ export class ProgrammeService {
       const productId = uuidv4();
 
       // Create the Product and Programme entities in the database
-      const product = await this.prisma.product.create({
+      await this.prisma.product.create({
         data: {
           id: productId,
           type: ProductType.PROGRAMME,
