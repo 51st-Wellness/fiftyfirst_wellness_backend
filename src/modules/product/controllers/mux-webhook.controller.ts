@@ -8,11 +8,11 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { ProgrammeService } from './programme.service';
+import { ProgrammeService } from '../submodules/programme/programme.service';
 import * as crypto from 'crypto';
 import { configService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
-import { MuxWebhookEventDto } from 'src/modules/programme/dto/mux-webhook-event.dto';
+import { MuxWebhookEventDto } from '../submodules/programme/dto/mux-webhook-event.dto';
 
 @Controller('webhooks/mux')
 export class MuxWebhookController {

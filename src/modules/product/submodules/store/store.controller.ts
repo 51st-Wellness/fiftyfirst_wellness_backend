@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Body,
-  Patch,
   Param,
   Delete,
   Query,
@@ -11,8 +10,6 @@ import {
   UseInterceptors,
   UploadedFiles,
   ParseFilePipe,
-  MaxFileSizeValidator,
-  FileTypeValidator,
   BadRequestException,
   UsePipes,
   ValidationPipe,
@@ -25,11 +22,11 @@ import { UpdateStoreItemDto } from './dto/update-store-item.dto';
 import { StoreItemQueryDto } from './dto/store-item-query.dto';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { StoreItem, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { Auth } from 'src/common/decorators/auth.decorator';
-import { PaginationResponseDto, ResponseDto } from 'src/util/dto/response.dto';
+import { ResponseDto } from 'src/util/dto/response.dto';
 
-@Controller('store')
+@Controller('product/store')
 export class StoreController {
   constructor(private readonly storeService: StoreService) {}
 

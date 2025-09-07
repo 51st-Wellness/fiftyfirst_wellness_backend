@@ -5,11 +5,11 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import Mux from '@mux/mux-node';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateProgrammeDto,
   CreateUploadUrlResponseDto,
-  UpdateProgrammeMetadataDto,
+  UpdateProgramme,
   UpdateProgrammeThumbnailDto,
 } from './dto/create-programme.dto';
 import {
@@ -20,10 +20,10 @@ import {
   PaymentStatus,
 } from '@prisma/client';
 import { InputJsonValue } from '@prisma/client/runtime/library';
-import { StorageService } from '../../util/storage/storage.service';
-import { DocumentType } from '../../util/storage/constants';
+import { StorageService } from 'src/util/storage/storage.service';
+import { DocumentType } from 'src/util/storage/constants';
 import { ProgrammeQueryDto } from './dto/programme-query.dto';
-import { ResponseDto } from '../../util/dto/response.dto';
+import { ResponseDto } from 'src/util/dto/response.dto';
 import { ENV } from 'src/config/env.enum';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
@@ -213,11 +213,14 @@ export class ProgrammeService {
   /**
    * Updates programme metadata after upload
    */
-  async updateProgrammeMetadata(updateDto: UpdateProgrammeMetadataDto) {
+  async updateProgrammeMetadata(
+    programmeId: string,
+    updateDto: UpdateProgramme,
+  ) {
     try {
       // Check if the programme exists
       const existingProduct = await this.prisma.product.findUnique({
-        where: { id: updateDto.productId },
+        where: { id: programmeId },
         include: { programme: true },
       });
 
@@ -227,7 +230,7 @@ export class ProgrammeService {
 
       // Update the programme metadata
       const updatedProgramme = await this.prisma.programme.update({
-        where: { productId: updateDto.productId },
+        where: { productId: programmeId },
         data: {
           description:
             updateDto.description ?? existingProduct.programme.description,
@@ -236,6 +239,8 @@ export class ProgrammeService {
             : (existingProduct.programme.tags as InputJsonValue),
           isFeatured:
             updateDto.isFeatured ?? existingProduct.programme.isFeatured,
+          isPublished:
+            updateDto.isPublished ?? existingProduct.programme.isPublished,
         },
       });
 
@@ -363,23 +368,6 @@ export class ProgrammeService {
         pageSize: limit,
       },
     );
-  }
-
-  /**
-   * Gets all published programmes (legacy method for backward compatibility)
-   */
-  async getAllPublishedProgrammes() {
-    const products = await this.prisma.product.findMany({
-      where: {
-        type: ProductType.PROGRAMME,
-        programme: {
-          isPublished: true,
-        },
-      },
-      include: { programme: true },
-    });
-
-    return products.map((product) => product.programme);
   }
 
   /**

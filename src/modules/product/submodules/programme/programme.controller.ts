@@ -22,17 +22,17 @@ import { AuthGuard } from '@nestjs/passport';
 import { ProgrammeService } from './programme.service';
 import {
   CreateProgrammeDto,
-  UpdateProgrammeMetadataDto,
+  UpdateProgramme,
   UpdateProgrammeThumbnailDto,
 } from './dto/create-programme.dto';
 import { ProgrammeQueryDto } from './dto/programme-query.dto';
-import { RolesGuard } from '../../common/gaurds/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from 'src/common/gaurds/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole, User } from '@prisma/client';
 import { Request } from 'express';
-import { ResponseDto } from '../../util/dto/response.dto';
+import { ResponseDto } from 'src/util/dto/response.dto';
 
-@Controller('programme')
+@Controller('product/programme')
 @UseGuards(RolesGuard)
 export class ProgrammeController {
   constructor(private readonly programmeService: ProgrammeService) {}
@@ -101,12 +101,17 @@ export class ProgrammeController {
   /**
    * Updates programme metadata after video upload
    */
-  @Patch('metadata')
+  @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.COACH)
   @HttpCode(HttpStatus.OK)
-  async updateProgrammeMetadata(@Body() updateDto: UpdateProgrammeMetadataDto) {
-    const result =
-      await this.programmeService.updateProgrammeMetadata(updateDto);
+  async updateProgrammeMetadata(
+    @Param('id') programmeId: string,
+    @Body() updateDto: UpdateProgramme,
+  ) {
+    const result = await this.programmeService.updateProgrammeMetadata(
+      programmeId,
+      updateDto,
+    );
     return ResponseDto.createSuccessResponse(
       'Programme metadata updated successfully',
       result,

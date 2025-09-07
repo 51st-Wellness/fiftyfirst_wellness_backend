@@ -17,11 +17,7 @@ export class CreateProgrammeDto {
   // isPremium?: F;
 }
 
-export class UpdateProgrammeMetadataDto {
-  @IsString()
-  @IsNotEmpty()
-  productId: string;
-
+export class UpdateProgramme {
   @IsString()
   @IsOptional()
   description?: string;
@@ -32,6 +28,10 @@ export class UpdateProgrammeMetadataDto {
   @IsBoolean()
   @IsOptional()
   isFeatured?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isPublished?: boolean;
 }
 
 export class UpdateProgrammeThumbnailDto {

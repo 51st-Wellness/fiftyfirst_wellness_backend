@@ -8,9 +8,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 import { CommonModule } from './common/common.module';
 import { NotificationModule } from './modules/notification/notification.module';
-import { StoreModule } from './modules/store/store.module';
-import { ProgrammeModule } from './modules/programme/programme.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { ProductModule } from './modules/product/product.module';
 
 @Module({
   imports: [
@@ -23,8 +22,7 @@ import { PaymentModule } from './modules/payment/payment.module';
     NotificationModule,
     UserModule,
     AuthModule,
-    StoreModule,
-    ProgrammeModule,
+    ProductModule,
     PaymentModule,
   ],
   controllers: [AppController],
