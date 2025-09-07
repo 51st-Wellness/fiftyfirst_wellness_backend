@@ -1,9 +1,20 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+} from 'class-validator';
+import { AccessItem } from '@prisma/client';
 
 export class CreateProgrammeDto {
   @IsString()
   @IsNotEmpty()
   title: string;
+
+  // @IsEnum(AccessItem)
+  // @IsOptional()
+  // isPremium?: F;
 }
 
 export class UpdateProgrammeMetadataDto {

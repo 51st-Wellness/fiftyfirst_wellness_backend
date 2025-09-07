@@ -9,17 +9,16 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ProgrammeService } from './programme.service';
-import { MuxConfig } from '../../config/mux.config';
 import * as crypto from 'crypto';
+import { configService } from 'src/config/config.service';
+import { ENV } from 'src/config/env.enum';
+import { MuxWebhookEventDto } from 'src/modules/programme/dto/mux-webhook-event.dto';
 
 @Controller('webhooks/mux')
 export class MuxWebhookController {
   private readonly logger = new Logger(MuxWebhookController.name);
 
-  constructor(
-    private readonly programmeService: ProgrammeService,
-    private readonly muxConfig: MuxConfig,
-  ) {}
+  constructor(private readonly programmeService: ProgrammeService) {}
 
   /**
    * Handles Mux webhooks for video asset processing
@@ -27,7 +26,7 @@ export class MuxWebhookController {
   @Post()
   @HttpCode(HttpStatus.OK)
   async handleMuxWebhook(
-    @Body() event: any,
+    @Body() event: MuxWebhookEventDto,
     @Headers('mux-signature') signature: string,
   ) {
     try {
@@ -61,7 +60,7 @@ export class MuxWebhookController {
   /**
    * Handles video.asset.ready event - video is processed and ready for playback
    */
-  private async handleVideoAssetReady(event: any) {
+  private async handleVideoAssetReady(event: MuxWebhookEventDto) {
     try {
       const assetId = event.data.id;
       const playbackId = event.data.playback_ids?.[0]?.id;
@@ -72,7 +71,9 @@ export class MuxWebhookController {
         return;
       }
 
-      const passthroughData = JSON.parse(event.data.passthrough);
+      const passthroughData = JSON.parse(event.data.passthrough) as {
+        productId: string;
+      };
 
       if (!passthroughData.productId) {
         this.logger.error('No productId found in passthrough data');
@@ -102,10 +103,10 @@ export class MuxWebhookController {
   /**
    * Handles video.asset.errored event - video processing failed
    */
-  private async handleVideoAssetErrored(event: any) {
+  private async handleVideoAssetErrored(event: MuxWebhookEventDto) {
     this.logger.error(
       `Mux video asset processing failed: ${event.data.id}`,
-      event.data.errors,
+      (event.data as any).error,
     );
     // TODO: Implement error handling logic (e.g., notify user, mark programme as failed)
   }
@@ -119,7 +120,7 @@ export class MuxWebhookController {
         return false;
       }
 
-      const secret = this.muxConfig.muxWebhookSecret;
+      const secret = configService.get(ENV.MUX_WEBHOOK_SECRET);
       const parts = signature.split(',');
 
       if (parts.length !== 2) {

@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import Mux from '@mux/mux-node';
 import { PrismaService } from '../../prisma/prisma.service';
-import { MuxConfig } from '../../config/mux.config';
 import {
   CreateProgrammeDto,
   CreateUploadUrlResponseDto,
@@ -20,26 +19,26 @@ import {
   User,
   PaymentStatus,
 } from '@prisma/client';
-import { v4 as uuidv4 } from 'uuid';
 import { InputJsonValue } from '@prisma/client/runtime/library';
 import { StorageService } from '../../util/storage/storage.service';
 import { DocumentType } from '../../util/storage/constants';
 import { ProgrammeQueryDto } from './dto/programme-query.dto';
 import { ResponseDto } from '../../util/dto/response.dto';
-
+import { configService } from '../../config/config.service';
+import { ENV } from 'src/config/env.enum';
+import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class ProgrammeService {
   private muxClient: Mux;
 
   constructor(
     private prisma: PrismaService,
-    private muxConfig: MuxConfig,
     private storageService: StorageService,
   ) {
     // Initialize Mux client with credentials
     this.muxClient = new Mux({
-      tokenId: this.muxConfig.muxTokenId,
-      tokenSecret: this.muxConfig.muxTokenSecret,
+      tokenId: configService.get(ENV.MUX_TOKEN_ID),
+      tokenSecret: configService.get(ENV.MUX_TOKEN_SECRET),
     });
   }
 
@@ -51,20 +50,19 @@ export class ProgrammeService {
   ): Promise<CreateUploadUrlResponseDto> {
     try {
       // Generate a unique product ID for the programme
-      const productId = uuidv4();
 
       // Create the Product and Programme entities in the database
-      await this.prisma.product.create({
+      const product = await this.prisma.product.create({
         data: {
-          id: productId,
+          // id: productId,
           type: ProductType.PROGRAMME,
-          pricingModel: PricingModel.ONE_TIME,
+          pricingModel: PricingModel.SUBSCRIPTION,
           programme: {
             create: {
               title: createProgrammeDto.title,
               description: null,
-              muxAssetId: 'temp_asset_id', // Temporary, will be updated via webhook
-              muxPlaybackId: 'temp_playback_id', // Temporary, will be updated via webhook
+              muxAssetId: uuidv4(), // Temporary done for uniqueness , will be updated via webhook
+              muxPlaybackId: uuidv4(), // Temporary, will be updated via webhook
               isPublished: false,
               isFeatured: false,
               requiresAccess: AccessItem.PROGRAMME_ACCESS,
@@ -81,9 +79,9 @@ export class ProgrammeService {
       // Create Mux direct upload URL
       const upload = await this.muxClient.video.uploads.create({
         new_asset_settings: {
-          playback_policy: ['public'],
+          playback_policy: ['signed'],
           passthrough: JSON.stringify({
-            productId: productId,
+            productId: product.id,
             title: createProgrammeDto.title,
           }),
         },
@@ -93,7 +91,7 @@ export class ProgrammeService {
       return {
         uploadUrl: upload.url,
         uploadId: upload.id,
-        productId: productId,
+        productId: product.id,
       };
     } catch (error) {
       console.error('Failed to create programme upload URL:', error);
@@ -422,8 +420,8 @@ export class ProgrammeService {
       const expirationTime = Math.floor(Date.now() / 1000) + 5 * 60 * 60; // 5 hours from now
 
       const token = await this.muxClient.jwt.signPlaybackId(playbackId, {
-        keyId: this.muxConfig.muxSigningKeyId,
-        keySecret: this.muxConfig.muxSigningKeyPrivate,
+        keyId: configService.get(ENV.MUX_SIGNING_KEY_ID),
+        keySecret: configService.get(ENV.MUX_SIGNING_KEY_PRIVATE),
         expiration: expirationTime.toString(),
         params: {
           user_id: userId,
