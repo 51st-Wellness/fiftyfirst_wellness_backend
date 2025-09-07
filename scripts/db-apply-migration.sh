@@ -1,1 +1,2 @@
-d$ turso db shell fifty-firstwellness < './prisma/migrations/20250821163613_init/migration.sql' 
+turso db shell fifty-firstwellness < './prisma/migrations/20250829054844_google_oauth_enabled/migration.sql' 
+turso db shell fifty-firstwellness < './prisma/migrations/20250906232436_subscription_support/migration.sql' 
