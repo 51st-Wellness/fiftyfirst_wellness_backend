@@ -17,7 +17,7 @@ export interface UploadResult {
 
 export interface IStorageProvider {
   uploadFile(
-    file: Express.Multer.File,
+    file: MulterFile,
     options: UploadOptions,
   ): Promise<UploadResult>;
   getSignedFileUrl(

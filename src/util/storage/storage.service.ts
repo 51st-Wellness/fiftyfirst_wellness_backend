@@ -17,7 +17,7 @@ export class StorageService {
 
   // Upload file with document type information
   async uploadFileWithMetadata(
-    file: Express.Multer.File,
+    file: MulterFile,
     uploadOptions: UploadFileDto,
   ): Promise<{
     fileKey: string;
@@ -93,7 +93,7 @@ export class StorageService {
 
   // Upload file with validation (legacy method)
   async uploadFile(
-    file: Express.Multer.File,
+    file: MulterFile,
     options: {
       fileName?: string;
       folder?: string;
@@ -239,7 +239,7 @@ export class StorageService {
   }
 
   // Private helper methods
-  private validateFile(file: Express.Multer.File): void {
+  private validateFile(file: MulterFile): void {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -282,7 +282,7 @@ export class StorageService {
 
   // Validate document type for the uploaded file
   private validateDocumentTypeForFile(
-    file: Express.Multer.File,
+    file: MulterFile,
     documentType: DocumentType,
   ): void {
     const imageMimeTypes = [

@@ -13,7 +13,7 @@
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
-    "types": ["node", "express", "Multer"],
+    "types": ["node", "express"],
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,

@@ -23,7 +23,7 @@ export class StoreService {
   // Create a new store item with display file and additional images
   async create(
     createStoreItemDto: CreateStoreItemDto,
-    files: { display: Express.Multer.File; images?: Express.Multer.File[] },
+    files: { display: MulterFile; images?: MulterFile[] },
   ) {
     this.logger.log('Creating new store item', {
       name: createStoreItemDto.name,
@@ -166,7 +166,7 @@ export class StoreService {
   async update(
     id: string,
     updateStoreItemDto: UpdateStoreItemDto,
-    files: { display?: Express.Multer.File; images?: Express.Multer.File[] },
+    files: { display?: MulterFile; images?: MulterFile[] },
   ) {
     this.logger.log('Updating store item', { productId: id });
 

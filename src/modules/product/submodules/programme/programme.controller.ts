@@ -70,7 +70,7 @@ export class ProgrammeController {
         ],
       }),
     )
-    file: Express.Multer.File,
+    file: MulterFile,
     @Body() updateDto: UpdateProgrammeThumbnailDto,
   ) {
     const result = await this.programmeService.uploadProgrammeThumbnail(

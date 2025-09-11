@@ -54,7 +54,7 @@ export class StoreController {
         fileIsRequired: false,
       }),
     )
-    files?: { display?: Express.Multer.File[]; images?: Express.Multer.File[] },
+    files?: { display?: MulterFile[]; images?: MulterFile[] },
   ): Promise<ResponseDto<any>> {
     // Get display file from the files object
     const displayFile = files?.display?.[0];
@@ -130,7 +130,7 @@ export class StoreController {
         fileIsRequired: false,
       }),
     )
-    files?: { display?: Express.Multer.File[]; images?: Express.Multer.File[] },
+    files?: { display?: MulterFile[]; images?: MulterFile[] },
   ): Promise<ResponseDto<any>> {
     // Get files from the files object
     const displayFile = files?.display?.[0];

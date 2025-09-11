@@ -67,7 +67,7 @@ export class UserController {
   @Post('me/profile-picture')
   @UseInterceptors(FileInterceptor('file'))
   async updateProfilePicture(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: MulterFile,
     @Req() req: Request,
   ) {
     if (!file) {

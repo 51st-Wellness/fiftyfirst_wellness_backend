@@ -115,7 +115,7 @@ export class ProgrammeService {
    * Uploads a thumbnail image for a programme
    */
   async uploadProgrammeThumbnail(
-    file: Express.Multer.File,
+    file: MulterFile,
     updateDto: UpdateProgrammeThumbnailDto,
   ) {
     try {

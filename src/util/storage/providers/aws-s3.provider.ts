@@ -26,7 +26,7 @@ export class AWSS3Provider implements IStorageProvider {
   }
 
   async uploadFile(
-    file: Express.Multer.File,
+    file: MulterFile,
     options: UploadOptions,
   ): Promise<UploadResult> {
     const bucket = options.bucket;
