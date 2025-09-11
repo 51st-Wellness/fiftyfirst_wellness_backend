@@ -13,8 +13,8 @@ const CORS_OPTIONS: CorsOptions = {
     configService.get(ENV.DEVELOPMENT_URL),
     configService.get(ENV.PRODUCTION_URL),
     "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:5173",
+    "http://localhost:3001", //nextjs dev server
+    "http://localhost:5173", //react vite dev server
     "http://localhost:4200",
     configService.get(ENV.FRONTEND_URL),
   ],
