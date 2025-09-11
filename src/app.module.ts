@@ -10,7 +10,6 @@ import { CommonModule } from './common/common.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { ProductModule } from './modules/product/product.module';
-import { BookmarkModule } from './modules/bookmark/bookmark.module';
 
 @Module({
   imports: [
@@ -25,7 +24,6 @@ import { BookmarkModule } from './modules/bookmark/bookmark.module';
     AuthModule,
     ProductModule,
     PaymentModule,
-    BookmarkModule,
   ],
   controllers: [AppController],
   providers: [AppService],

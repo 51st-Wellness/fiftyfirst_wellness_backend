@@ -17,7 +17,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { User } from '@prisma/client';
 import { ResponseDto } from 'src/util/dto/response.dto';
 
-@Controller('bookmark')
+@Controller('user/bookmark')
 @Auth()
 export class BookmarkController {
   constructor(private readonly bookmarkService: BookmarkService) {}
