@@ -30,16 +30,13 @@ export class CartController {
   async addToCart(
     @CurrentUser('id') userId: string,
     @Body() addToCartDto: AddToCartDto,
-  ): Promise<{
-    message: string;
-    data: CartItemWithRelations;
-  }> {
+  ): Promise<ResponseDto<CartItemWithRelations>> {
     const cartItem = await this.cartService.addToCart(userId, addToCartDto);
 
-    return {
-      message: 'Item added to cart successfully',
-      data: cartItem,
-    };
+    return ResponseDto.createSuccessResponse(
+      'Item added to cart successfully',
+      cartItem,
+    );
   }
 
   // Get user's entire cart (no pagination)
@@ -58,20 +55,17 @@ export class CartController {
     @CurrentUser('id') userId: string,
     @Param('productId') productId: string,
     @Body() updateCartItemDto: UpdateCartItemDto,
-  ): Promise<{
-    message: string;
-    data: CartItemWithRelations;
-  }> {
+  ): Promise<ResponseDto<CartItemWithRelations>> {
     const cartItem = await this.cartService.updateCartItem(
       userId,
       productId,
       updateCartItemDto,
     );
 
-    return {
-      message: 'Cart item updated successfully',
-      data: cartItem,
-    };
+    return ResponseDto.createSuccessResponse(
+      'Cart item updated successfully',
+      cartItem,
+    );
   }
 
   // Remove item from cart
@@ -80,19 +74,16 @@ export class CartController {
   async removeFromCart(
     @CurrentUser('id') userId: string,
     @Param('productId') productId: string,
-  ): Promise<{
-    message: string;
-    data: CartItem;
-  }> {
+  ): Promise<ResponseDto<CartItem>> {
     const deletedItem = await this.cartService.removeFromCart(
       userId,
       productId,
     );
 
-    return {
-      message: 'Item removed from cart successfully',
-      data: deletedItem,
-    };
+    return ResponseDto.createSuccessResponse(
+      'Item removed from cart successfully',
+      deletedItem,
+    );
   }
 
   // Clear entire cart
