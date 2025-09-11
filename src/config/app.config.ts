@@ -12,6 +12,11 @@ const CORS_OPTIONS: CorsOptions = {
   origin: [
     configService.get(ENV.DEVELOPMENT_URL),
     configService.get(ENV.PRODUCTION_URL),
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:5173",
+    "http://localhost:4200",
+    configService.get(ENV.FRONTEND_URL),
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
