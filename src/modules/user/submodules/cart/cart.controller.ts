@@ -39,7 +39,6 @@ export class CartController {
     );
   }
 
-  // Get user's entire cart (no pagination)
   @Get()
   async getCart(@CurrentUser('id') userId: string): Promise<ResponseDto> {
     const items = await this.cartService.getCart(userId);
@@ -49,7 +48,6 @@ export class CartController {
     });
   }
 
-  // Update cart item quantity
   @Patch(':productId')
   async updateCartItem(
     @CurrentUser('id') userId: string,
@@ -68,7 +66,6 @@ export class CartController {
     );
   }
 
-  // Remove item from cart
   @Delete(':productId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeFromCart(

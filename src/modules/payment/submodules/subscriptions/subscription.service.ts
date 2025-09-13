@@ -111,6 +111,41 @@ export class SubscriptionService {
           },
         },
         plan: true,
+        payment: true,
+      },
+    });
+  }
+
+  async activateSubscriptionByPayment(subscriptionId: string) {
+    // Activate subscription after successful payment
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: { plan: true, payment: true },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    if (subscription.status === 'PAID') {
+      return subscription; // Already activated
+    }
+
+    // Update subscription status to PAID
+    return this.prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: { status: 'PAID' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        plan: true,
+        payment: true,
       },
     });
   }
@@ -434,6 +469,7 @@ export class SubscriptionService {
       totalSubscriptions,
       activeSubscriptions,
       expiredSubscriptions,
+      pendingSubscriptions,
       totalPlans,
       activePlans,
     ] = await Promise.all([
@@ -449,6 +485,9 @@ export class SubscriptionService {
           endDate: { lte: new Date() },
         },
       }),
+      this.prisma.subscription.count({
+        where: { status: 'PENDING' },
+      }),
       this.prisma.subscriptionPlan.count(),
       this.prisma.subscriptionPlan.count({
         where: { isActive: true },
@@ -459,8 +498,44 @@ export class SubscriptionService {
       totalSubscriptions,
       activeSubscriptions,
       expiredSubscriptions,
+      pendingSubscriptions,
       totalPlans,
       activePlans,
     };
+  }
+
+  async getUserActiveSubscription(userId: string) {
+    // Get user's current active subscription
+    return this.prisma.subscription.findFirst({
+      where: {
+        userId,
+        status: 'PAID',
+        endDate: { gt: new Date() },
+      },
+      include: {
+        plan: {
+          include: { subscriptionAccess: true },
+        },
+        payment: true,
+      },
+      orderBy: { endDate: 'desc' },
+    });
+  }
+
+  async hasUserAccessToItem(userId: string, accessItem: string) {
+    // Check if user has access to specific content based on subscription
+    const activeSubscription = await this.getUserActiveSubscription(userId);
+
+    if (!activeSubscription) {
+      return false;
+    }
+
+    // Check if the subscription plan includes the requested access
+    const hasAccess = activeSubscription.plan.subscriptionAccess.some(
+      (access) =>
+        access.accessItem === accessItem || access.accessItem === 'ALL_ACCESS',
+    );
+
+    return hasAccess;
   }
 }

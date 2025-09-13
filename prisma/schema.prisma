@@ -22,6 +22,21 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  PAYPAL
+  STRIPE
+  FLUTTERWAVE
+}
+
+enum Currency {
+  USD
+  NGN
+  EUR
+  GBP
 }
 
 enum AccessItem {
@@ -57,10 +72,12 @@ model Subscription {
   user      User             @relation(fields: [userId], references: [id])
   planId    String
   plan      SubscriptionPlan @relation(fields: [planId], references: [id])
-  status    PaymentStatus    @default(PAID)
+  status    PaymentStatus    @default(PENDING)
   startDate DateTime         @default(now())
   endDate   DateTime
   autoRenew Boolean          @default(true)
+  paymentId String?
+  payment   Payment?         @relation(fields: [paymentId], references: [id])
 }
 
 model User {
@@ -207,10 +224,28 @@ model Order {
   user        User          @relation(fields: [userId], references: [id])
   status      PaymentStatus @default(PENDING)
   totalAmount Float
-  paymentId   String?       @unique
+  paymentId   String?
+  payment     Payment?      @relation(fields: [paymentId], references: [id])
   orderItems  OrderItem[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+}
+
+// Payment represents payment transactions with external providers
+model Payment {
+  id          String          @id @default(cuid())
+  provider    PaymentProvider
+  providerRef String? // PayPal order/transaction id
+  status      PaymentStatus   @default(PENDING)
+  currency    Currency
+  amount      Float
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations - one payment can have multiple orders/subscriptions
+  orders        Order[]
+  subscriptions Subscription[]
 }
 
 // OrderItem links an order to the products within it.

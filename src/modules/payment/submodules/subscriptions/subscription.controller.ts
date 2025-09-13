@@ -24,12 +24,12 @@ import { ResponseDto } from 'src/util/dto/response.dto';
 
 @Controller('payment/subscriptions')
 @UseGuards(RolesGuard)
-@StrictRoles(UserRole.ADMIN)
 export class SubscriptionController {
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
-  // Subscription Plan endpoints
+  // Subscription Plan endpoints (Admin only)
   @Post('plans')
+  @StrictRoles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   async createSubscriptionPlan(
     @Body() createPlanDto: CreateSubscriptionPlanDto,
@@ -43,6 +43,7 @@ export class SubscriptionController {
   }
 
   @Get('plans')
+  @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async findAllSubscriptionPlans() {
     const plans = await this.subscriptionService.findAllSubscriptionPlans();
     return ResponseDto.createSuccessResponse(
@@ -52,6 +53,7 @@ export class SubscriptionController {
   }
 
   @Get('plans/:id')
+  @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async findOneSubscriptionPlan(@Param('id') id: string) {
     const plan = await this.subscriptionService.findOneSubscriptionPlan(id);
     return ResponseDto.createSuccessResponse(
@@ -61,6 +63,7 @@ export class SubscriptionController {
   }
 
   @Patch('plans/:id')
+  @StrictRoles(UserRole.ADMIN)
   async updateSubscriptionPlan(
     @Param('id') id: string,
     @Body() updatePlanDto: UpdateSubscriptionPlanDto,
@@ -76,6 +79,7 @@ export class SubscriptionController {
   }
 
   @Delete('plans/:id')
+  @StrictRoles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeSubscriptionPlan(@Param('id') id: string) {
     await this.subscriptionService.removeSubscriptionPlan(id);
@@ -84,8 +88,9 @@ export class SubscriptionController {
     );
   }
 
-  // User Subscription endpoints
+  // Admin Subscription endpoints
   @Post()
+  @StrictRoles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   async createSubscription(
     @Body() createSubscriptionDto: CreateSubscriptionDto,
@@ -100,6 +105,7 @@ export class SubscriptionController {
   }
 
   @Get()
+  @StrictRoles(UserRole.ADMIN)
   async findAllSubscriptions(@Query() query: SubscriptionQueryDto) {
     const result = await this.subscriptionService.findAllSubscriptions(query);
     return ResponseDto.createPaginatedResponse(
@@ -110,6 +116,7 @@ export class SubscriptionController {
   }
 
   @Get('stats')
+  @StrictRoles(UserRole.ADMIN)
   async getSubscriptionStats() {
     const stats = await this.subscriptionService.getSubscriptionStats();
     return ResponseDto.createSuccessResponse(
@@ -118,7 +125,36 @@ export class SubscriptionController {
     );
   }
 
+  @Get('my/:userId')
+  @StrictRoles(UserRole.USER, UserRole.ADMIN)
+  async getUserActiveSubscription(@Param('userId') userId: string) {
+    const subscription =
+      await this.subscriptionService.getUserActiveSubscription(userId);
+    return ResponseDto.createSuccessResponse(
+      'User subscription retrieved successfully',
+      subscription,
+    );
+  }
+
+  @Get('access/:userId/:accessItem')
+  @StrictRoles(UserRole.USER, UserRole.ADMIN)
+  async checkUserAccess(
+    @Param('userId') userId: string,
+    @Param('accessItem') accessItem: string,
+  ) {
+    const hasAccess = await this.subscriptionService.hasUserAccessToItem(
+      userId,
+      accessItem,
+    );
+    return ResponseDto.createSuccessResponse('Access check completed', {
+      hasAccess,
+      accessItem,
+      userId,
+    });
+  }
+
   @Get(':id')
+  @StrictRoles(UserRole.ADMIN)
   async findOneSubscription(@Param('id') id: string) {
     const subscription = await this.subscriptionService.findOneSubscription(id);
     return ResponseDto.createSuccessResponse(
@@ -128,6 +164,7 @@ export class SubscriptionController {
   }
 
   @Patch(':id')
+  @StrictRoles(UserRole.ADMIN)
   async updateSubscription(
     @Param('id') id: string,
     @Body() updateSubscriptionDto: UpdateSubscriptionDto,
@@ -143,6 +180,7 @@ export class SubscriptionController {
   }
 
   @Delete(':id')
+  @StrictRoles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeSubscription(@Param('id') id: string) {
     await this.subscriptionService.removeSubscription(id);

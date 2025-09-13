@@ -7,6 +7,7 @@ import {
   UploadOptions,
   UploadResult,
 } from '../interfaces/storage.interface';
+import { ENV } from 'src/config/env.enum';
 
 @Injectable()
 export class AWSS3Provider implements IStorageProvider {
@@ -14,11 +15,11 @@ export class AWSS3Provider implements IStorageProvider {
 
   constructor(private configService: ConfigService) {
     this.s3 = new S3({
-      accessKeyId: configService.get('AWS_ACCESS_KEY_ID'),
-      secretAccessKey: configService.get('AWS_SECRET_ACCESS_KEY'),
-      region: configService.get('AWS_REGION'),
-      ...(configService.get('AWS_ENDPOINT') && {
-        endpoint: configService.get('AWS_ENDPOINT'),
+      accessKeyId: configService.get(ENV.AWS_ACCESS_KEY_ID),
+      secretAccessKey: configService.get(ENV.AWS_SECRET_ACCESS_KEY),
+      region: configService.get(ENV.AWS_REGION),
+      ...(configService.get(ENV.AWS_ENDPOINT) && {
+        endpoint: configService.get(ENV.AWS_ENDPOINT),
         s3ForcePathStyle: true, // Required for S3-compatible services
         signatureVersion: 'v4', // Ensure compatibility
       }),
@@ -83,7 +84,7 @@ export class AWSS3Provider implements IStorageProvider {
   }
 
   getPublicFileUrl(fileKey: string, bucket: string): Promise<string> | string {
-    const endpoint = this.configService.get('AWS_ENDPOINT');
+    const endpoint = this.configService.get(ENV.AWS_ENDPOINT);
     // Use the configured endpoint for public file URLs
     if (endpoint) {
       const endpointWithoutProtocol = endpoint
@@ -95,7 +96,7 @@ export class AWSS3Provider implements IStorageProvider {
     }
 
     // Fallback to AWS S3 format if no endpoint is configured
-    const region = this.configService.get('AWS_REGION');
+    const region = this.configService.get(ENV.AWS_REGION);
     return `https://${bucket}.s3.${region}.amazonaws.com/${fileKey}`;
   }
 
