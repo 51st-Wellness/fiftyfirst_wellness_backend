@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
-  PayPalApi,
-  CreateOrderRequest,
-  CaptureOrderRequest,
+  Client,
   Environment,
   LogLevel,
+  OrdersController,
+  CheckoutPaymentIntent,
+  OrderApplicationContextUserAction,
+  OrderApplicationContextShippingPreference,
 } from '@paypal/paypal-server-sdk';
 import {
   PaymentProvider,
@@ -13,22 +15,25 @@ import {
   WebhookResult,
   PaymentCaptureResult,
 } from '../payment.types';
+import { configService } from 'src/config/config.service';
+import { ENV } from 'src/config/env.enum';
+import { PaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class PayPalProvider implements PaymentProvider {
-  private client: PayPalApi;
+  private client: Client;
 
   constructor(
     private clientId: string, // PayPal client ID
     private clientSecret: string, // PayPal client secret
-    private mode: string, // 'sandbox' or 'live'
+    private mode: 'sandbox' | 'live',
     private webhookId: string, // PayPal webhook ID for verification
   ) {
     // Initialize PayPal client with proper environment
     const environment =
       mode === 'live' ? Environment.Production : Environment.Sandbox;
 
-    this.client = new PayPalApi({
+    this.client = new Client({
       clientCredentialsAuthCredentials: {
         oAuthClientId: clientId,
         oAuthClientSecret: clientSecret,
@@ -57,24 +62,26 @@ export class PayPalProvider implements PaymentProvider {
         },
       ];
 
-      // Create order request
-      const request: CreateOrderRequest = {
-        body: {
-          intent: 'CAPTURE',
-          purchaseUnits,
-          applicationContext: {
-            brandName: 'FIFTY FIRST WELLNESS',
-            userAction: 'PAY_NOW',
-            shippingPreference: 'NO_SHIPPING',
-            returnUrl: `${process.env.FRONTEND_URL}/payment/success`,
-            cancelUrl: `${process.env.FRONTEND_URL}/payment/cancel`,
-          },
+      // Create order request body
+      const orderRequest = {
+        intent: CheckoutPaymentIntent.Capture,
+        purchaseUnits,
+        applicationContext: {
+          brandName: configService.get(ENV.APP_NAME),
+          userAction: OrderApplicationContextUserAction.PayNow,
+          shippingPreference:
+            OrderApplicationContextShippingPreference.NoShipping,
+          returnUrl: `${configService.get(ENV.FRONTEND_URL)}/payment/success`,
+          cancelUrl: `${configService.get(ENV.FRONTEND_URL)}/payment/cancel`,
         },
-        payPalRequestId: input.orderId || input.subscriptionId,
       };
 
       // Execute order creation
-      const response = await this.client.ordersController.ordersCreate(request);
+      const ordersController = new OrdersController(this.client);
+      const response = await ordersController.createOrder({
+        body: orderRequest,
+        paypalRequestId: input.orderId || input.subscriptionId,
+      });
 
       if (!response.result) {
         throw new Error('Failed to create PayPal order');
@@ -97,18 +104,15 @@ export class PayPalProvider implements PaymentProvider {
 
   async capturePayment(providerRef: string): Promise<PaymentCaptureResult> {
     try {
-      // Create capture request
-      const request: CaptureOrderRequest = {
+      // Execute order capture
+      const ordersController = new OrdersController(this.client);
+      const response = await ordersController.captureOrder({
         id: providerRef,
         body: {},
-      };
-
-      // Execute order capture
-      const response =
-        await this.client.ordersController.ordersCapture(request);
+      });
 
       if (!response.result) {
-        return { status: 'FAILED' };
+        return { status: PaymentStatus.FAILED };
       }
 
       const status = response.result.status;
@@ -116,12 +120,13 @@ export class PayPalProvider implements PaymentProvider {
         response.result.purchaseUnits?.[0]?.payments?.captures?.[0]?.id;
 
       return {
-        status: status === 'COMPLETED' ? 'PAID' : 'PENDING',
+        status:
+          status === 'COMPLETED' ? PaymentStatus.PAID : PaymentStatus.PENDING,
         transactionId,
       };
     } catch (error) {
       console.error('PayPal capturePayment error:', error);
-      return { status: 'FAILED' };
+      return { status: PaymentStatus.FAILED };
     }
   }
 
@@ -130,25 +135,51 @@ export class PayPalProvider implements PaymentProvider {
     body: any,
   ): Promise<boolean> {
     try {
-      // PayPal webhook verification
-      const verifyRequest = {
-        body: {
-          authAlgo: headers['paypal-auth-algo'],
-          certUrl: headers['paypal-cert-url'],
-          transmissionId: headers['paypal-transmission-id'],
-          transmissionSig: headers['paypal-transmission-sig'],
-          transmissionTime: headers['paypal-transmission-time'],
-          webhookId: this.webhookId,
-          webhookEvent: body,
-        },
+      // Manual PayPal webhook verification using REST API
+      // Since the SDK doesn't include webhook verification, we'll call the API directly
+      const verificationData = {
+        auth_algo: headers['paypal-auth-algo'],
+        cert_url: headers['paypal-cert-url'],
+        transmission_id: headers['paypal-transmission-id'],
+        transmission_sig: headers['paypal-transmission-sig'],
+        transmission_time: headers['paypal-transmission-time'],
+        webhook_id: this.webhookId,
+        webhook_event: body,
       };
 
-      const response =
-        await this.client.webhookVerificationController.verifyWebhookSignature(
-          verifyRequest,
-        );
+      // Get access token first
+      const tokenResponse = await fetch(
+        `${this.mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'}/v1/oauth2/token`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Accept-Language': 'en_US',
+            Authorization: `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: 'grant_type=client_credentials',
+        },
+      );
 
-      return response.result?.verificationStatus === 'SUCCESS';
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData.access_token;
+
+      // Verify webhook signature
+      const verifyResponse = await fetch(
+        `${this.mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'}/v1/notifications/verify-webhook-signature`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(verificationData),
+        },
+      );
+
+      const verifyResult = await verifyResponse.json();
+      return verifyResult.verification_status === 'SUCCESS';
     } catch (error) {
       console.error('PayPal webhook verification error:', error);
       return false;
@@ -165,27 +196,26 @@ export class PayPalProvider implements PaymentProvider {
     }
 
     // Map PayPal event types to our payment statuses
-    let status: 'PAID' | 'FAILED' | 'PENDING' | 'CANCELLED' | 'REFUNDED' =
-      'PENDING';
+    let status: PaymentStatus = PaymentStatus.PENDING;
 
     switch (eventType) {
       case 'CHECKOUT.ORDER.APPROVED':
       case 'PAYMENT.CAPTURE.COMPLETED':
-        status = 'PAID';
+        status = PaymentStatus.PAID;
         break;
       case 'PAYMENT.CAPTURE.DENIED':
       case 'PAYMENT.CAPTURE.DECLINED':
       case 'CHECKOUT.ORDER.VOIDED':
-        status = 'FAILED';
+        status = PaymentStatus.FAILED;
         break;
       case 'PAYMENT.CAPTURE.REFUNDED':
-        status = 'REFUNDED';
+        status = PaymentStatus.REFUNDED;
         break;
       case 'CHECKOUT.ORDER.CANCELLED':
-        status = 'CANCELLED';
+        status = PaymentStatus.CANCELLED;
         break;
       default:
-        status = 'PENDING';
+        status = PaymentStatus.PENDING;
     }
 
     return {
@@ -207,10 +237,10 @@ export class PayPalProvider implements PaymentProvider {
 
       // For now, return pending status - full refund implementation would require
       // additional PayPal API calls to get capture details and process refund
-      return { status: 'PENDING' };
+      return { status: PaymentStatus.PENDING };
     } catch (error) {
       console.error('PayPal refundPayment error:', error);
-      return { status: 'FAILED' };
+      return { status: PaymentStatus.FAILED };
     }
   }
 }

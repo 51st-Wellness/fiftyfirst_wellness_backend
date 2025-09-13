@@ -5,9 +5,10 @@ import { PaymentService } from './payment.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { ConfigModule } from 'src/config/config.module';
 import { PaymentProviderBinding } from './providers/payment.factory';
+import { UserModule } from 'src/modules/user/user.module';
 
 @Module({
-  imports: [SubscriptionModule, PrismaModule, ConfigModule],
+  imports: [SubscriptionModule, PrismaModule, ConfigModule, UserModule],
   controllers: [PaymentController],
   providers: [PaymentService, PaymentProviderBinding],
   exports: [PaymentService, SubscriptionModule],

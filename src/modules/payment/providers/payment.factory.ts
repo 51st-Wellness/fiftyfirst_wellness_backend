@@ -13,16 +13,12 @@ export const createPaymentProvider = (
 
   switch (provider) {
     case 'PAYPAL':
-      const clientId = config.get<string>(ENV.PAYPAL_CLIENT_ID);
-      const clientSecret = config.get<string>(ENV.PAYPAL_CLIENT_SECRET);
-      const mode = config.get<string>(ENV.PAYPAL_MODE) || 'sandbox';
-      const webhookId = config.get<string>(ENV.PAYPAL_WEBHOOK_ID);
+      const clientId = config.get<string>(ENV.PAYPAL_CLIENT_ID)!;
+      const clientSecret = config.get<string>(ENV.PAYPAL_CLIENT_SECRET)!;
+      const mode = config.get<string>(ENV.PAYPAL_MODE) as 'sandbox' | 'live';
+      const webhookId = config.get<string>(ENV.PAYPAL_WEBHOOK_ID)!;
 
-      if (!clientId || !clientSecret) {
-        throw new BadRequestException('PayPal client credentials are required');
-      }
-
-      return new PayPalProvider(clientId, clientSecret, mode, webhookId || '');
+      return new PayPalProvider(clientId, clientSecret, mode, webhookId);
 
     default:
       throw new BadRequestException(

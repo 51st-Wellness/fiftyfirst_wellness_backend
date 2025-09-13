@@ -250,7 +250,7 @@ export class PaymentService {
       await tx.payment.update({
         where: { id: payment.id },
         data: {
-          status: captureResult.status as PaymentStatus,
+          status: captureResult.status,
           metadata: {
             ...(payment.metadata as any),
             transactionId: captureResult.transactionId,
@@ -339,7 +339,7 @@ export class PaymentService {
           await tx.payment.update({
             where: { id: payment.id },
             data: {
-              status: webhookResult.status as PaymentStatus,
+              status: webhookResult.status,
               metadata: {
                 ...(payment.metadata as any),
                 lastWebhookEvent: webhookResult.eventType,
@@ -352,14 +352,14 @@ export class PaymentService {
           for (const order of payment.orders) {
             await tx.order.update({
               where: { id: order.id },
-              data: { status: webhookResult.status as PaymentStatus },
+              data: { status: webhookResult.status },
             });
           }
 
           for (const subscription of payment.subscriptions) {
             await tx.subscription.update({
               where: { id: subscription.id },
-              data: { status: webhookResult.status as PaymentStatus },
+              data: { status: webhookResult.status },
             });
           }
         });

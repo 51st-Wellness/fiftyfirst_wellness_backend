@@ -1,3 +1,5 @@
+import { PaymentStatus } from '@prisma/client';
+
 export type PaymentInitInput = {
   orderId?: string; // for store purchases
   subscriptionId?: string; // for subscription payments
@@ -15,7 +17,7 @@ export type PaymentInitResult = {
 
 export type WebhookResult = {
   providerRef: string;
-  status: 'PAID' | 'FAILED' | 'PENDING' | 'CANCELLED' | 'REFUNDED';
+  status: PaymentStatus;
   raw: any;
   eventType: string;
 };
