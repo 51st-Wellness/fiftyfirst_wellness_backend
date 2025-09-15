@@ -75,7 +75,10 @@ export class StoreRepository {
   // Find featured store items
   async findFeatured(): Promise<StoreItem[]> {
     return this.prisma.storeItem.findMany({
-      where: { isFeatured: true, isPublished: true },
+      where: {
+        isFeatured: true,
+        isPublished: true,
+      },
       include: {
         product: true,
       },

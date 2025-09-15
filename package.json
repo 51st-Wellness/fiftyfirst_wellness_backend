@@ -23,7 +23,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:setup": "node scripts/db-setup.js",
-    "db:reset": "node scripts/db-reset.js",
+    "db:reset": "prisma migrate reset",
     "db:apply-latest": "bash scripts/apply-latest-migration.sh",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
