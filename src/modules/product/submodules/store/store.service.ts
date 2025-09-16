@@ -10,7 +10,7 @@ import { StoreItemQueryDto } from './dto/store-item-query.dto';
 import { StorageService } from 'src/util/storage/storage.service';
 import { DocumentType } from 'src/util/storage/constants';
 import { StructuredLoggerService } from 'src/lib/logging';
-import { StoreItem } from '@prisma/client';
+import { StoreItem } from 'src/database/types';
 
 @Injectable()
 export class StoreService {

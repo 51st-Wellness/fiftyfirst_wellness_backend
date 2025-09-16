@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { PrismaModule } from './prisma/prisma.module';
+import { DatabaseModule } from './database/database.module';
 import { databaseConfig } from './config/database.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
@@ -17,7 +17,7 @@ import { ProductModule } from './modules/product/product.module';
       isGlobal: true,
       load: [databaseConfig],
     }),
-    PrismaModule,
+    DatabaseModule,
     CommonModule,
     NotificationModule,
     UserModule,

@@ -1,4 +1,4 @@
-import { Bookmark, Product, User } from '@prisma/client';
+import { Bookmark, Product, User } from 'src/database/types';
 
 export interface BookmarkWithRelations extends Bookmark {
   product: Product & {

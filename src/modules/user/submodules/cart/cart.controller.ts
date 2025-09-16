@@ -15,7 +15,7 @@ import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { CartItemWithRelations } from './dto/cart-response.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { CartItem } from '@prisma/client';
+import { CartItem } from 'src/database/types';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { ResponseDto } from 'src/util/dto/response.dto';
 

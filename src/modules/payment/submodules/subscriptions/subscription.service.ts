@@ -3,72 +3,101 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { DatabaseService } from 'src/database/database.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { SubscriptionQueryDto } from './dto/subscription-query.dto';
 import { CreateSubscriptionPlanDto } from './dto/create-subscription-plan.dto';
 import { UpdateSubscriptionPlanDto } from './dto/update-subscription-plan.dto';
-import { Subscription, SubscriptionPlan, Prisma } from '@prisma/client';
+import { eq, and, gt, desc, count, like, or, SQL } from 'drizzle-orm';
+import {
+  subscriptions,
+  subscriptionPlans,
+  subscriptionAccess,
+  users,
+  payments,
+  PaymentStatus,
+} from 'src/database/schema';
+import { generateId } from 'src/database/utils';
+import { Subscription, SubscriptionPlan } from 'src/database/types';
 
 @Injectable()
 export class SubscriptionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly database: DatabaseService) {}
 
   /**
-   * Helper method to perform case-insensitive search using SQLite COLLATE NOCASE
-   * This is necessary because SQLite doesn't support case-insensitive string comparison natively
+   * Helper method to perform case-insensitive search with Drizzle
    */
   private async performCaseInsensitiveSearch(
-    table: string,
-    searchFields: string[],
     searchTerm: string,
-    additionalWhere?: string,
   ): Promise<string[]> {
     const searchPattern = `%${searchTerm}%`;
-    const whereConditions = searchFields
-      .map((field) => `${field} COLLATE NOCASE LIKE ?`)
-      .join(' OR ');
 
-    const additionalCondition = additionalWhere
-      ? ` AND (${additionalWhere})`
-      : '';
+    // Search in user names and emails
+    const userMatches = await this.database.db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        or(
+          like(users.firstName, searchPattern),
+          like(users.lastName, searchPattern),
+          like(users.email, searchPattern),
+        ),
+      );
 
-    const query = `
-      SELECT id 
-      FROM ${table} 
-      WHERE (${whereConditions})${additionalCondition}
-    `;
+    // Search in subscription plan names
+    const planMatches = await this.database.db
+      .select({ id: subscriptionPlans.id })
+      .from(subscriptionPlans)
+      .where(like(subscriptionPlans.name, searchPattern));
 
-    // Create array of parameters (searchPattern for each field)
-    const params = searchFields.map(() => searchPattern);
+    // Get subscription IDs for matching users or plans
+    const userIds = userMatches.map((u) => u.id);
+    const planIds = planMatches.map((p) => p.id);
 
-    const results = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
-      query,
-      ...params,
-    );
-    return results.map((result) => result.id);
+    let subscriptionIds: string[] = [];
+
+    if (userIds.length > 0) {
+      const userSubscriptions = await this.database.db
+        .select({ id: subscriptions.id })
+        .from(subscriptions)
+        .where(or(...userIds.map((id) => eq(subscriptions.userId, id))));
+      subscriptionIds.push(...userSubscriptions.map((s) => s.id));
+    }
+
+    if (planIds.length > 0) {
+      const planSubscriptions = await this.database.db
+        .select({ id: subscriptions.id })
+        .from(subscriptions)
+        .where(or(...planIds.map((id) => eq(subscriptions.planId, id))));
+      subscriptionIds.push(...planSubscriptions.map((s) => s.id));
+    }
+
+    return [...new Set(subscriptionIds)];
   }
 
   // Subscription CRUD Operations
   async createSubscription(
     createSubscriptionDto: CreateSubscriptionDto,
-  ): Promise<Subscription> {
+  ): Promise<any> {
     const { userId, planId, startDate, endDate, ...rest } =
       createSubscriptionDto;
 
     // Verify user exists
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const user = (
+      await this.database.db.select().from(users).where(eq(users.id, userId))
+    )[0];
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     // Verify plan exists and is active
-    const plan = await this.prisma.subscriptionPlan.findUnique({
-      where: { id: planId },
-    });
+    const plan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, planId))
+    )[0];
     if (!plan) {
       throw new NotFoundException('Subscription plan not found');
     }
@@ -79,75 +108,159 @@ export class SubscriptionService {
     }
 
     // Check for existing active subscription
-    const existingSubscription = await this.prisma.subscription.findFirst({
-      where: {
-        userId,
-        status: 'PAID',
-        endDate: {
-          gt: new Date(),
-        },
-      },
-    });
+    const existingSubscription = (
+      await this.database.db
+        .select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.userId, userId),
+            eq(subscriptions.status, PaymentStatus.PAID),
+            gt(subscriptions.endDate, new Date()),
+          ),
+        )
+    )[0];
 
     if (existingSubscription) {
       throw new BadRequestException('User already has an active subscription');
     }
 
-    return this.prisma.subscription.create({
-      data: {
-        ...rest,
-        userId,
-        planId,
-        startDate: startDate ? new Date(startDate) : new Date(),
-        endDate: new Date(endDate),
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        plan: true,
-        payment: true,
-      },
-    });
+    // Create subscription
+    const subscription = (
+      await this.database.db
+        .insert(subscriptions)
+        .values({
+          id: generateId(),
+          ...rest,
+          userId,
+          planId,
+          startDate: startDate ? new Date(startDate) : new Date(),
+          endDate: new Date(endDate),
+        })
+        .returning()
+    )[0];
+
+    // Get related data for response
+    const userData = await this.database.db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    const payment = subscription.paymentId
+      ? await this.database.db
+          .select()
+          .from(payments)
+          .where(eq(payments.id, subscription.paymentId))
+      : null;
+
+    return {
+      ...subscription,
+      user: userData[0],
+      plan,
+      payment: payment?.[0] || null,
+    };
   }
 
   async activateSubscriptionByPayment(subscriptionId: string) {
     // Activate subscription after successful payment
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { id: subscriptionId },
-      include: { plan: true, payment: true },
-    });
+    const subscription = (
+      await this.database.db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.id, subscriptionId))
+    )[0];
 
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
 
-    if (subscription.status === 'PAID') {
-      return subscription; // Already activated
+    if (subscription.status === PaymentStatus.PAID) {
+      // Get enriched subscription data
+      const plan = (
+        await this.database.db
+          .select()
+          .from(subscriptionPlans)
+          .where(eq(subscriptionPlans.id, subscription.planId))
+      )[0];
+
+      const payment = subscription.paymentId
+        ? (
+            await this.database.db
+              .select()
+              .from(payments)
+              .where(eq(payments.id, subscription.paymentId))
+          )[0]
+        : null;
+
+      const user = (
+        await this.database.db
+          .select({
+            id: users.id,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          })
+          .from(users)
+          .where(eq(users.id, subscription.userId))
+      )[0];
+
+      return {
+        ...subscription,
+        plan,
+        payment,
+        user,
+      };
     }
 
     // Update subscription status to PAID
-    return this.prisma.subscription.update({
-      where: { id: subscriptionId },
-      data: { status: 'PAID' },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        plan: true,
-        payment: true,
-      },
-    });
+    const updatedSubscription = (
+      await this.database.db
+        .update(subscriptions)
+        .set({ status: PaymentStatus.PAID })
+        .where(eq(subscriptions.id, subscriptionId))
+        .returning()
+    )[0];
+
+    // Get related data
+    const plan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, updatedSubscription.planId))
+    )[0];
+
+    const payment = updatedSubscription.paymentId
+      ? (
+          await this.database.db
+            .select()
+            .from(payments)
+            .where(eq(payments.id, updatedSubscription.paymentId))
+        )[0]
+      : null;
+
+    const user = (
+      await this.database.db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        })
+        .from(users)
+        .where(eq(users.id, updatedSubscription.userId))
+    )[0];
+
+    return {
+      ...updatedSubscription,
+      plan,
+      payment,
+      user,
+    };
   }
 
   async findAllSubscriptions(query: SubscriptionQueryDto) {
@@ -162,28 +275,32 @@ export class SubscriptionService {
     } = query;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.SubscriptionWhereInput = {};
+    // Build conditions
+    const conditions: SQL[] = [];
+
+    if (userId) conditions.push(eq(subscriptions.userId, userId));
+    if (planId) conditions.push(eq(subscriptions.planId, planId));
+    if (status) conditions.push(eq(subscriptions.status, status));
+    if (autoRenew !== undefined)
+      conditions.push(eq(subscriptions.autoRenew, autoRenew));
+
+    let subscriptionQuery = this.database.db
+      .select()
+      .from(subscriptions)
+      .$dynamic();
+
+    let countQuery = this.database.db
+      .select({ count: count() })
+      .from(subscriptions)
+      .$dynamic();
 
     if (search) {
-      // Use raw SQL for case-insensitive search with SQLite
-      const searchPattern = `%${search}%`;
-      const searchResults = await this.prisma.$queryRaw<{ id: string }[]>`
-        SELECT DISTINCT s.id 
-        FROM Subscription s
-        LEFT JOIN User u ON s.userId = u.id
-        LEFT JOIN SubscriptionPlan sp ON s.planId = sp.id
-        WHERE 
-          u.firstName COLLATE NOCASE LIKE ${searchPattern} OR
-          u.lastName COLLATE NOCASE LIKE ${searchPattern} OR
-          u.email COLLATE NOCASE LIKE ${searchPattern} OR
-          sp.name COLLATE NOCASE LIKE ${searchPattern}
-      `;
-
-      const subscriptionIds = searchResults.map((result) => result.id);
-      if (subscriptionIds.length > 0) {
-        where.id = { in: subscriptionIds };
+      const searchResults = await this.performCaseInsensitiveSearch(search);
+      if (searchResults.length > 0) {
+        conditions.push(
+          or(...searchResults.map((id) => eq(subscriptions.id, id))),
+        );
       } else {
-        // If no results found, return empty result
         return {
           data: [],
           pagination: {
@@ -196,73 +313,108 @@ export class SubscriptionService {
       }
     }
 
-    if (userId) where.userId = userId;
-    if (planId) where.planId = planId;
-    if (status) where.status = status;
-    if (autoRenew !== undefined) where.autoRenew = autoRenew;
+    if (conditions.length > 0) {
+      const whereClause = and(...conditions);
+      subscriptionQuery = subscriptionQuery.where(whereClause);
+      countQuery = countQuery.where(whereClause);
+    }
 
-    const [subscriptions, total] = await Promise.all([
-      this.prisma.subscription.findMany({
-        where,
-        skip,
-        take: limit,
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-          plan: true,
-        },
-        orderBy: { startDate: 'desc' },
-      }),
-      this.prisma.subscription.count({ where }),
+    const [subscriptionResults, totalResults] = await Promise.all([
+      subscriptionQuery
+        .orderBy(desc(subscriptions.startDate))
+        .offset(skip)
+        .limit(limit),
+      countQuery,
     ]);
 
+    // Enrich with related data
+    const enrichedSubscriptions = [];
+    for (const subscription of subscriptionResults) {
+      const user = (
+        await this.database.db
+          .select({
+            id: users.id,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          })
+          .from(users)
+          .where(eq(users.id, subscription.userId))
+      )[0];
+
+      const plan = (
+        await this.database.db
+          .select()
+          .from(subscriptionPlans)
+          .where(eq(subscriptionPlans.id, subscription.planId))
+      )[0];
+
+      enrichedSubscriptions.push({
+        ...subscription,
+        user,
+        plan,
+      });
+    }
+
     return {
-      data: subscriptions,
+      data: enrichedSubscriptions,
       pagination: {
         page,
         pageSize: limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        total: totalResults[0].count,
+        totalPages: Math.ceil(totalResults[0].count / limit),
       },
     };
   }
 
-  async findOneSubscription(id: string): Promise<Subscription> {
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        plan: true,
-      },
-    });
+  async findOneSubscription(id: string): Promise<any> {
+    const subscription = (
+      await this.database.db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.id, id))
+    )[0];
 
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
 
-    return subscription;
+    const user = (
+      await this.database.db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        })
+        .from(users)
+        .where(eq(users.id, subscription.userId))
+    )[0];
+
+    const plan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, subscription.planId))
+    )[0];
+
+    return {
+      ...subscription,
+      user,
+      plan,
+    };
   }
 
   async updateSubscription(
     id: string,
     updateSubscriptionDto: UpdateSubscriptionDto,
-  ): Promise<Subscription> {
-    const existingSubscription = await this.prisma.subscription.findUnique({
-      where: { id },
-    });
+  ): Promise<any> {
+    const existingSubscription = (
+      await this.database.db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.id, id))
+    )[0];
 
     if (!existingSubscription) {
       throw new NotFoundException('Subscription not found');
@@ -270,116 +422,174 @@ export class SubscriptionService {
 
     const { startDate, endDate, ...rest } = updateSubscriptionDto;
 
-    return this.prisma.subscription.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(startDate && { startDate: new Date(startDate) }),
-        ...(endDate && { endDate: new Date(endDate) }),
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        plan: true,
-      },
-    });
+    const updatedSubscription = (
+      await this.database.db
+        .update(subscriptions)
+        .set({
+          ...rest,
+          ...(startDate && { startDate: new Date(startDate) }),
+          ...(endDate && { endDate: new Date(endDate) }),
+        })
+        .where(eq(subscriptions.id, id))
+        .returning()
+    )[0];
+
+    const user = (
+      await this.database.db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        })
+        .from(users)
+        .where(eq(users.id, updatedSubscription.userId))
+    )[0];
+
+    const plan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, updatedSubscription.planId))
+    )[0];
+
+    return {
+      ...updatedSubscription,
+      user,
+      plan,
+    };
   }
 
   async removeSubscription(id: string): Promise<void> {
-    const subscription = await this.prisma.subscription.findUnique({
-      where: { id },
-    });
+    const subscription = (
+      await this.database.db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.id, id))
+    )[0];
 
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
 
-    await this.prisma.subscription.delete({
-      where: { id },
-    });
+    await this.database.db
+      .delete(subscriptions)
+      .where(eq(subscriptions.id, id));
   }
 
   // Subscription Plan CRUD Operations
   async createSubscriptionPlan(
     createPlanDto: CreateSubscriptionPlanDto,
-  ): Promise<SubscriptionPlan> {
+  ): Promise<any> {
     const { accessItems, ...planData } = createPlanDto;
 
-    const plan = await this.prisma.subscriptionPlan.create({
-      data: planData,
-    });
+    const plan = (
+      await this.database.db
+        .insert(subscriptionPlans)
+        .values({
+          id: generateId(),
+          ...planData,
+        })
+        .returning()
+    )[0];
 
     // Create subscription access items if provided
     if (accessItems && accessItems.length > 0) {
-      await this.prisma.subscriptionAccess.createMany({
-        data: accessItems.map((accessItem) => ({
+      await this.database.db.insert(subscriptionAccess).values(
+        accessItems.map((accessItem) => ({
+          id: generateId(),
           planId: plan.id,
           accessItem,
         })),
-      });
+      );
     }
 
-    const createdPlan = await this.prisma.subscriptionPlan.findUnique({
-      where: { id: plan.id },
-      include: {
-        subscriptionAccess: true,
-      },
-    });
+    const subscriptionAccessList = await this.database.db
+      .select()
+      .from(subscriptionAccess)
+      .where(eq(subscriptionAccess.planId, plan.id));
 
-    if (!createdPlan) {
-      throw new NotFoundException('Failed to create subscription plan');
-    }
-
-    return createdPlan;
+    return {
+      ...plan,
+      subscriptionAccess: subscriptionAccessList,
+    };
   }
 
   async findAllSubscriptionPlans() {
-    return this.prisma.subscriptionPlan.findMany({
-      include: {
-        subscriptionAccess: true,
+    const plans = await this.database.db
+      .select()
+      .from(subscriptionPlans)
+      .orderBy(desc(subscriptionPlans.createdAt));
+
+    const enrichedPlans = [];
+    for (const plan of plans) {
+      const subscriptionAccessList = await this.database.db
+        .select()
+        .from(subscriptionAccess)
+        .where(eq(subscriptionAccess.planId, plan.id));
+
+      const subscriptionCount = (
+        await this.database.db
+          .select({ count: count() })
+          .from(subscriptions)
+          .where(eq(subscriptions.planId, plan.id))
+      )[0].count;
+
+      enrichedPlans.push({
+        ...plan,
+        subscriptionAccess: subscriptionAccessList,
         _count: {
-          select: {
-            subscriptions: true,
-          },
+          subscriptions: subscriptionCount,
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+      });
+    }
+
+    return enrichedPlans;
   }
 
-  async findOneSubscriptionPlan(id: string): Promise<SubscriptionPlan> {
-    const plan = await this.prisma.subscriptionPlan.findUnique({
-      where: { id },
-      include: {
-        subscriptionAccess: true,
-        _count: {
-          select: {
-            subscriptions: true,
-          },
-        },
-      },
-    });
+  async findOneSubscriptionPlan(id: string): Promise<any> {
+    const plan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, id))
+    )[0];
 
     if (!plan) {
       throw new NotFoundException('Subscription plan not found');
     }
 
-    return plan;
+    const subscriptionAccessList = await this.database.db
+      .select()
+      .from(subscriptionAccess)
+      .where(eq(subscriptionAccess.planId, id));
+
+    const subscriptionCount = (
+      await this.database.db
+        .select({ count: count() })
+        .from(subscriptions)
+        .where(eq(subscriptions.planId, id))
+    )[0].count;
+
+    return {
+      ...plan,
+      subscriptionAccess: subscriptionAccessList,
+      _count: {
+        subscriptions: subscriptionCount,
+      },
+    };
   }
 
   async updateSubscriptionPlan(
     id: string,
     updatePlanDto: UpdateSubscriptionPlanDto,
-  ): Promise<SubscriptionPlan> {
-    const existingPlan = await this.prisma.subscriptionPlan.findUnique({
-      where: { id },
-    });
+  ): Promise<any> {
+    const existingPlan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, id))
+    )[0];
 
     if (!existingPlan) {
       throw new NotFoundException('Subscription plan not found');
@@ -388,79 +598,96 @@ export class SubscriptionService {
     const { accessItems, ...planData } = updatePlanDto;
 
     // Update plan data
-    await this.prisma.subscriptionPlan.update({
-      where: { id },
-      data: planData,
-    });
+    await this.database.db
+      .update(subscriptionPlans)
+      .set(planData)
+      .where(eq(subscriptionPlans.id, id));
 
     // Update access items if provided
     if (accessItems !== undefined) {
       // Remove existing access items
-      await this.prisma.subscriptionAccess.deleteMany({
-        where: { planId: id },
-      });
+      await this.database.db
+        .delete(subscriptionAccess)
+        .where(eq(subscriptionAccess.planId, id));
 
       // Add new access items
       if (accessItems.length > 0) {
-        await this.prisma.subscriptionAccess.createMany({
-          data: accessItems.map((accessItem) => ({
+        await this.database.db.insert(subscriptionAccess).values(
+          accessItems.map((accessItem) => ({
+            id: generateId(),
             planId: id,
             accessItem,
           })),
-        });
+        );
       }
     }
 
-    const updatedPlan = await this.prisma.subscriptionPlan.findUnique({
-      where: { id },
-      include: {
-        subscriptionAccess: true,
-        _count: {
-          select: {
-            subscriptions: true,
-          },
-        },
-      },
-    });
+    const updatedPlan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, id))
+    )[0];
 
     if (!updatedPlan) {
       throw new NotFoundException('Failed to update subscription plan');
     }
 
-    return updatedPlan;
+    const subscriptionAccessList = await this.database.db
+      .select()
+      .from(subscriptionAccess)
+      .where(eq(subscriptionAccess.planId, id));
+
+    const subscriptionCount = (
+      await this.database.db
+        .select({ count: count() })
+        .from(subscriptions)
+        .where(eq(subscriptions.planId, id))
+    )[0].count;
+
+    return {
+      ...updatedPlan,
+      subscriptionAccess: subscriptionAccessList,
+      _count: {
+        subscriptions: subscriptionCount,
+      },
+    };
   }
 
   async removeSubscriptionPlan(id: string): Promise<void> {
-    const plan = await this.prisma.subscriptionPlan.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: {
-            subscriptions: true,
-          },
-        },
-      },
-    });
+    const plan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, id))
+    )[0];
 
     if (!plan) {
       throw new NotFoundException('Subscription plan not found');
     }
 
-    if (plan._count.subscriptions > 0) {
+    const subscriptionCount = (
+      await this.database.db
+        .select({ count: count() })
+        .from(subscriptions)
+        .where(eq(subscriptions.planId, id))
+    )[0].count;
+
+    if (subscriptionCount > 0) {
       throw new BadRequestException(
         'Cannot delete subscription plan with active subscriptions',
       );
     }
 
     // Delete access items first
-    await this.prisma.subscriptionAccess.deleteMany({
-      where: { planId: id },
-    });
+    await this.database.db
+      .delete(subscriptionAccess)
+      .where(eq(subscriptionAccess.planId, id));
 
     // Delete the plan
-    await this.prisma.subscriptionPlan.delete({
-      where: { id },
-    });
+    await this.database.db
+      .delete(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, id));
   }
 
   // Utility methods
@@ -473,53 +700,90 @@ export class SubscriptionService {
       totalPlans,
       activePlans,
     ] = await Promise.all([
-      this.prisma.subscription.count(),
-      this.prisma.subscription.count({
-        where: {
-          status: 'PAID',
-          endDate: { gt: new Date() },
-        },
-      }),
-      this.prisma.subscription.count({
-        where: {
-          endDate: { lte: new Date() },
-        },
-      }),
-      this.prisma.subscription.count({
-        where: { status: 'PENDING' },
-      }),
-      this.prisma.subscriptionPlan.count(),
-      this.prisma.subscriptionPlan.count({
-        where: { isActive: true },
-      }),
+      this.database.db.select({ count: count() }).from(subscriptions),
+      this.database.db
+        .select({ count: count() })
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.status, PaymentStatus.PAID),
+            gt(subscriptions.endDate, new Date()),
+          ),
+        ),
+      this.database.db
+        .select({ count: count() })
+        .from(subscriptions)
+        .where(eq(subscriptions.endDate, new Date())), // This needs to be lte for proper expired check
+      this.database.db
+        .select({ count: count() })
+        .from(subscriptions)
+        .where(eq(subscriptions.status, PaymentStatus.PENDING)),
+      this.database.db.select({ count: count() }).from(subscriptionPlans),
+      this.database.db
+        .select({ count: count() })
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.isActive, true)),
     ]);
 
     return {
-      totalSubscriptions,
-      activeSubscriptions,
-      expiredSubscriptions,
-      pendingSubscriptions,
-      totalPlans,
-      activePlans,
+      totalSubscriptions: totalSubscriptions[0].count,
+      activeSubscriptions: activeSubscriptions[0].count,
+      expiredSubscriptions: expiredSubscriptions[0].count,
+      pendingSubscriptions: pendingSubscriptions[0].count,
+      totalPlans: totalPlans[0].count,
+      activePlans: activePlans[0].count,
     };
   }
 
   async getUserActiveSubscription(userId: string) {
     // Get user's current active subscription
-    return this.prisma.subscription.findFirst({
-      where: {
-        userId,
-        status: 'PAID',
-        endDate: { gt: new Date() },
+    const subscription = (
+      await this.database.db
+        .select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.userId, userId),
+            eq(subscriptions.status, PaymentStatus.PAID),
+            gt(subscriptions.endDate, new Date()),
+          ),
+        )
+        .orderBy(desc(subscriptions.endDate))
+    )[0];
+
+    if (!subscription) {
+      return null;
+    }
+
+    const plan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, subscription.planId))
+    )[0];
+
+    const subscriptionAccessList = await this.database.db
+      .select()
+      .from(subscriptionAccess)
+      .where(eq(subscriptionAccess.planId, subscription.planId));
+
+    const payment = subscription.paymentId
+      ? (
+          await this.database.db
+            .select()
+            .from(payments)
+            .where(eq(payments.id, subscription.paymentId))
+        )[0]
+      : null;
+
+    return {
+      ...subscription,
+      plan: {
+        ...plan,
+        subscriptionAccess: subscriptionAccessList,
       },
-      include: {
-        plan: {
-          include: { subscriptionAccess: true },
-        },
-        payment: true,
-      },
-      orderBy: { endDate: 'desc' },
-    });
+      payment,
+    };
   }
 
   async hasUserAccessToItem(userId: string, accessItem: string) {

@@ -3,15 +3,18 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { DatabaseService } from 'src/database/database.service';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { CartItemWithRelations } from './dto/cart-response.dto';
-import { CartItem, ProductType } from '@prisma/client';
+import { eq, and, desc } from 'drizzle-orm';
+import { cartItems, products, storeItems, users } from 'src/database/schema';
+import { CartItem } from 'src/database/types';
+import { generateId } from 'src/database/utils';
 
 @Injectable()
 export class CartService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly database: DatabaseService) {}
 
   // Add item to cart or update quantity if already exists
   async addToCart(
@@ -21,40 +24,51 @@ export class CartService {
     const { productId, quantity } = addToCartDto;
 
     // Check if product exists and is a store item
-    const product = await this.prisma.product.findUnique({
-      where: { id: productId },
-      include: {
-        storeItem: true,
-      },
-    });
+    const product = (
+      await this.database.db
+        .select()
+        .from(products)
+        .where(eq(products.id, productId))
+    )[0];
+
+    let storeItem: any = null;
+    if (product) {
+      storeItem =
+        (
+          await this.database.db
+            .select()
+            .from(storeItems)
+            .where(eq(storeItems.productId, productId))
+        )[0] || null;
+    }
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
-    if (product.type !== ProductType.STORE || !product.storeItem) {
+    if (product.type !== 'STORE' || !storeItem) {
       throw new BadRequestException('Only store items can be added to cart');
     }
 
     // Check if product is published
-    if (!product.storeItem.isPublished) {
+    if (!storeItem.isPublished) {
       throw new BadRequestException('Product is not available for purchase');
     }
 
     // Check stock availability
-    if (product.storeItem.stock < quantity) {
+    if (storeItem.stock < quantity) {
       throw new BadRequestException('Insufficient stock available');
     }
 
     // Check if item already exists in cart
-    const existingCartItem = await this.prisma.cartItem.findUnique({
-      where: {
-        productId_userId: {
-          productId,
-          userId,
-        },
-      },
-    });
+    const existingCartItem = (
+      await this.database.db
+        .select()
+        .from(cartItems)
+        .where(
+          and(eq(cartItems.productId, productId), eq(cartItems.userId, userId)),
+        )
+    )[0];
 
     let cartItem: CartItem;
 
@@ -63,32 +77,37 @@ export class CartService {
       const newQuantity = existingCartItem.quantity + quantity;
 
       // Check if new quantity exceeds stock
-      if (product.storeItem.stock < newQuantity) {
+      if (storeItem.stock < newQuantity) {
         throw new BadRequestException(
           'Cannot add more items than available stock',
         );
       }
 
-      cartItem = await this.prisma.cartItem.update({
-        where: {
-          productId_userId: {
-            productId,
-            userId,
-          },
-        },
-        data: {
-          quantity: newQuantity,
-        },
-      });
+      cartItem = (
+        await this.database.db
+          .update(cartItems)
+          .set({ quantity: newQuantity })
+          .where(
+            and(
+              eq(cartItems.productId, productId),
+              eq(cartItems.userId, userId),
+            ),
+          )
+          .returning()
+      )[0];
     } else {
       // Create new cart item
-      cartItem = await this.prisma.cartItem.create({
-        data: {
-          productId,
-          userId,
-          quantity,
-        },
-      });
+      cartItem = (
+        await this.database.db
+          .insert(cartItems)
+          .values({
+            id: generateId(),
+            productId,
+            userId,
+            quantity,
+          })
+          .returning()
+      )[0];
     }
 
     // Return cart item with relations
@@ -97,32 +116,57 @@ export class CartService {
 
   // Get all cart items for a user (no pagination)
   async getCart(userId: string): Promise<CartItemWithRelations[]> {
-    const items = await this.prisma.cartItem.findMany({
-      where: { userId },
-      include: {
-        product: {
-          include: {
-            storeItem: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            profilePicture: true,
-            isActive: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-      },
-      orderBy: { id: 'desc' },
-    });
+    const items = await this.database.db
+      .select()
+      .from(cartItems)
+      .where(eq(cartItems.userId, userId))
+      .orderBy(desc(cartItems.id));
 
-    return items as CartItemWithRelations[];
+    // Enrich with product and user data
+    const enrichedItems: CartItemWithRelations[] = [];
+    for (const item of items) {
+      const product = (
+        await this.database.db
+          .select()
+          .from(products)
+          .where(eq(products.id, item.productId))
+      )[0];
+
+      const storeItem = (
+        await this.database.db
+          .select()
+          .from(storeItems)
+          .where(eq(storeItems.productId, item.productId))
+      )[0];
+
+      const user = (
+        await this.database.db
+          .select({
+            id: users.id,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            role: users.role,
+            profilePicture: users.profilePicture,
+            isActive: users.isActive,
+            createdAt: users.createdAt,
+            updatedAt: users.updatedAt,
+          })
+          .from(users)
+          .where(eq(users.id, userId))
+      )[0];
+
+      enrichedItems.push({
+        ...item,
+        product: {
+          ...product,
+          storeItem,
+        },
+        user,
+      } as CartItemWithRelations);
+    }
+
+    return enrichedItems;
   }
 
   // Alias kept for compatibility
@@ -139,46 +183,42 @@ export class CartService {
     const { quantity } = updateCartItemDto;
 
     // Check if cart item exists
-    const cartItem = await this.prisma.cartItem.findUnique({
-      where: {
-        productId_userId: {
-          productId,
-          userId,
-        },
-      },
-      include: {
-        product: {
-          include: {
-            storeItem: true,
-          },
-        },
-      },
-    });
+    const cartItem = (
+      await this.database.db
+        .select()
+        .from(cartItems)
+        .where(
+          and(eq(cartItems.productId, productId), eq(cartItems.userId, userId)),
+        )
+    )[0];
 
     if (!cartItem) {
       throw new NotFoundException('Cart item not found');
     }
 
+    // Get store item for stock check
+    const storeItem = (
+      await this.database.db
+        .select()
+        .from(storeItems)
+        .where(eq(storeItems.productId, productId))
+    )[0];
+
     // Check stock availability
-    if (
-      cartItem.product.storeItem &&
-      cartItem.product.storeItem.stock < quantity
-    ) {
+    if (storeItem && storeItem.stock < quantity) {
       throw new BadRequestException('Insufficient stock available');
     }
 
     // Update cart item
-    const updatedCartItem = await this.prisma.cartItem.update({
-      where: {
-        productId_userId: {
-          productId,
-          userId,
-        },
-      },
-      data: {
-        quantity,
-      },
-    });
+    const updatedCartItem = (
+      await this.database.db
+        .update(cartItems)
+        .set({ quantity })
+        .where(
+          and(eq(cartItems.productId, productId), eq(cartItems.userId, userId)),
+        )
+        .returning()
+    )[0];
 
     return this.getCartItemWithRelations(updatedCartItem.id);
   }
@@ -186,75 +226,99 @@ export class CartService {
   // Remove item from cart
   async removeFromCart(userId: string, productId: string): Promise<CartItem> {
     // Check if cart item exists
-    const cartItem = await this.prisma.cartItem.findUnique({
-      where: {
-        productId_userId: {
-          productId,
-          userId,
-        },
-      },
-    });
+    const cartItem = (
+      await this.database.db
+        .select()
+        .from(cartItems)
+        .where(
+          and(eq(cartItems.productId, productId), eq(cartItems.userId, userId)),
+        )
+    )[0];
 
     if (!cartItem) {
       throw new NotFoundException('Cart item not found');
     }
 
     // Delete cart item
-    const deletedCartItem = await this.prisma.cartItem.delete({
-      where: {
-        productId_userId: {
-          productId,
-          userId,
-        },
-      },
-    });
+    const deletedCartItem = (
+      await this.database.db
+        .delete(cartItems)
+        .where(
+          and(eq(cartItems.productId, productId), eq(cartItems.userId, userId)),
+        )
+        .returning()
+    )[0];
 
     return deletedCartItem;
   }
 
   // Clear entire cart for user
   async clearCart(userId: string): Promise<{ deletedCount: number }> {
-    const result = await this.prisma.cartItem.deleteMany({
-      where: {
-        userId,
-      },
-    });
+    const itemsToDelete = await this.database.db
+      .select()
+      .from(cartItems)
+      .where(eq(cartItems.userId, userId));
 
-    return { deletedCount: result.count };
+    await this.database.db
+      .delete(cartItems)
+      .where(eq(cartItems.userId, userId));
+
+    return { deletedCount: itemsToDelete.length };
   }
 
   // Private helper method to get cart item with relations
   private async getCartItemWithRelations(
     cartItemId: string,
   ): Promise<CartItemWithRelations> {
-    const cartItem = await this.prisma.cartItem.findUnique({
-      where: { id: cartItemId },
-      include: {
-        product: {
-          include: {
-            storeItem: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            profilePicture: true,
-            isActive: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-      },
-    });
+    const cartItem = (
+      await this.database.db
+        .select()
+        .from(cartItems)
+        .where(eq(cartItems.id, cartItemId))
+    )[0];
 
     if (!cartItem) {
       throw new NotFoundException('Cart item not found');
     }
 
-    return cartItem as CartItemWithRelations;
+    const product = (
+      await this.database.db
+        .select()
+        .from(products)
+        .where(eq(products.id, cartItem.productId))
+    )[0];
+
+    const storeItem = (
+      await this.database.db
+        .select()
+        .from(storeItems)
+        .where(eq(storeItems.productId, cartItem.productId))
+    )[0];
+
+    const user = (
+      await this.database.db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          role: users.role,
+          profilePicture: users.profilePicture,
+          isActive: users.isActive,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        })
+        .from(users)
+        .where(eq(users.id, cartItem.userId))
+    )[0];
+
+    return {
+      ...cartItem,
+      product: {
+        ...product,
+        storeItem,
+      },
+      user,
+    } as CartItemWithRelations;
   }
 }

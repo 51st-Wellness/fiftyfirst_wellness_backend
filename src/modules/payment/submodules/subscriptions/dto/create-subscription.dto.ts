@@ -5,7 +5,7 @@ import {
   IsDateString,
   IsEnum,
 } from 'class-validator';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus } from 'src/database/schema';
 
 export class CreateSubscriptionDto {
   @IsString()

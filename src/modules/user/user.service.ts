@@ -8,7 +8,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserQueryDto } from './dto/user-query.dto';
-import { User, UserRole } from '@prisma/client';
+import { User } from 'src/database/types';
+import { UserRole } from 'src/database/schema';
 import * as bcrypt from 'bcrypt';
 import { DataFormatter } from 'src/lib/helpers/data-formater.helper';
 

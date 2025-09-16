@@ -18,7 +18,7 @@ import { SubscriptionQueryDto } from './dto/subscription-query.dto';
 import { CreateSubscriptionPlanDto } from './dto/create-subscription-plan.dto';
 import { UpdateSubscriptionPlanDto } from './dto/update-subscription-plan.dto';
 import { StrictRoles } from 'src/common/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole } from 'src/database/schema';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { ResponseDto } from 'src/util/dto/response.dto';
 

@@ -7,7 +7,7 @@ import {
   IsEnum,
   Min,
 } from 'class-validator';
-import { AccessItem } from '@prisma/client';
+import { AccessItem } from 'src/database/schema';
 
 export class CreateSubscriptionPlanDto {
   @IsString()

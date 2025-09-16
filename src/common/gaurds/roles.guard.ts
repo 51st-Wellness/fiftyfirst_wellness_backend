@@ -14,7 +14,7 @@ import {
   ROLES_KEY,
   STRICT_MODE_KEY,
 } from 'src/common/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole } from 'src/database/schema';
 import { UserService } from 'src/modules/user/user.service';
 
 @Injectable()

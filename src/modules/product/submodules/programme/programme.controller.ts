@@ -28,7 +28,8 @@ import {
 import { ProgrammeQueryDto } from './dto/programme-query.dto';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { UserRole, User } from '@prisma/client';
+import { User } from 'src/database/types';
+import { UserRole } from 'src/database/schema';
 import { Request } from 'express';
 import { ResponseDto } from 'src/util/dto/response.dto';
 

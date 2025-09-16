@@ -1,5 +1,5 @@
 import { IsOptional, IsString, IsEnum, IsBoolean } from 'class-validator';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus } from 'src/database/schema';
 import { PaginationQueryDto } from 'src/lib/dto/pagination.dto';
 
 export class SubscriptionQueryDto extends PaginationQueryDto {

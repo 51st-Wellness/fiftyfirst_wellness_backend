@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import Mux from '@mux/mux-node';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { DatabaseService } from 'src/database/database.service';
 import {
   CreateProgrammeDto,
   CreateUploadUrlResponseDto,
@@ -16,10 +16,18 @@ import {
   AccessItem,
   PricingModel,
   ProductType,
-  User,
   PaymentStatus,
-} from '@prisma/client';
-import { InputJsonValue } from '@prisma/client/runtime/library';
+} from 'src/database/schema';
+import { User, Product, Programme } from 'src/database/types';
+import { eq, and, gte, lte, desc, count, or } from 'drizzle-orm';
+import {
+  products,
+  programmes,
+  subscriptions,
+  subscriptionPlans,
+  subscriptionAccess,
+} from 'src/database/schema';
+import { generateId } from 'src/database/utils';
 import { StorageService } from 'src/util/storage/storage.service';
 import { DocumentType } from 'src/util/storage/constants';
 import { ProgrammeQueryDto } from './dto/programme-query.dto';
@@ -32,7 +40,7 @@ export class ProgrammeService {
   private muxClient: Mux;
 
   constructor(
-    private prisma: PrismaService,
+    private database: DatabaseService,
     private storageService: StorageService,
     private configService: ConfigService,
   ) {
@@ -59,29 +67,38 @@ export class ProgrammeService {
       // Generate a unique product ID for the programme
 
       // Create the Product and Programme entities in the database
-      const product = await this.prisma.product.create({
-        data: {
-          // id: productId,
-          type: ProductType.PROGRAMME,
-          pricingModel: PricingModel.SUBSCRIPTION,
-          programme: {
-            create: {
-              title: createProgrammeDto.title,
-              description: null,
-              muxAssetId: uuidv4(), // Temporary done for uniqueness , will be updated via webhook
-              muxPlaybackId: uuidv4(), // Temporary, will be updated via webhook
-              isPublished: false,
-              isFeatured: false,
-              requiresAccess: AccessItem.PROGRAMME_ACCESS,
-              duration: 0, // Will be updated via webhook
-              tags: [],
-            },
-          },
-        },
-        include: {
-          programme: true,
-        },
-      });
+      const productId = generateId();
+
+      // Create product first
+      const product = (
+        await this.database.db
+          .insert(products)
+          .values({
+            id: productId,
+            type: ProductType.PROGRAMME,
+            pricingModel: PricingModel.SUBSCRIPTION,
+          })
+          .returning()
+      )[0];
+
+      // Create programme
+      const programme = (
+        await this.database.db
+          .insert(programmes)
+          .values({
+            productId: product.id,
+            title: createProgrammeDto.title,
+            description: null,
+            muxAssetId: uuidv4(), // Temporary done for uniqueness , will be updated via webhook
+            muxPlaybackId: uuidv4(), // Temporary, will be updated via webhook
+            isPublished: false,
+            isFeatured: false,
+            requiresAccess: AccessItem.PROGRAMME_ACCESS,
+            duration: 0, // Will be updated via webhook
+            tags: [] as any,
+          })
+          .returning()
+      )[0];
 
       // Create Mux direct upload URL
       console.log('Creating Mux upload URL for product:', product.id);
@@ -120,12 +137,21 @@ export class ProgrammeService {
   ) {
     try {
       // Check if the programme exists
-      const existingProduct = await this.prisma.product.findUnique({
-        where: { id: updateDto.productId },
-        include: { programme: true },
-      });
+      const existingProduct = (
+        await this.database.db
+          .select()
+          .from(products)
+          .where(eq(products.id, updateDto.productId))
+      )[0];
 
-      if (!existingProduct || !existingProduct.programme) {
+      const existingProgramme = (
+        await this.database.db
+          .select()
+          .from(programmes)
+          .where(eq(programmes.productId, updateDto.productId))
+      )[0];
+
+      if (!existingProduct || !existingProgramme) {
         throw new NotFoundException('Programme not found');
       }
 
@@ -144,12 +170,13 @@ export class ProgrammeService {
       );
 
       // Update the programme with the new thumbnail URL
-      const updatedProgramme = await this.prisma.programme.update({
-        where: { productId: updateDto.productId },
-        data: {
-          thumbnail: uploadResult.url,
-        },
-      });
+      const updatedProgramme = (
+        await this.database.db
+          .update(programmes)
+          .set({ thumbnail: uploadResult.url })
+          .where(eq(programmes.productId, updateDto.productId))
+          .returning()
+      )[0];
 
       return {
         message: 'Thumbnail uploaded successfully',
@@ -171,28 +198,38 @@ export class ProgrammeService {
   async removeProgrammeThumbnail(productId: string) {
     try {
       // Check if the programme exists
-      const existingProduct = await this.prisma.product.findUnique({
-        where: { id: productId },
-        include: { programme: true },
-      });
+      const existingProduct = (
+        await this.database.db
+          .select()
+          .from(products)
+          .where(eq(products.id, productId))
+      )[0];
 
-      if (!existingProduct || !existingProduct.programme) {
+      const existingProgramme = (
+        await this.database.db
+          .select()
+          .from(programmes)
+          .where(eq(programmes.productId, productId))
+      )[0];
+
+      if (!existingProduct || !existingProgramme) {
         throw new NotFoundException('Programme not found');
       }
 
-      if (!existingProduct.programme.thumbnail) {
+      if (!existingProgramme.thumbnail) {
         throw new BadRequestException(
           'Programme does not have a thumbnail to remove',
         );
       }
 
       // Update the programme to remove the thumbnail URL
-      const updatedProgramme = await this.prisma.programme.update({
-        where: { productId: productId },
-        data: {
-          thumbnail: null,
-        },
-      });
+      const updatedProgramme = (
+        await this.database.db
+          .update(programmes)
+          .set({ thumbnail: null })
+          .where(eq(programmes.productId, productId))
+          .returning()
+      )[0];
 
       return {
         message: 'Thumbnail removed successfully',
@@ -219,30 +256,39 @@ export class ProgrammeService {
   ) {
     try {
       // Check if the programme exists
-      const existingProduct = await this.prisma.product.findUnique({
-        where: { id: programmeId },
-        include: { programme: true },
-      });
+      const existingProduct = (
+        await this.database.db
+          .select()
+          .from(products)
+          .where(eq(products.id, programmeId))
+      )[0];
 
-      if (!existingProduct || !existingProduct.programme) {
+      const existingProgramme = (
+        await this.database.db
+          .select()
+          .from(programmes)
+          .where(eq(programmes.productId, programmeId))
+      )[0];
+
+      if (!existingProduct || !existingProgramme) {
         throw new NotFoundException('Programme not found');
       }
 
       // Update the programme metadata
-      const updatedProgramme = await this.prisma.programme.update({
-        where: { productId: programmeId },
-        data: {
-          description:
-            updateDto.description ?? existingProduct.programme.description,
-          tags: updateDto.tags
-            ? JSON.stringify(updateDto.tags)
-            : (existingProduct.programme.tags as InputJsonValue),
-          isFeatured:
-            updateDto.isFeatured ?? existingProduct.programme.isFeatured,
-          isPublished:
-            updateDto.isPublished ?? existingProduct.programme.isPublished,
-        },
-      });
+      const updatedProgramme = (
+        await this.database.db
+          .update(programmes)
+          .set({
+            description: updateDto.description ?? existingProgramme.description,
+            tags: updateDto.tags
+              ? (updateDto.tags as any)
+              : existingProgramme.tags,
+            isFeatured: updateDto.isFeatured ?? existingProgramme.isFeatured,
+            isPublished: updateDto.isPublished ?? existingProgramme.isPublished,
+          })
+          .where(eq(programmes.productId, programmeId))
+          .returning()
+      )[0];
 
       return updatedProgramme;
     } catch (error) {
@@ -267,15 +313,18 @@ export class ProgrammeService {
       const { productId } = passthroughData;
 
       // Update the programme with Mux asset information
-      const updatedProgramme = await this.prisma.programme.update({
-        where: { productId: productId },
-        data: {
-          muxAssetId: muxAssetId,
-          muxPlaybackId: muxPlaybackId,
-          isPublished: true,
-          duration: duration,
-        },
-      });
+      const updatedProgramme = (
+        await this.database.db
+          .update(programmes)
+          .set({
+            muxAssetId: muxAssetId,
+            muxPlaybackId: muxPlaybackId,
+            isPublished: true,
+            duration: duration,
+          })
+          .where(eq(programmes.productId, productId))
+          .returning()
+      )[0];
 
       console.log(
         `Programme ${productId} updated with Mux asset ${muxAssetId}`,
@@ -293,16 +342,25 @@ export class ProgrammeService {
    * Gets a programme by product ID
    */
   async getProgrammeByProductId(productId: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id: productId },
-      include: { programme: true },
-    });
+    const product = (
+      await this.database.db
+        .select()
+        .from(products)
+        .where(eq(products.id, productId))
+    )[0];
 
-    if (!product || !product.programme) {
+    const programme = (
+      await this.database.db
+        .select()
+        .from(programmes)
+        .where(eq(programmes.productId, productId))
+    )[0];
+
+    if (!product || !programme) {
       throw new NotFoundException('Programme not found');
     }
 
-    return product.programme;
+    return programme;
   }
 
   /**
@@ -312,47 +370,78 @@ export class ProgrammeService {
     const { page = 1, limit = 20, isPublished, isFeatured, tags } = query;
     const skip = (page - 1) * limit;
 
-    // Build where clause for filtering
-    const whereClause: any = {
-      type: ProductType.PROGRAMME,
-    };
+    // Build conditions for filtering
+    const conditions = [eq(products.type, ProductType.PROGRAMME)];
 
-    // Add programme-specific filters
-    if (isPublished !== undefined) {
-      whereClause.programme = {
-        ...whereClause.programme,
-        isPublished,
-      };
-    }
+    // Get product IDs that match programme-specific filters
+    let programmeProductIds: string[] = [];
 
-    if (isFeatured !== undefined) {
-      whereClause.programme = {
-        ...whereClause.programme,
-        isFeatured,
-      };
+    if (isPublished !== undefined || isFeatured !== undefined) {
+      const programmeConditions = [];
+      if (isPublished !== undefined) {
+        programmeConditions.push(eq(programmes.isPublished, isPublished));
+      }
+      if (isFeatured !== undefined) {
+        programmeConditions.push(eq(programmes.isFeatured, isFeatured));
+      }
+
+      const matchingProgrammes = await this.database.db
+        .select({ productId: programmes.productId })
+        .from(programmes)
+        .where(and(...programmeConditions));
+
+      programmeProductIds = matchingProgrammes.map((p) => p.productId);
+
+      if (programmeProductIds.length === 0) {
+        // No matching programmes found
+        return ResponseDto.createPaginatedResponse(
+          'Programmes retrieved successfully',
+          [],
+          { total: 0, page, pageSize: limit },
+        );
+      }
+
+      if (programmeProductIds.length > 0) {
+        conditions.push(
+          or(...programmeProductIds.map((id) => eq(products.id, id))),
+        );
+      }
     }
 
     // Get total count for pagination
-    const total = await this.prisma.product.count({
-      where: whereClause,
-    });
+    const totalResults = await this.database.db
+      .select({ count: count() })
+      .from(products)
+      .where(and(...conditions));
+    const total = totalResults[0].count;
 
     // Get paginated results
-    const products = await this.prisma.product.findMany({
-      where: whereClause,
-      include: { programme: true },
-      skip,
-      take: limit,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const productResults = await this.database.db
+      .select()
+      .from(products)
+      .where(and(...conditions))
+      .orderBy(desc(products.createdAt))
+      .offset(skip)
+      .limit(limit);
 
-    let programmes = products.map((product) => product.programme!);
+    // Get corresponding programmes
+    let programmeResults = [];
+    for (const product of productResults) {
+      const programme = (
+        await this.database.db
+          .select()
+          .from(programmes)
+          .where(eq(programmes.productId, product.id))
+      )[0];
+
+      if (programme) {
+        programmeResults.push(programme);
+      }
+    }
 
     // Filter by tags if specified (since SQLite doesn't support array_contains)
     if (tags && tags.length > 0) {
-      programmes = programmes.filter((programme) => {
+      programmeResults = programmeResults.filter((programme) => {
         if (!programme?.tags) return false;
         const programmeTags = programme.tags as string[];
         return tags.some((tag) => programmeTags.includes(tag));
@@ -380,30 +469,46 @@ export class ProgrammeService {
     const now = new Date();
 
     // Find active subscriptions for the user
-    const activeSubscriptions = await this.prisma.subscription.findMany({
-      where: {
-        userId,
-        status: PaymentStatus.PAID,
-        startDate: { lte: now },
-        endDate: { gte: now },
-      },
-      include: {
-        plan: {
-          include: {
-            subscriptionAccess: true,
-          },
-        },
-      },
-    });
+    const activeSubscriptions = await this.database.db
+      .select()
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.userId, userId),
+          eq(subscriptions.status, PaymentStatus.PAID),
+          lte(subscriptions.startDate, now),
+          gte(subscriptions.endDate, now),
+        ),
+      );
 
     // Check if any active subscription provides the required access
-    return activeSubscriptions.some((subscription) =>
-      subscription.plan.subscriptionAccess.some(
-        (access) =>
-          access.accessItem === requiredAccess ||
-          access.accessItem === AccessItem.ALL_ACCESS,
-      ),
-    );
+    for (const subscription of activeSubscriptions) {
+      const plan = (
+        await this.database.db
+          .select()
+          .from(subscriptionPlans)
+          .where(eq(subscriptionPlans.id, subscription.planId))
+      )[0];
+
+      if (plan) {
+        const planAccess = await this.database.db
+          .select()
+          .from(subscriptionAccess)
+          .where(eq(subscriptionAccess.planId, plan.id));
+
+        const hasRequiredAccess = planAccess.some(
+          (access) =>
+            access.accessItem === requiredAccess ||
+            access.accessItem === AccessItem.ALL_ACCESS,
+        );
+
+        if (hasRequiredAccess) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -438,16 +543,23 @@ export class ProgrammeService {
    */
   async getSecureProgrammeById(productId: string, user: User) {
     // Get the programme
-    const product = await this.prisma.product.findUnique({
-      where: { id: productId },
-      include: { programme: true },
-    });
+    const product = (
+      await this.database.db
+        .select()
+        .from(products)
+        .where(eq(products.id, productId))
+    )[0];
 
-    if (!product || !product.programme) {
+    const programme = (
+      await this.database.db
+        .select()
+        .from(programmes)
+        .where(eq(programmes.productId, productId))
+    )[0];
+
+    if (!product || !programme) {
       throw new NotFoundException('Programme not found');
     }
-
-    const programme = product.programme;
 
     // Check if programme is published
     if (!programme.isPublished) {

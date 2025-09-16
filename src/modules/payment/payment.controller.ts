@@ -19,7 +19,7 @@ import {
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { StrictRoles } from 'src/common/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole } from 'src/database/schema';
 
 @Controller('payment')
 export class PaymentController {

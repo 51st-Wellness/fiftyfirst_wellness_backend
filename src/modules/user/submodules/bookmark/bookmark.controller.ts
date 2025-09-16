@@ -14,7 +14,7 @@ import { BookmarkService } from './bookmark.service';
 import { CreateBookmarkDto } from './dto/create-bookmark.dto';
 import { BookmarkQueryDto } from './dto/bookmark-query.dto';
 import { Auth } from 'src/common/decorators/auth.decorator';
-import { User } from '@prisma/client';
+import { User } from 'src/database/types';
 import { ResponseDto } from 'src/util/dto/response.dto';
 
 @Controller('user/bookmark')

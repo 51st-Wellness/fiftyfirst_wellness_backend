@@ -1,4 +1,4 @@
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus } from 'src/database/schema';
 
 export type PaymentInitInput = {
   orderId?: string; // for store purchases

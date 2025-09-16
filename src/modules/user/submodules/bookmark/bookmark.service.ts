@@ -4,15 +4,25 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { DatabaseService } from 'src/database/database.service';
 import { CreateBookmarkDto } from './dto/create-bookmark.dto';
 import { BookmarkQueryDto } from './dto/bookmark-query.dto';
 import { BookmarkWithRelations } from './dto/bookmark-response.dto';
-import { Bookmark } from '@prisma/client';
+import { eq, and, or, like, desc, count } from 'drizzle-orm';
+import {
+  bookmarks,
+  products,
+  storeItems,
+  programmes,
+  podcasts,
+  users,
+} from 'src/database/schema';
+import { Bookmark } from 'src/database/types';
+import { generateId } from 'src/database/utils';
 
 @Injectable()
 export class BookmarkService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly database: DatabaseService) {}
 
   // Create a new bookmark
   async create(
@@ -22,59 +32,44 @@ export class BookmarkService {
     const { productId } = createBookmarkDto;
 
     // Check if product exists
-    const product = await this.prisma.product.findUnique({
-      where: { id: productId },
-    });
+    const product = (
+      await this.database.db
+        .select()
+        .from(products)
+        .where(eq(products.id, productId))
+    )[0];
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
     // Check if bookmark already exists
-    const existingBookmark = await this.prisma.bookmark.findUnique({
-      where: {
-        productId_userId: {
-          productId,
-          userId,
-        },
-      },
-    });
+    const existingBookmark = (
+      await this.database.db
+        .select()
+        .from(bookmarks)
+        .where(
+          and(eq(bookmarks.productId, productId), eq(bookmarks.userId, userId)),
+        )
+    )[0];
 
     if (existingBookmark) {
       throw new ConflictException('Product is already bookmarked');
     }
 
     // Create bookmark
-    const bookmark = await this.prisma.bookmark.create({
-      data: {
-        productId,
-        userId,
-      },
-      include: {
-        product: {
-          include: {
-            storeItem: true,
-            programme: true,
-            podcast: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            profilePicture: true,
-            isActive: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-      },
-    });
+    const bookmark = (
+      await this.database.db
+        .insert(bookmarks)
+        .values({
+          id: generateId(),
+          productId,
+          userId,
+        })
+        .returning()
+    )[0];
 
-    return bookmark as BookmarkWithRelations;
+    return this.getBookmarkWithRelations(bookmark.id);
   }
 
   // Find all bookmarks for a user with pagination and filters
@@ -85,137 +80,113 @@ export class BookmarkService {
     const { page = 1, pageSize = 10, search } = query;
     const skip = (page - 1) * pageSize;
 
-    // Build where clause
-    const where: any = {
-      userId,
-    };
+    let bookmarkQuery = this.database.db
+      .select()
+      .from(bookmarks)
+      .where(eq(bookmarks.userId, userId))
+      .$dynamic();
 
-    // If search is provided, filter by product name or description
+    // If search is provided, filter by joining with product tables
     if (search) {
-      where.product = {
-        OR: [
-          {
-            storeItem: {
-              name: {
-                contains: search,
-                mode: 'insensitive',
-              },
-            },
-          },
-          {
-            programme: {
-              title: {
-                contains: search,
-                mode: 'insensitive',
-              },
-            },
-          },
-          {
-            podcast: {
-              title: {
-                contains: search,
-                mode: 'insensitive',
-              },
-            },
-          },
-        ],
-      };
+      // Get product IDs that match search criteria
+      const searchPattern = `%${search}%`;
+
+      const matchingStoreProducts = await this.database.db
+        .select({ productId: storeItems.productId })
+        .from(storeItems)
+        .where(like(storeItems.name, searchPattern));
+
+      const matchingProgrammeProducts = await this.database.db
+        .select({ productId: programmes.productId })
+        .from(programmes)
+        .where(like(programmes.title, searchPattern));
+
+      const matchingPodcastProducts = await this.database.db
+        .select({ productId: podcasts.productId })
+        .from(podcasts)
+        .where(like(podcasts.title, searchPattern));
+
+      const allMatchingProductIds = [
+        ...matchingStoreProducts.map((p) => p.productId),
+        ...matchingProgrammeProducts.map((p) => p.productId),
+        ...matchingPodcastProducts.map((p) => p.productId),
+      ];
+
+      if (allMatchingProductIds.length > 0) {
+        bookmarkQuery = bookmarkQuery.where(
+          and(
+            eq(bookmarks.userId, userId),
+            or(
+              ...allMatchingProductIds.map((id) => eq(bookmarks.productId, id)),
+            ),
+          ),
+        );
+      } else {
+        // No matching products found, return empty result
+        return { bookmarks: [], total: 0 };
+      }
     }
 
-    // Get bookmarks with relations
-    const [bookmarks, total] = await Promise.all([
-      this.prisma.bookmark.findMany({
-        where,
-        skip,
-        take: pageSize,
-        include: {
-          product: {
-            include: {
-              storeItem: true,
-              programme: true,
-              podcast: true,
-            },
-          },
-          user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              role: true,
-              profilePicture: true,
-              isActive: true,
-              createdAt: true,
-              updatedAt: true,
-            },
-          },
-        },
-        orderBy: {
-          id: 'desc', // Most recent first
-        },
-      }),
-      this.prisma.bookmark.count({ where }),
+    // Execute query with pagination
+    const [bookmarkResults, totalResults] = await Promise.all([
+      bookmarkQuery.orderBy(desc(bookmarks.id)).offset(skip).limit(pageSize),
+      this.database.db
+        .select({ count: count() })
+        .from(bookmarks)
+        .where(eq(bookmarks.userId, userId)),
     ]);
 
-    return { bookmarks: bookmarks as BookmarkWithRelations[], total };
+    // Enrich bookmarks with relations
+    const enrichedBookmarks: BookmarkWithRelations[] = [];
+    for (const bookmark of bookmarkResults) {
+      const enriched = await this.getBookmarkWithRelations(bookmark.id);
+      enrichedBookmarks.push(enriched);
+    }
+
+    return { bookmarks: enrichedBookmarks, total: totalResults[0].count };
   }
 
   // Find bookmark by ID
   async findOne(id: string): Promise<BookmarkWithRelations | null> {
-    const bookmark = await this.prisma.bookmark.findUnique({
-      where: { id },
-      include: {
-        product: {
-          include: {
-            storeItem: true,
-            programme: true,
-            podcast: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            profilePicture: true,
-            isActive: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-      },
-    });
+    const bookmark = (
+      await this.database.db
+        .select()
+        .from(bookmarks)
+        .where(eq(bookmarks.id, id))
+    )[0];
 
-    return bookmark as BookmarkWithRelations | null;
+    if (!bookmark) {
+      return null;
+    }
+
+    return this.getBookmarkWithRelations(bookmark.id);
   }
 
   // Remove bookmark
   async remove(userId: string, productId: string): Promise<Bookmark> {
     // Check if bookmark exists
-    const bookmark = await this.prisma.bookmark.findUnique({
-      where: {
-        productId_userId: {
-          productId,
-          userId,
-        },
-      },
-    });
+    const bookmark = (
+      await this.database.db
+        .select()
+        .from(bookmarks)
+        .where(
+          and(eq(bookmarks.productId, productId), eq(bookmarks.userId, userId)),
+        )
+    )[0];
 
     if (!bookmark) {
       throw new NotFoundException('Bookmark not found');
     }
 
     // Delete bookmark
-    const deletedBookmark = await this.prisma.bookmark.delete({
-      where: {
-        productId_userId: {
-          productId,
-          userId,
-        },
-      },
-    });
+    const deletedBookmark = (
+      await this.database.db
+        .delete(bookmarks)
+        .where(
+          and(eq(bookmarks.productId, productId), eq(bookmarks.userId, userId)),
+        )
+        .returning()
+    )[0];
 
     return deletedBookmark;
   }
@@ -223,19 +194,100 @@ export class BookmarkService {
   // Remove bookmark by ID
   async removeById(id: string): Promise<Bookmark> {
     // Check if bookmark exists
-    const bookmark = await this.prisma.bookmark.findUnique({
-      where: { id },
-    });
+    const bookmark = (
+      await this.database.db
+        .select()
+        .from(bookmarks)
+        .where(eq(bookmarks.id, id))
+    )[0];
 
     if (!bookmark) {
       throw new NotFoundException('Bookmark not found');
     }
 
     // Delete bookmark
-    const deletedBookmark = await this.prisma.bookmark.delete({
-      where: { id },
-    });
+    const deletedBookmark = (
+      await this.database.db
+        .delete(bookmarks)
+        .where(eq(bookmarks.id, id))
+        .returning()
+    )[0];
 
     return deletedBookmark;
+  }
+
+  // Private helper method to get bookmark with relations
+  private async getBookmarkWithRelations(
+    bookmarkId: string,
+  ): Promise<BookmarkWithRelations> {
+    const bookmark = (
+      await this.database.db
+        .select()
+        .from(bookmarks)
+        .where(eq(bookmarks.id, bookmarkId))
+    )[0];
+
+    if (!bookmark) {
+      throw new NotFoundException('Bookmark not found');
+    }
+
+    const product = (
+      await this.database.db
+        .select()
+        .from(products)
+        .where(eq(products.id, bookmark.productId))
+    )[0];
+
+    const storeItem =
+      (
+        await this.database.db
+          .select()
+          .from(storeItems)
+          .where(eq(storeItems.productId, bookmark.productId))
+      )[0] || null;
+
+    const programme =
+      (
+        await this.database.db
+          .select()
+          .from(programmes)
+          .where(eq(programmes.productId, bookmark.productId))
+      )[0] || null;
+
+    const podcast =
+      (
+        await this.database.db
+          .select()
+          .from(podcasts)
+          .where(eq(podcasts.productId, bookmark.productId))
+      )[0] || null;
+
+    const user = (
+      await this.database.db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          role: users.role,
+          profilePicture: users.profilePicture,
+          isActive: users.isActive,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        })
+        .from(users)
+        .where(eq(users.id, bookmark.userId))
+    )[0];
+
+    return {
+      ...bookmark,
+      product: {
+        ...product,
+        storeItem,
+        programme,
+        podcast,
+      },
+      user,
+    } as BookmarkWithRelations;
   }
 }

@@ -7,7 +7,7 @@ import {
   Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { UserRole } from '@prisma/client';
+import { UserRole } from 'src/database/schema';
 
 export class UserQueryDto {
   @IsOptional()

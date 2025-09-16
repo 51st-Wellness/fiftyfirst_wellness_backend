@@ -17,7 +17,7 @@ import {
 } from '../payment.types';
 import { configService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus } from 'src/database/schema';
 
 @Injectable()
 export class PayPalProvider implements PaymentProvider {

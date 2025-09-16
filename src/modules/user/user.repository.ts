@@ -1,59 +1,131 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { User, Prisma } from '@prisma/client';
+import { DatabaseService } from 'src/database/database.service';
+import { eq, like, or, and, count, desc, SQL } from 'drizzle-orm';
+import {
+  users,
+  passwordResetOTPs,
+  orders,
+  aiConversations,
+} from 'src/database/schema';
+import { User, NewUser, UserWithRelations } from 'src/database/types';
+import { generateId } from 'src/database/utils';
 
 @Injectable()
 export class UserRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly database: DatabaseService) {}
 
   // Create a new user
-  async create(data: Prisma.UserCreateInput): Promise<User> {
-    return this.prisma.user.create({ data });
+  async create(
+    data: Omit<NewUser, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<User> {
+    const newUser: NewUser = {
+      id: generateId(),
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await this.database.db
+      .insert(users)
+      .values(newUser)
+      .returning();
+    return result[0];
   }
 
   // Find user by ID
   async findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id } });
+    const result = await this.database.db
+      .select()
+      .from(users)
+      .where(eq(users.id, id));
+    return result[0] || null;
   }
 
   // Find user by email
   async findByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { email } });
+    const result = await this.database.db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+    return result[0] || null;
   }
 
   // Find user by Google ID
   async findByGoogleId(googleId: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { googleId } });
+    const result = await this.database.db
+      .select()
+      .from(users)
+      .where(eq(users.googleId, googleId));
+    return result[0] || null;
   }
 
   // Find all users with optional pagination
   async findAll(skip?: number, take?: number): Promise<User[]> {
-    return this.prisma.user.findMany({
-      skip,
-      take,
-      orderBy: { createdAt: 'desc' },
-    });
+    let query = this.database.db.select().from(users).$dynamic();
+
+    if (skip !== undefined) {
+      query = query.offset(skip);
+    }
+
+    if (take !== undefined) {
+      query = query.limit(take);
+    }
+
+    return await query.orderBy(desc(users.createdAt));
   }
 
   // Update user by ID
-  async update(id: string, data: Prisma.UserUpdateInput): Promise<User> {
-    return this.prisma.user.update({ where: { id }, data });
+  async update(
+    id: string,
+    data: Partial<Omit<NewUser, 'id' | 'createdAt'>>,
+  ): Promise<User> {
+    const updateData = {
+      ...data,
+      updatedAt: new Date(),
+    };
+
+    const result = await this.database.db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    return result[0];
   }
 
   // Delete user by ID
   async delete(id: string): Promise<User> {
-    return this.prisma.user.delete({ where: { id } });
+    const result = await this.database.db
+      .delete(users)
+      .where(eq(users.id, id))
+      .returning();
+    return result[0];
   }
 
   // Find user by ID with related data
-  async findByIdWithRelations(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({
-      where: { id },
-      include: {
-        orders: true,
-        aiConversations: true,
-      },
-    });
+  async findByIdWithRelations(id: string): Promise<UserWithRelations | null> {
+    const user = await this.database.db
+      .select()
+      .from(users)
+      .where(eq(users.id, id));
+
+    if (user.length === 0) {
+      return null;
+    }
+
+    const userOrders = await this.database.db
+      .select()
+      .from(orders)
+      .where(eq(orders.userId, id));
+    const userConversations = await this.database.db
+      .select()
+      .from(aiConversations)
+      .where(eq(aiConversations.userId, id));
+
+    return {
+      ...user[0],
+      orders: userOrders,
+      aiConversations: userConversations,
+    };
   }
 
   // Store password reset OTP (upsert to handle existing OTP)
@@ -62,41 +134,61 @@ export class UserRepository {
     otp: string,
     expiresAt: Date,
   ): Promise<void> {
-    await this.prisma.passwordResetOTP.upsert({
-      where: { userId },
-      update: { otp, expiresAt },
-      create: { userId, otp, expiresAt },
-    });
+    // Check if OTP exists
+    const existing = await this.database.db
+      .select()
+      .from(passwordResetOTPs)
+      .where(eq(passwordResetOTPs.userId, userId));
+
+    if (existing.length > 0) {
+      // Update existing OTP
+      await this.database.db
+        .update(passwordResetOTPs)
+        .set({ otp, expiresAt })
+        .where(eq(passwordResetOTPs.userId, userId));
+    } else {
+      // Create new OTP
+      await this.database.db.insert(passwordResetOTPs).values({
+        id: generateId(),
+        userId,
+        otp,
+        expiresAt,
+        createdAt: new Date(),
+      });
+    }
   }
 
   // Verify password reset OTP
   async verifyPasswordResetOTP(userId: string, otp: string): Promise<boolean> {
-    const otpRecord = await this.prisma.passwordResetOTP.findUnique({
-      where: { userId },
-    });
+    const otpRecord = await this.database.db
+      .select()
+      .from(passwordResetOTPs)
+      .where(eq(passwordResetOTPs.userId, userId));
 
-    if (!otpRecord) {
+    if (otpRecord.length === 0) {
       return false;
     }
 
     // Check if OTP matches and hasn't expired
-    const isValid = otpRecord.otp === otp && otpRecord.expiresAt > new Date();
+    const isValid =
+      otpRecord[0].otp === otp && otpRecord[0].expiresAt > new Date();
     return isValid;
   }
 
   // Reset password and clear OTP
   async resetPassword(userId: string, hashedPassword: string): Promise<void> {
-    await this.prisma.$transaction([
+    await this.database.db.transaction(async (tx) => {
       // Update password
-      this.prisma.user.update({
-        where: { id: userId },
-        data: { password: hashedPassword },
-      }),
+      await tx
+        .update(users)
+        .set({ password: hashedPassword, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+
       // Delete the OTP record
-      this.prisma.passwordResetOTP.delete({
-        where: { userId },
-      }),
-    ]);
+      await tx
+        .delete(passwordResetOTPs)
+        .where(eq(passwordResetOTPs.userId, userId));
+    });
   }
 
   // Find users with pagination and filters
@@ -111,43 +203,66 @@ export class UserRepository {
   ): Promise<{ users: User[]; total: number }> {
     const skip = (page - 1) * pageSize;
 
-    const where: any = {};
+    // Build where conditions
+    const conditions: SQL[] = [];
 
     // Apply filters
     if (filters.role) {
-      where.role = filters.role;
+      conditions.push(eq(users.role, filters.role as any));
     }
 
     if (filters.isActive !== undefined) {
-      where.isActive = filters.isActive;
+      conditions.push(eq(users.isActive, filters.isActive));
     }
 
     if (filters.search) {
-      where.OR = [
-        { email: { contains: filters.search, mode: 'insensitive' } },
-        { firstName: { contains: filters.search, mode: 'insensitive' } },
-        { lastName: { contains: filters.search, mode: 'insensitive' } },
-      ];
+      const searchCondition = or(
+        like(users.email, `%${filters.search}%`),
+        like(users.firstName, `%${filters.search}%`),
+        like(users.lastName, `%${filters.search}%`),
+      );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
     }
 
-    const [users, total] = await this.prisma.$transaction([
-      this.prisma.user.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.user.count({ where }),
+    // Build queries step by step using dynamic query builders
+    let userQuery = this.database.db.select().from(users).$dynamic();
+    let countQuery = this.database.db
+      .select({ count: count() })
+      .from(users)
+      .$dynamic();
+
+    if (conditions.length > 0) {
+      const whereClause = and(...conditions);
+      userQuery = userQuery.where(whereClause);
+      countQuery = countQuery.where(whereClause);
+    }
+
+    userQuery = userQuery
+      .orderBy(desc(users.createdAt))
+      .offset(skip)
+      .limit(pageSize);
+
+    // Execute queries in parallel
+    const [userResults, totalResults] = await Promise.all([
+      userQuery,
+      countQuery,
     ]);
 
-    return { users, total };
+    return {
+      users: userResults,
+      total: totalResults[0].count,
+    };
   }
 
   // Toggle user active status
   async toggleUserStatus(userId: string, isActive: boolean): Promise<User> {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { isActive },
-    });
+    const result = await this.database.db
+      .update(users)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
   }
 }

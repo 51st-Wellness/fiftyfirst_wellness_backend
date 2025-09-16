@@ -22,7 +22,7 @@ import { UpdateStoreItemDto } from './dto/update-store-item.dto';
 import { StoreItemQueryDto } from './dto/store-item-query.dto';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole } from 'src/database/schema';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseDto } from 'src/util/dto/response.dto';
 

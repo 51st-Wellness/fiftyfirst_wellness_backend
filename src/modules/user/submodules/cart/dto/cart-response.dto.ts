@@ -1,4 +1,4 @@
-import { CartItem, Product, StoreItem, User } from '@prisma/client';
+import { CartItem, Product, StoreItem, User } from 'src/database/types';
 
 export interface CartItemWithRelations extends CartItem {
   product: Product & {
