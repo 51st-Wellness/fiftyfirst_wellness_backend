@@ -297,9 +297,16 @@ export class SubscriptionService {
     if (search) {
       const searchResults = await this.performCaseInsensitiveSearch(search);
       if (searchResults.length > 0) {
-        conditions.push(
-          or(...searchResults.map((id) => eq(subscriptions.id, id))),
-        );
+        // Create SQL conditions for search results
+        if (searchResults.length === 1) {
+          conditions.push(eq(subscriptions.id, searchResults[0]));
+        } else if (searchResults.length > 1) {
+          const searchConditions = searchResults.map((id) =>
+            eq(subscriptions.id, id),
+          );
+          // Type assertion to work around TypeScript inference issue
+          conditions.push((or as any)(...searchConditions));
+        }
       } else {
         return {
           data: [],
@@ -328,7 +335,7 @@ export class SubscriptionService {
     ]);
 
     // Enrich with related data
-    const enrichedSubscriptions = [];
+    const enrichedSubscriptions: any[] = [];
     for (const subscription of subscriptionResults) {
       const user = (
         await this.database.db
@@ -521,7 +528,7 @@ export class SubscriptionService {
       .from(subscriptionPlans)
       .orderBy(desc(subscriptionPlans.createdAt));
 
-    const enrichedPlans = [];
+    const enrichedPlans: any[] = [];
     for (const plan of plans) {
       const subscriptionAccessList = await this.database.db
         .select()

@@ -18,9 +18,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     try {
-      // Test the connection by running a simple query
-      await this._db.execute(sql`select 1`);
-      console.log('✅ Connected to Turso database successfully');
+      // Check if the database connection is alive
+      await this._db.run(sql`select 1`);
+      console.log('✅ Database connection is healthy');
     } catch (error) {
       console.error('❌ Failed to connect to Turso database:', error);
       throw new Error(`Database connection failed: ${error.message}`);
