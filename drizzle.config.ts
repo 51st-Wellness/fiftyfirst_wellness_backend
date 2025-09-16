@@ -6,7 +6,7 @@ config();
 
 export default defineConfig({
   schema: './src/database/schema.ts',
-  out: './drizzle/migrations',
+  out: './database/migrations',
   dialect: 'turso',
   dbCredentials: {
     url: process.env.DATABASE_URL!,

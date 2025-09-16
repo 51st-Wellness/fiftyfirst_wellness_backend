@@ -26,7 +26,10 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} src/database/seed.ts"
+    "db:seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} src/database/seed.ts",
+    "db:drop": "drizzle-kit drop",
+    "db:reset": "pnpm db:push ; pnpm db:seed",
+    "db:clear": "tsx scripts/db-reset.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.15.12",
@@ -55,6 +58,7 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.1",
     "drizzle-orm": "^0.36.4",
+    "drizzle-seed": "^0.3.1",
     "ejs": "^3.1.10",
     "helmet": "^8.1.0",
     "lodash": "^4.17.21",
