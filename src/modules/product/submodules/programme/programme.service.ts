@@ -371,13 +371,13 @@ export class ProgrammeService {
     const skip = (page - 1) * limit;
 
     // Build conditions for filtering
-    const conditions = [eq(products.type, ProductType.PROGRAMME)];
+    const conditions: any[] = [eq(products.type, ProductType.PROGRAMME)];
 
     // Get product IDs that match programme-specific filters
     let programmeProductIds: string[] = [];
 
     if (isPublished !== undefined || isFeatured !== undefined) {
-      const programmeConditions = [];
+      const programmeConditions: any[] = [];
       if (isPublished !== undefined) {
         programmeConditions.push(eq(programmes.isPublished, isPublished));
       }
@@ -385,10 +385,16 @@ export class ProgrammeService {
         programmeConditions.push(eq(programmes.isFeatured, isFeatured));
       }
 
-      const matchingProgrammes = await this.database.db
+      let programmeQuery = this.database.db
         .select({ productId: programmes.productId })
         .from(programmes)
-        .where(and(...programmeConditions));
+        .$dynamic();
+
+      if (programmeConditions.length > 0) {
+        programmeQuery = programmeQuery.where(and(...programmeConditions));
+      }
+
+      const matchingProgrammes = await programmeQuery;
 
       programmeProductIds = matchingProgrammes.map((p) => p.productId);
 
@@ -409,23 +415,32 @@ export class ProgrammeService {
     }
 
     // Get total count for pagination
-    const totalResults = await this.database.db
+    let countQuery = this.database.db
       .select({ count: count() })
       .from(products)
-      .where(and(...conditions));
+      .$dynamic();
+
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions));
+    }
+
+    const totalResults = await countQuery;
     const total = totalResults[0].count;
 
     // Get paginated results
-    const productResults = await this.database.db
-      .select()
-      .from(products)
-      .where(and(...conditions))
+    let productQuery = this.database.db.select().from(products).$dynamic();
+
+    if (conditions.length > 0) {
+      productQuery = productQuery.where(and(...conditions));
+    }
+
+    const productResults = await productQuery
       .orderBy(desc(products.createdAt))
       .offset(skip)
       .limit(limit);
 
     // Get corresponding programmes
-    let programmeResults = [];
+    let programmeResults: any[] = [];
     for (const product of productResults) {
       const programme = (
         await this.database.db
@@ -450,9 +465,9 @@ export class ProgrammeService {
 
     return ResponseDto.createPaginatedResponse(
       'Programmes retrieved successfully',
-      programmes,
+      programmeResults,
       {
-        total: tags && tags.length > 0 ? programmes.length : total,
+        total: tags && tags.length > 0 ? programmeResults.length : total,
         page,
         pageSize: limit,
       },
