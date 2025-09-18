@@ -1,44 +1,13 @@
 import { Module } from '@nestjs/common';
 import { EmailService } from './email/email.service';
-import { MailerModule } from '@nestjs-modules/mailer';
 import { ConfigModule } from 'src/config/config.module';
 import { ConfigService } from 'src/config/config.service';
-import { ENV } from 'src/config/env.enum';
 import BrevoProvider from './email/providers/brevo.provider';
-import IONOSProvider from './email/providers/ionos-provider';
+import GmailProvider from './email/providers/gmail.provider';
 import { Logger } from '@nestjs/common';
-import { MailerService } from '@nestjs-modules/mailer';
 
 @Module({
-  imports: [
-    ConfigModule,
-    MailerModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        // testing
-        console.log({
-          host: config.get(ENV.IONOS_SMTP_HOST),
-          port: parseInt(config.get(ENV.IONOS_SMTP_PORT)),
-          username: config.get(ENV.IONOS_SMTP_USERNAME),
-          password: config.get(ENV.IONOS_SMTP_PASSWORD),
-          from: config.get(ENV.IONOS_SMTP_FROM_EMAIL),
-        });
-        return {
-          transport: {
-            host: 'smtp.ionos.com',
-            port: 465,
-            secure: false,
-            // requireTLS: true,
-            auth: {
-              user: 'info@fiftyfirsts.co.uk',
-              pass: 'Freckle227!',
-            },
-          },
-        };
-      },
-    }),
-  ],
+  imports: [ConfigModule],
   providers: [
     EmailService,
     {
@@ -49,18 +18,11 @@ import { MailerService } from '@nestjs-modules/mailer';
       inject: [ConfigService],
     },
     {
-      provide: IONOSProvider,
-      useFactory: (
-        configService: ConfigService,
-        mailerService: MailerService,
-      ) => {
-        return new IONOSProvider(
-          new Logger(IONOSProvider.name),
-          mailerService,
-          configService,
-        );
+      provide: GmailProvider,
+      useFactory: (configService: ConfigService) => {
+        return new GmailProvider(configService);
       },
-      inject: [ConfigService, MailerService],
+      inject: [ConfigService],
     },
   ],
   exports: [EmailService],
