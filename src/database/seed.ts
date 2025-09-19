@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/libsql';
 import { createClient } from '@libsql/client';
-import { createId } from '@paralleldrive/cuid2';
+
 import * as schema from './schema';
 import * as bcrypt from 'bcrypt';
 import { Database } from './connection';
@@ -75,14 +75,6 @@ async function main() {
     process.exit(1);
   }
 }
-
-// Helper function to generate unique ID
-export const generateId = () => createId();
-
-// Helper function to hash password
-export const hashPassword = async (password: string): Promise<string> => {
-  return bcrypt.hash(password, 10);
-};
 
 // Run if called directly
 if (require.main === module) {
