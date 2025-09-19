@@ -1,10 +1,6 @@
 import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
 
 export class CheckoutDto {
-  @IsString()
-  @IsNotEmpty()
-  userId: string; // User ID for checkout
-
   @IsOptional()
   @IsString()
   description?: string; // Optional description for the payment

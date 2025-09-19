@@ -20,6 +20,8 @@ import { ResponseDto } from 'src/util/dto/response.dto';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { StrictRoles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/database/schema';
+import { User } from 'src/database/types';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @Controller('payment')
 export class PaymentController {
@@ -27,11 +29,16 @@ export class PaymentController {
 
   @Post('checkout/store')
   @UseGuards(RolesGuard)
-  @StrictRoles(UserRole.USER, UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  async checkoutStore(@Body() checkoutDto: CheckoutDto) {
+  async checkoutCartItems(
+    @Body() checkoutDto: CheckoutDto,
+    @CurrentUser() user: User,
+  ) {
     // Initiate store checkout from user's cart
-    const result = await this.paymentService.createStoreCheckout(checkoutDto);
+    const result = await this.paymentService.checkoutCartItems(
+      checkoutDto,
+      user,
+    );
     return ResponseDto.createSuccessResponse(
       'Store checkout initiated successfully',
       result,

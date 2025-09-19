@@ -115,7 +115,9 @@ export class CartService {
   }
 
   // Get all cart items for a user (no pagination)
-  async getCart(userId: string): Promise<CartItemWithRelations[]> {
+  async getAuthenticatedUserCart(
+    userId: string,
+  ): Promise<CartItemWithRelations[]> {
     const items = await this.database.db
       .select()
       .from(cartItems)
@@ -171,7 +173,7 @@ export class CartService {
 
   // Alias kept for compatibility
   async getCartAll(userId: string): Promise<CartItemWithRelations[]> {
-    return this.getCart(userId);
+    return this.getAuthenticatedUserCart(userId);
   }
 
   // Update cart item quantity

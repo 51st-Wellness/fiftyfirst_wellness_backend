@@ -26,6 +26,8 @@ import {
   PaymentProvider as PaymentProviderEnum,
 } from 'src/database/schema';
 import { generateId } from 'src/database/utils';
+import { User } from 'src/database/types';
+import { ProductType } from 'src/database/schema';
 
 @Injectable()
 export class PaymentService {
@@ -35,66 +37,115 @@ export class PaymentService {
   ) {}
 
   private async getCartSummary(userId: string) {
-    // Compute cart total and validate items
-    const cart = await this.database.db
-      .select()
+    // Fetch cart items with store item details in a single optimized query
+    const cartWithDetails = await this.database.db
+      .select({
+        cartItemId: cartItems.id,
+        productId: cartItems.productId,
+        quantity: cartItems.quantity,
+        productType: products.type,
+        storeItemName: storeItems.name,
+        storeItemPrice: storeItems.price,
+        storeItemStock: storeItems.stock,
+        storeItemIsPublished: storeItems.isPublished,
+      })
       .from(cartItems)
+      .innerJoin(products, eq(cartItems.productId, products.id))
+      .innerJoin(storeItems, eq(products.id, storeItems.productId))
       .where(eq(cartItems.userId, userId));
 
-    if (cart.length === 0) {
+    if (cartWithDetails.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
 
-    // Validate all cart items are store items
-    // Validate by checking referenced products are store items
-    const productIds = Array.from(new Set(cart.map((c) => c.productId)));
-    const relatedProducts = await this.database.db
-      .select()
-      .from(products)
-      .where(eq(products.id, productIds[0] as any));
-    // Note: For brevity, assuming items are valid; enhance by joining if necessary
-    const invalidItems: any[] = [];
-    if (invalidItems.length > 0) {
-      throw new BadRequestException('Cart contains invalid items');
+    // Validate cart items and filter out invalid ones
+    const validItems: any[] = [];
+    const invalidItems: string[] = [];
+
+    for (const item of cartWithDetails) {
+      // Check if item is a store item and is published
+      if (item.productType !== ProductType.STORE) {
+        invalidItems.push(`Product ${item.productId} is not a store item`);
+        continue;
+      }
+
+      if (!item.storeItemIsPublished) {
+        invalidItems.push(
+          `Product ${item.storeItemName} is no longer available`,
+        );
+        continue;
+      }
+
+      // Check stock availability
+      if (item.storeItemStock < item.quantity) {
+        invalidItems.push(
+          `Insufficient stock for ${item.storeItemName}. Available: ${item.storeItemStock}, Requested: ${item.quantity}`,
+        );
+        continue;
+      }
+
+      // Check for valid price
+      if (!item.storeItemPrice || item.storeItemPrice <= 0) {
+        invalidItems.push(`Invalid price for ${item.storeItemName}`);
+        continue;
+      }
+
+      validItems.push(item);
     }
 
+    // Throw error if any invalid items found
+    if (invalidItems.length > 0) {
+      throw new BadRequestException(
+        `Cart contains invalid items: ${invalidItems.join(', ')}`,
+      );
+    }
+
+    // Calculate order items data and totals
     const currency = 'USD'; // Default currency
-    // For now we cannot join easily; compute pricing requires fetching store items
-    const storeRecords = await this.database.db
-      .select()
-      .from(storeItems)
-      .where(eq(storeItems.productId, productIds[0] as any));
-    const orderItemsData = cart.map((item) => ({
+    const orderItemsData = validItems.map((item) => ({
       productId: item.productId,
-      name: storeRecords[0]?.name ?? 'Item',
+      name: item.storeItemName,
       quantity: item.quantity,
-      unitPrice: storeRecords[0]?.price ?? 0,
+      unitPrice: item.storeItemPrice,
+      lineTotal: item.quantity * item.storeItemPrice,
     }));
 
     const totalAmount = orderItemsData.reduce(
-      (sum, i) => sum + i.quantity * i.unitPrice,
+      (sum, item) => sum + item.lineTotal,
       0,
     );
+
+    // Prepare cart items data for metadata
+    const cartItemsData = validItems.map((item) => ({
+      id: item.cartItemId,
+      productId: item.productId,
+      quantity: item.quantity,
+      userId: userId,
+    }));
 
     return {
       orderItems: orderItemsData,
       totalAmount,
       currency,
-      cartItems: cart,
+      cartItems: cartItemsData,
+      itemCount: validItems.length,
+      summary: {
+        subtotal: totalAmount,
+        currency,
+        itemCount: validItems.length,
+        totalQuantity: orderItemsData.reduce(
+          (sum, item) => sum + item.quantity,
+          0,
+        ),
+      },
     };
   }
 
-  async createStoreCheckout(checkoutDto: CheckoutDto) {
+  async checkoutCartItems(checkoutDto: CheckoutDto, userProfile: User) {
     // Create order and initialize payment for store items
-    const { userId, description } = checkoutDto;
-
-    // Validate user exists
-    const user = (
-      await this.database.db.select().from(users).where(eq(users.id, userId))
-    )[0];
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const description =
+      checkoutDto.description || `Store Checkout for ${userProfile.firstName}`;
+    const userId = userProfile.id;
 
     const {
       orderItems: orderItemsData,

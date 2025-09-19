@@ -26,6 +26,8 @@ export class RolesGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // testing
+    // return true;
     // Get the roles required for this route
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
       ROLES_KEY,
@@ -45,13 +47,13 @@ export class RolesGuard implements CanActivate {
       const user = await this.authenticateRequest(request);
 
       // Fetch the user with their role from the database
-      const dbUser = await this.userService.findOne(user.id);
+      const dbUser = (await this.userService.findOne(user.id)) as any;
       if (!dbUser) {
         throw new UnauthorizedException('User not found');
       }
 
       // Handle account active status based on strict mode
-      if (!dbUser.isActive) {
+      if (!dbUser?.isActive) {
         if (strictMode) {
           // In strict mode, provide clear messaging about account suspension
           throw new ForbiddenException(
@@ -71,7 +73,7 @@ export class RolesGuard implements CanActivate {
       }
 
       // Check if the user's role matches any of the required roles
-      const authorized = requiredRoles.includes(dbUser.role);
+      const authorized = requiredRoles.includes(dbUser?.role as UserRole);
       if (!authorized) {
         throw new ForbiddenException(
           'You do not have permission to access this resource',

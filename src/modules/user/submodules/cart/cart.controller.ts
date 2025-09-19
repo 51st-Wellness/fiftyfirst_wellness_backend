@@ -39,9 +39,11 @@ export class CartController {
     );
   }
 
-  @Get()
-  async getCart(@CurrentUser('id') userId: string): Promise<ResponseDto> {
-    const items = await this.cartService.getCart(userId);
+  @Get('me')
+  async getAuthenticatedUserCart(
+    @CurrentUser('id') userId: string,
+  ): Promise<ResponseDto> {
+    const items = await this.cartService.getAuthenticatedUserCart(userId);
 
     return ResponseDto.createSuccessResponse('Cart retrieved successfully', {
       items,
