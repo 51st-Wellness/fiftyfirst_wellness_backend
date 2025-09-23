@@ -53,10 +53,13 @@ export class AuthController {
       res,
     );
 
-    return ResponseDto.createSuccessResponse('Signup Successful, an Email Verification OTP has been sent to your email', {
-      user: newUser,
-      accessToken,
-    });
+    return ResponseDto.createSuccessResponse(
+      'Signup Successful, an Email Verification OTP has been sent to your email',
+      {
+        user: newUser,
+        accessToken,
+      },
+    );
   }
 
   // Login with email and password using local strategy
