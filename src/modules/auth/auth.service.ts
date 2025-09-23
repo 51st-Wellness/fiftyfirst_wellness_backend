@@ -228,11 +228,6 @@ export class AuthService {
     });
   }
 
-  // Resend email verification OTP
-  async resendEmailVerificationOTP(email: string): Promise<void> {
-    await this.generateEmailVerificationOTP(email);
-  }
-
   // Validate user with Google OAuth profile
   async validateUserWithGoogle(
     email: string,

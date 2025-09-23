@@ -119,17 +119,28 @@ export class AuthController {
   }
 
   // Resend email verification OTP
-  @Post('resend-verification')
+  @Post('send-verification')
   async resendVerification(
     @Body() resendVerificationDto: ResendVerificationDto,
   ) {
-    await this.authService.resendEmailVerificationOTP(
+    await this.authService.generateEmailVerificationOTP(
       resendVerificationDto.email,
     );
     return ResponseDto.createSuccessResponse(
       'Email verification OTP sent to your email',
     );
   }
+
+  // // Send email verification OTP (initial trigger by user)
+  // @Post('send-verification')
+  // async sendVerification(@Body() resendVerificationDto: ResendVerificationDto) {
+  //   await this.authService.generateEmailVerificationOTP(
+  //     resendVerificationDto.email,
+  //   );
+  //   return ResponseDto.createSuccessResponse(
+  //     'Email verification OTP sent to your email',
+  //   );
+  // }
 
   // Google OAuth initiation route - intelligently detects origin
   @Get('google')
