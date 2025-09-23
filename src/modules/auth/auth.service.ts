@@ -16,6 +16,7 @@ import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 import * as crypto from 'crypto';
 import { DataFormatter } from 'src/lib/helpers/data-formater.helper';
 import { JWT_SERVICE } from 'src/config/constants.config';
+import { SignupDto } from './dto/signup.dto';
 
 @Injectable()
 export class AuthService {
@@ -49,9 +50,7 @@ export class AuthService {
   }
 
   // Register a user and return the created user without password
-  async register(
-    createUserDto: CreateUserDto,
-  ): Promise<Omit<User, 'password'>> {
+  async register(createUserDto: SignupDto): Promise<Omit<User, 'password'>> {
     const user = await this.userService.create(createUserDto);
 
     // Generate and send email verification OTP for regular users (not Google OAuth)

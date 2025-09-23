@@ -53,7 +53,7 @@ export class AuthController {
       res,
     );
 
-    return ResponseDto.createSuccessResponse('User registered successfully', {
+    return ResponseDto.createSuccessResponse('Signup Successful, an Email Verification OTP has been sent to your email', {
       user: newUser,
       accessToken,
     });
