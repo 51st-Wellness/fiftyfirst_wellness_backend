@@ -27,7 +27,7 @@ export class EmailService {
     private readonly gmailProvider: GmailProvider,
   ) {
     // Primary provider is Gmail, with Brevo as fallback
-    this.providers = [this.gmailProvider, this.brevoProvider];
+    this.providers = [this.gmailProvider];
   }
 
   async sendMail(emailPayload: EmailPayloadDto): Promise<boolean> {
