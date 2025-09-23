@@ -3,6 +3,7 @@ import {
   Get,
   Put,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -31,6 +32,7 @@ import { ENV } from 'src/config/env.enum';
 import { CUSTOM_HEADERS } from 'src/config/constants.config';
 import { StorageService } from 'src/util/storage/storage.service';
 import { DocumentType } from 'src/util/storage/constants';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 @Controller('user')
 @UseGuards(RolesGuard)
 export class UserController {
@@ -185,5 +187,24 @@ export class UserController {
     return ResponseDto.createSuccessResponse('User role updated successfully', {
       user,
     });
+  }
+
+  // Test delete account for development environment only
+  @Delete('test/delete')
+  async testDeleteAccount(@CurrentUser() user: User) {
+    const nodeEnv = this.configService.get(ENV.NODE_ENV);
+    if (nodeEnv !== 'development') {
+      throw new UnauthorizedException(
+        'This endpoint is only available in development',
+      );
+    }
+    const deletedUser = await this.userService.remove(user.id);
+
+    return ResponseDto.createSuccessResponse(
+      'Test delete account: user deleted',
+      {
+        user: deletedUser,
+      },
+    );
   }
 }
