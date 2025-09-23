@@ -88,7 +88,10 @@ export default class BrevoProvider implements EmailSenderProvider {
       this.logger.log('Email sent successfully via Brevo:', result);
       return true;
     } catch (error) {
-      this.logger.error('Error sending email via Brevo:', error);
+      this.logger.error(
+        'Error sending email via Brevo:' + '\n' + error.message,
+      );
+      console.error(error);
       throw error;
     }
   }

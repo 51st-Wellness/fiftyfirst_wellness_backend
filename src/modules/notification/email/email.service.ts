@@ -50,8 +50,9 @@ export class EmailService {
           }
         } catch (error) {
           this.logger.error(
-            `Error sending email to ${emailPayload.to} with ${provider.constructor.name}`,
-            error.message,
+            `Error sending email to ${emailPayload.to} with ${provider.constructor.name}` +
+              '\n' +
+              error.message,
           );
         }
       }

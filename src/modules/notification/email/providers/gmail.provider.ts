@@ -97,7 +97,10 @@ export default class GmailProvider implements EmailSenderProvider {
       );
       return true;
     } catch (error) {
-      this.logger.error('Error sending email via Gmail:', error);
+      this.logger.error(
+        'Error sending email via Gmail:' + '\n' + error.message,
+      );
+      console.error(error);
       throw error;
     }
   }
