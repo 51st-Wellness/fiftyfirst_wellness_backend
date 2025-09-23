@@ -278,7 +278,6 @@ export class AuthService {
       googleId,
       profilePicture: profilePicture,
       role: 'USER' as any,
-      // phone: null, // Can be added later by user
     });
 
     // Mark email as verified for Google OAuth users
