@@ -8,7 +8,13 @@ import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { CartItemWithRelations } from './dto/cart-response.dto';
 import { eq, and, desc } from 'drizzle-orm';
-import { cartItems, products, storeItems, users } from 'src/database/schema';
+import {
+  cartItems,
+  products,
+  ProductType,
+  storeItems,
+  users,
+} from 'src/database/schema';
 import { CartItem } from 'src/database/types';
 import { generateId } from 'src/database/utils';
 
@@ -46,7 +52,7 @@ export class CartService {
       throw new NotFoundException('Product not found');
     }
 
-    if (product.type !== 'STORE' || !storeItem) {
+    if (product.type !== ProductType.STORE || !storeItem) {
       throw new BadRequestException('Only store items can be added to cart');
     }
 
@@ -118,6 +124,7 @@ export class CartService {
   async getAuthenticatedUserCart(
     userId: string,
   ): Promise<CartItemWithRelations[]> {
+    console.log('user id - getAuthenticatedUserCart', userId);
     const items = await this.database.db
       .select()
       .from(cartItems)
@@ -169,11 +176,6 @@ export class CartService {
     }
 
     return enrichedItems;
-  }
-
-  // Alias kept for compatibility
-  async getCartAll(userId: string): Promise<CartItemWithRelations[]> {
-    return this.getAuthenticatedUserCart(userId);
   }
 
   // Update cart item quantity

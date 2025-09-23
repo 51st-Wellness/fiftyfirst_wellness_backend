@@ -14,6 +14,8 @@ import { AuthService } from './auth.service';
 import { CreateUserDto } from 'src/modules/user/dto/create-user.dto';
 import { ForgetPasswordDto } from 'src/modules/user/dto/forget-password.dto';
 import { ResetPasswordDto } from 'src/modules/user/dto/reset-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { CUSTOM_HEADERS, JWT_COOKIE_NAME } from 'src/config/constants.config';
 import { User } from 'src/database/types';
@@ -101,6 +103,29 @@ export class AuthController {
       resetPasswordDto.newPassword,
     );
     return ResponseDto.createSuccessResponse('Password reset successfully');
+  }
+
+  // Verify email with OTP
+  @Post('verify-email')
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
+    await this.authService.verifyEmailWithOTP(
+      verifyEmailDto.email,
+      verifyEmailDto.otp,
+    );
+    return ResponseDto.createSuccessResponse('Email verified successfully');
+  }
+
+  // Resend email verification OTP
+  @Post('resend-verification')
+  async resendVerification(
+    @Body() resendVerificationDto: ResendVerificationDto,
+  ) {
+    await this.authService.resendEmailVerificationOTP(
+      resendVerificationDto.email,
+    );
+    return ResponseDto.createSuccessResponse(
+      'Email verification OTP sent to your email',
+    );
   }
 
   // Google OAuth initiation route - intelligently detects origin

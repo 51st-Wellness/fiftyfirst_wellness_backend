@@ -37,6 +37,15 @@ export class PaymentService {
   ) {}
 
   private async getCartSummary(userId: string) {
+    console.log('user id - getCartSummary', userId);
+
+    const items = await this.database.db
+      .select()
+      .from(cartItems)
+      .where(eq(cartItems.userId, userId))
+      .orderBy(desc(cartItems.id));
+    console.log('items', items);
+    // return items;
     // Fetch cart items with store item details in a single optimized query
     const cartWithDetails = await this.database.db
       .select({
@@ -50,10 +59,11 @@ export class PaymentService {
         storeItemIsPublished: storeItems.isPublished,
       })
       .from(cartItems)
+      .where(eq(cartItems.userId, userId))
       .innerJoin(products, eq(cartItems.productId, products.id))
-      .innerJoin(storeItems, eq(products.id, storeItems.productId))
-      .where(eq(cartItems.userId, userId));
+      .innerJoin(storeItems, eq(products.id, storeItems.productId));
 
+    console.log('cartWithDetails', cartWithDetails);
     if (cartWithDetails.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
@@ -63,11 +73,7 @@ export class PaymentService {
     const invalidItems: string[] = [];
 
     for (const item of cartWithDetails) {
-      // Check if item is a store item and is published
-      if (item.productType !== ProductType.STORE) {
-        invalidItems.push(`Product ${item.productId} is not a store item`);
-        continue;
-      }
+      // Check if item is published
 
       if (!item.storeItemIsPublished) {
         invalidItems.push(
@@ -77,16 +83,10 @@ export class PaymentService {
       }
 
       // Check stock availability
-      if (item.storeItemStock < item.quantity) {
+      if (item.storeItemStock == null || item.storeItemStock < item.quantity) {
         invalidItems.push(
-          `Insufficient stock for ${item.storeItemName}. Available: ${item.storeItemStock}, Requested: ${item.quantity}`,
+          `Insufficient stock for ${item.storeItemName}. Available: ${item.storeItemStock || 0}, Requested: ${item.quantity}`,
         );
-        continue;
-      }
-
-      // Check for valid price
-      if (!item.storeItemPrice || item.storeItemPrice <= 0) {
-        invalidItems.push(`Invalid price for ${item.storeItemName}`);
         continue;
       }
 

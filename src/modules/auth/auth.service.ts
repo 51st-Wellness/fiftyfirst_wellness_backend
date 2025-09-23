@@ -54,6 +54,11 @@ export class AuthService {
   ): Promise<Omit<User, 'password'>> {
     const user = await this.userService.create(createUserDto);
 
+    // Generate and send email verification OTP for regular users (not Google OAuth)
+    if (!user.googleId) {
+      await this.generateEmailVerificationOTP(user.email);
+    }
+
     // Send welcome email based on user role
     const emailType =
       user.role === 'ADMIN' ? EmailType.WELCOME_ADMIN : EmailType.WELCOME_USER;
@@ -158,6 +163,77 @@ export class AuthService {
     });
   }
 
+  // Generate and store OTP for email verification
+  async generateEmailVerificationOTP(email: string): Promise<void> {
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException('User with this email does not exist');
+    }
+
+    // Check if email is already verified
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Generate 6-digit OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Store OTP in database
+    await this.userService.storeEmailVerificationOTP(user.id, otp, expiresAt);
+
+    // Send email verification email
+    this.eventsEmitter.sendEmail({
+      to: user.email,
+      type: EmailType.EMAIL_VERIFICATION,
+      context: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        otp: otp,
+      },
+    });
+  }
+
+  // Verify OTP and mark email as verified
+  async verifyEmailWithOTP(email: string, otp: string): Promise<void> {
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException('User with this email does not exist');
+    }
+
+    // Check if email is already verified
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Verify OTP
+    const isValidOTP = await this.userService.verifyEmailVerificationOTP(
+      user.id,
+      otp,
+    );
+    if (!isValidOTP) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // Mark email as verified and clear OTP
+    await this.userService.markEmailAsVerified(user.id);
+
+    // Send verification success email
+    this.eventsEmitter.sendEmail({
+      to: user.email,
+      type: EmailType.EMAIL_VERIFICATION_SUCCESS,
+      context: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    });
+  }
+
+  // Resend email verification OTP
+  async resendEmailVerificationOTP(email: string): Promise<void> {
+    await this.generateEmailVerificationOTP(email);
+  }
+
   // Validate user with Google OAuth profile
   async validateUserWithGoogle(
     email: string,
@@ -210,6 +286,9 @@ export class AuthService {
       role: 'USER' as any,
       // phone: null, // Can be added later by user
     });
+
+    // Mark email as verified for Google OAuth users
+    await this.userService.markEmailAsVerified(newUser.id);
 
     // Send welcome email
     this.eventsEmitter.sendEmail({

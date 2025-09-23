@@ -101,6 +101,9 @@ export const users = sqliteTable('User', {
   bio: text('bio'),
   profilePicture: text('profilePicture'),
   isActive: integer('isActive', { mode: 'boolean' }).notNull().default(true),
+  isEmailVerified: integer('isEmailVerified', { mode: 'boolean' })
+    .notNull()
+    .default(false), // Email verification status
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -111,6 +114,16 @@ export const users = sqliteTable('User', {
 });
 
 export const passwordResetOTPs = sqliteTable('PasswordResetOTP', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull().unique(),
+  otp: text('otp').notNull(),
+  expiresAt: integer('expiresAt', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const emailVerificationOTPs = sqliteTable('EmailVerificationOTP', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull().unique(),
   otp: text('otp').notNull(),
@@ -346,6 +359,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [passwordResetOTPs.userId],
   }),
+  emailVerificationOTP: one(emailVerificationOTPs, {
+    fields: [users.id],
+    references: [emailVerificationOTPs.userId],
+  }),
   orders: many(orders),
   aiConversations: many(aiConversations),
   cartItems: many(cartItems),
@@ -359,6 +376,16 @@ export const passwordResetOTPsRelations = relations(
   ({ one }) => ({
     user: one(users, {
       fields: [passwordResetOTPs.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const emailVerificationOTPsRelations = relations(
+  emailVerificationOTPs,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [emailVerificationOTPs.userId],
       references: [users.id],
     }),
   }),

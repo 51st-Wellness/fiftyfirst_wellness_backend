@@ -11,6 +11,7 @@ import {
   subscriptionPlans,
   subscriptionAccess,
   passwordResetOTPs,
+  emailVerificationOTPs,
   reviews,
   blogs,
   cartItems,
@@ -61,6 +62,9 @@ export type NewSubscriptionAccess = typeof subscriptionAccess.$inferInsert;
 
 export type PasswordResetOTP = typeof passwordResetOTPs.$inferSelect;
 export type NewPasswordResetOTP = typeof passwordResetOTPs.$inferInsert;
+
+export type EmailVerificationOTP = typeof emailVerificationOTPs.$inferSelect;
+export type NewEmailVerificationOTP = typeof emailVerificationOTPs.$inferInsert;
 
 export type Review = typeof reviews.$inferSelect;
 export type NewReview = typeof reviews.$inferInsert;

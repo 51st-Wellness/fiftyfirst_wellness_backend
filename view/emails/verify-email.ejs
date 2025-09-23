@@ -196,35 +196,40 @@
 
         <p class="verify-message">
           Welcome to Fifty Firsts Wellness! To complete your registration and
-          start your wellness journey, please verify your email address by
-          clicking the button below.
+          start your wellness journey, please verify your email address using
+          the verification code below.
         </p>
 
         <div class="verification-box">
-          <div class="verification-title">🔐 Email Verification Required</div>
+          <div class="verification-title">🔐 Your Verification Code</div>
+          <div
+            style="
+              font-size: 32px;
+              font-weight: bold;
+              color: #27ae60;
+              margin: 20px 0;
+              letter-spacing: 5px;
+            "
+          >
+            <%= otp %>
+          </div>
           <p>
-            This step ensures the security of your account and helps us maintain
-            a safe community.
+            Enter this code in the verification screen to complete your
+            registration.
           </p>
         </div>
 
-        <div style="text-align: center">
-          <a href="<%= verificationUrl %>" class="verify-button">
-            Verify Email Address →
-          </a>
-        </div>
-
         <div class="expiry-note">
-          <strong>⏰ Important:</strong> This verification link will expire in
-          24 hours for security reasons.
+          <strong>⏰ Important:</strong> This verification code will expire in
+          15 minutes for security reasons.
         </div>
 
         <div class="steps">
           <div class="step-item">
             <div class="step-number">1</div>
             <div class="step-text">
-              <strong>Click the verification button above</strong> to confirm
-              your email address
+              <strong>Copy the verification code above</strong> and enter it in
+              the verification screen
             </div>
           </div>
 

@@ -144,6 +144,28 @@ export class UserService {
     await this.userRepository.resetPassword(userId, hashedPassword);
   }
 
+  // Store email verification OTP
+  async storeEmailVerificationOTP(
+    userId: string,
+    otp: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.userRepository.storeEmailVerificationOTP(userId, otp, expiresAt);
+  }
+
+  // Verify email verification OTP
+  async verifyEmailVerificationOTP(
+    userId: string,
+    otp: string,
+  ): Promise<boolean> {
+    return this.userRepository.verifyEmailVerificationOTP(userId, otp);
+  }
+
+  // Mark email as verified
+  async markEmailAsVerified(userId: string): Promise<void> {
+    await this.userRepository.markEmailAsVerified(userId);
+  }
+
   // Update user profile
   async updateProfile(
     userId: string,

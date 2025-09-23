@@ -15,7 +15,7 @@ import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { CartItemWithRelations } from './dto/cart-response.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
-import { CartItem } from 'src/database/types';
+import { CartItem, User } from 'src/database/types';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { ResponseDto } from 'src/util/dto/response.dto';
 
@@ -28,10 +28,10 @@ export class CartController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async addToCart(
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: User,
     @Body() addToCartDto: AddToCartDto,
   ): Promise<ResponseDto<CartItemWithRelations>> {
-    const cartItem = await this.cartService.addToCart(userId, addToCartDto);
+    const cartItem = await this.cartService.addToCart(user.id, addToCartDto);
 
     return ResponseDto.createSuccessResponse(
       'Item added to cart successfully',
@@ -41,9 +41,9 @@ export class CartController {
 
   @Get('me')
   async getAuthenticatedUserCart(
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: User,
   ): Promise<ResponseDto> {
-    const items = await this.cartService.getAuthenticatedUserCart(userId);
+    const items = await this.cartService.getAuthenticatedUserCart(user.id);
 
     return ResponseDto.createSuccessResponse('Cart retrieved successfully', {
       items,

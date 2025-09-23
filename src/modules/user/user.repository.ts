@@ -4,6 +4,7 @@ import { eq, like, or, and, count, desc, SQL } from 'drizzle-orm';
 import {
   users,
   passwordResetOTPs,
+  emailVerificationOTPs,
   orders,
   aiConversations,
 } from 'src/database/schema';
@@ -188,6 +189,66 @@ export class UserRepository {
       await tx
         .delete(passwordResetOTPs)
         .where(eq(passwordResetOTPs.userId, userId));
+    });
+  }
+
+  // Store email verification OTP
+  async storeEmailVerificationOTP(
+    userId: string,
+    otp: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    const otpId = generateId();
+    await this.database.db
+      .insert(emailVerificationOTPs)
+      .values({
+        id: otpId,
+        userId,
+        otp,
+        expiresAt,
+      })
+      .onConflictDoUpdate({
+        target: emailVerificationOTPs.userId,
+        set: {
+          otp,
+          expiresAt,
+          createdAt: new Date(),
+        },
+      });
+  }
+
+  // Verify email verification OTP
+  async verifyEmailVerificationOTP(
+    userId: string,
+    otp: string,
+  ): Promise<boolean> {
+    const otpRecord = await this.database.db
+      .select()
+      .from(emailVerificationOTPs)
+      .where(
+        and(
+          eq(emailVerificationOTPs.userId, userId),
+          eq(emailVerificationOTPs.otp, otp),
+        ),
+      );
+
+    const isValid = otpRecord.length > 0 && otpRecord[0].expiresAt > new Date();
+    return isValid;
+  }
+
+  // Mark email as verified and clear OTP
+  async markEmailAsVerified(userId: string): Promise<void> {
+    await this.database.db.transaction(async (tx) => {
+      // Update user email verification status
+      await tx
+        .update(users)
+        .set({ isEmailVerified: true, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+
+      // Delete the OTP record
+      await tx
+        .delete(emailVerificationOTPs)
+        .where(eq(emailVerificationOTPs.userId, userId));
     });
   }
 
