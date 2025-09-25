@@ -71,8 +71,8 @@ export class PayPalProvider implements PaymentProvider {
           userAction: OrderApplicationContextUserAction.PayNow,
           shippingPreference:
             OrderApplicationContextShippingPreference.NoShipping,
-          returnUrl: `${configService.get(ENV.FRONTEND_URL)}/payment/success`,
-          cancelUrl: `${configService.get(ENV.FRONTEND_URL)}/payment/cancel`,
+          returnUrl: `${configService.get(ENV.SERVER_URL)}/payment/redirect/success`,
+          cancelUrl: `${configService.get(ENV.SERVER_URL)}/payment/redirect/cancel`,
         },
       };
 
@@ -224,23 +224,5 @@ export class PayPalProvider implements PaymentProvider {
       raw: body,
       eventType,
     };
-  }
-
-  async refundPayment(
-    providerRef: string,
-    amount?: number,
-  ): Promise<PaymentCaptureResult> {
-    try {
-      // Note: PayPal refunds are typically done against capture IDs, not order IDs
-      // This is a simplified implementation - you may need to get the capture ID first
-      console.log(`Refund requested for ${providerRef}, amount: ${amount}`);
-
-      // For now, return pending status - full refund implementation would require
-      // additional PayPal API calls to get capture details and process refund
-      return { status: PaymentStatus.PENDING };
-    } catch (error) {
-      console.error('PayPal refundPayment error:', error);
-      return { status: PaymentStatus.FAILED };
-    }
   }
 }

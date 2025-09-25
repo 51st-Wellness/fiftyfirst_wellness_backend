@@ -10,7 +10,7 @@ import {
   PaymentProvider,
   WebhookResult,
 } from './providers/payment.types';
-import { CheckoutDto, SubscriptionCheckoutDto } from './dto/checkout.dto';
+import { SubscriptionCheckoutDto } from './dto/checkout.dto';
 import { eq, and, gt, desc } from 'drizzle-orm';
 import {
   users,
@@ -141,10 +141,9 @@ export class PaymentService {
     };
   }
 
-  async checkoutCartItems(checkoutDto: CheckoutDto, userProfile: User) {
+  async checkoutCartItems(userProfile: User) {
     // Create order and initialize payment for store items
-    const description =
-      checkoutDto.description || `Store Checkout for ${userProfile.firstName}`;
+    const description = `Cart Checkout for ${userProfile.firstName}`;
     const userId = userProfile.id;
 
     const {
@@ -186,7 +185,7 @@ export class PaymentService {
     const paymentId = generateId();
     await this.database.db.insert(payments).values({
       id: paymentId,
-      provider: PaymentProviderEnum.PAYPAL,
+      provider: PaymentProviderEnum.STRIPE,
       providerRef: paymentInit.providerRef,
       status: PaymentStatus.PENDING,
       currency: currency as any,
@@ -292,7 +291,7 @@ export class PaymentService {
         .insert(payments)
         .values({
           id: paymentId,
-          provider: PaymentProviderEnum.PAYPAL,
+          provider: PaymentProviderEnum.STRIPE,
           providerRef: paymentInit.providerRef,
           status: PaymentStatus.PENDING,
           currency: 'USD' as any,

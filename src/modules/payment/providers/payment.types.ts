@@ -39,12 +39,6 @@ export interface PaymentProvider {
 
   // Parse webhook payload
   parseWebhook(body: any): WebhookResult;
-
-  // Optional: Refund a payment
-  refundPayment(
-    providerRef: string,
-    amount?: number,
-  ): Promise<PaymentCaptureResult>;
 }
 
 export const PAYMENT_PROVIDER_TOKEN = 'PAYMENT_PROVIDER_TOKEN';
