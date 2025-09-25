@@ -35,7 +35,7 @@ export class StripeProvider implements PaymentProvider {
               product_data: { name: it.name },
               unit_amount: Math.round(it.unitPrice * 100),
               ...(isSubscription
-                ? { recurring: { interval: 'day', interval_count: 30 } }
+                ? { recurring: { interval: 'month', interval_count: 1 } }
                 : {}),
             },
           }))
@@ -47,7 +47,7 @@ export class StripeProvider implements PaymentProvider {
                 product_data: { name: input.description || 'Payment' },
                 unit_amount: Math.round(input.amount * 100),
                 ...(isSubscription
-                  ? { recurring: { interval: 'day', interval_count: 30 } }
+                  ? { recurring: { interval: 'month', interval_count: 1 } }
                   : {}),
               },
             },

@@ -13,7 +13,6 @@ import {
 import { SubscriptionCheckoutDto } from './dto/checkout.dto';
 import { eq, and, gt, desc } from 'drizzle-orm';
 import {
-  users,
   cartItems,
   products,
   storeItems,
@@ -27,7 +26,6 @@ import {
 } from 'src/database/schema';
 import { generateId } from 'src/database/utils';
 import { User } from 'src/database/types';
-import { ProductType } from 'src/database/schema';
 
 @Injectable()
 export class PaymentService {
@@ -203,6 +201,7 @@ export class PaymentService {
       .where(eq(orders.id, orderId));
 
     return {
+      paymentId,
       orderId,
       approvalUrl: paymentInit.approvalUrl,
       amount: totalAmount,
@@ -210,17 +209,12 @@ export class PaymentService {
     };
   }
 
-  async createSubscriptionCheckout(subscriptionDto: SubscriptionCheckoutDto) {
+  async createSubscriptionCheckout(
+    subscriptionDto: SubscriptionCheckoutDto,
+    user: User,
+  ) {
     // Create subscription and initialize payment
-    const { userId, planId, description } = subscriptionDto;
-
-    // Validate user exists
-    const user = (
-      await this.database.db.select().from(users).where(eq(users.id, userId))
-    )[0];
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const { planId } = subscriptionDto;
 
     // Validate subscription plan exists and is active
     const plan = (
@@ -243,7 +237,7 @@ export class PaymentService {
         .from(subscriptions)
         .where(
           and(
-            eq(subscriptions.userId, userId),
+            eq(subscriptions.userId, user.id),
             eq(subscriptions.status, PaymentStatus.PAID),
             gt(subscriptions.endDate, new Date()),
           ),
@@ -266,7 +260,7 @@ export class PaymentService {
         .insert(subscriptions)
         .values({
           id: subscriptionId,
-          userId,
+          userId: user.id,
           planId,
           status: PaymentStatus.PENDING,
           startDate,
@@ -280,8 +274,8 @@ export class PaymentService {
       subscriptionId: subscription.id,
       amount: plan.price,
       currency: 'USD',
-      description: description || `Subscription: ${plan.name}`,
-      userId,
+      description: `Subscription: ${plan.name}`,
+      userId: user.id,
     });
 
     // Create payment record
@@ -312,6 +306,7 @@ export class PaymentService {
       .where(eq(subscriptions.id, subscription.id));
 
     return {
+      paymentId,
       subscriptionId: subscription.id,
       approvalUrl: paymentInit.approvalUrl,
       amount: plan.price,

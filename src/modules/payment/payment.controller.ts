@@ -41,10 +41,15 @@ export class PaymentController {
   @UseGuards(RolesGuard)
   @StrictRoles(UserRole.USER, UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  async checkoutSubscription(@Body() subscriptionDto: SubscriptionCheckoutDto) {
+  async checkoutSubscription(
+    @Body() subscriptionDto: SubscriptionCheckoutDto,
+    @CurrentUser() user: User,
+  ) {
     // Initiate subscription checkout
-    const result =
-      await this.paymentService.createSubscriptionCheckout(subscriptionDto);
+    const result = await this.paymentService.createSubscriptionCheckout(
+      subscriptionDto,
+      user,
+    );
     return ResponseDto.createSuccessResponse(
       'Subscription checkout initiated successfully',
       result,
