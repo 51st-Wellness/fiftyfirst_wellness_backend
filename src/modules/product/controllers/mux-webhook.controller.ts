@@ -9,6 +9,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ProgrammeService } from '../submodules/programme/programme.service';
+import { PodcastService } from '../submodules/podcast/podcast.service';
 import * as crypto from 'crypto';
 import { configService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
@@ -18,7 +19,10 @@ import { MuxWebhookEventDto } from '../submodules/programme/dto/mux-webhook-even
 export class MuxWebhookController {
   private readonly logger = new Logger(MuxWebhookController.name);
 
-  constructor(private readonly programmeService: ProgrammeService) {}
+  constructor(
+    private readonly programmeService: ProgrammeService,
+    private readonly podcastService: PodcastService,
+  ) {}
 
   /**
    * Handles Mux webhooks for video asset processing
@@ -73,6 +77,7 @@ export class MuxWebhookController {
 
       const passthroughData = JSON.parse(event.data.passthrough) as {
         productId: string;
+        type?: string;
       };
 
       if (!passthroughData.productId) {
@@ -81,19 +86,32 @@ export class MuxWebhookController {
       }
 
       this.logger.log(
-        `Processing video asset ready for product: ${passthroughData.productId}`,
+        `Processing asset ready for product: ${passthroughData.productId}, type: ${passthroughData.type || 'unknown'}`,
       );
 
-      await this.programmeService.handleMuxWebhook(
-        assetId,
-        playbackId,
-        passthroughData,
-        Math.round(duration), // Convert to integer seconds
-      );
-
-      this.logger.log(
-        `Successfully updated programme ${passthroughData.productId} with Mux asset ${assetId}`,
-      );
+      // Route to appropriate service based on content type
+      if (passthroughData.type === 'podcast') {
+        await this.podcastService.handleMuxWebhook(
+          assetId,
+          playbackId,
+          passthroughData,
+          Math.round(duration), // Convert to integer seconds
+        );
+        this.logger.log(
+          `Successfully updated podcast ${passthroughData.productId} with Mux asset ${assetId}`,
+        );
+      } else {
+        // Default to programme for backward compatibility
+        await this.programmeService.handleMuxWebhook(
+          assetId,
+          playbackId,
+          passthroughData,
+          Math.round(duration), // Convert to integer seconds
+        );
+        this.logger.log(
+          `Successfully updated programme ${passthroughData.productId} with Mux asset ${assetId}`,
+        );
+      }
     } catch (error) {
       this.logger.error('Error handling video.asset.ready event:', error);
       throw error;
