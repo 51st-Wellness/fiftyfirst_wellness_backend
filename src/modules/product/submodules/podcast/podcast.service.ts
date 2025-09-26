@@ -33,7 +33,7 @@ import { PodcastQueryDto } from './dto/podcast-query.dto';
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { BaseProductService } from '../../services/base-product.service';
 import { v4 as uuidv4 } from 'uuid';
-import { MulterFile } from 'src/types/multer-file.d';
+import { MulterFile } from '@/types';
 
 @Injectable()
 export class PodcastService extends BaseProductService {
@@ -261,9 +261,6 @@ export class PodcastService extends BaseProductService {
           .update(podcasts)
           .set({
             description: updateDto.description ?? existingPodcast.description,
-            tags: updateDto.tags
-              ? (updateDto.tags as any)
-              : existingPodcast.tags,
             isFeatured: updateDto.isFeatured ?? existingPodcast.isFeatured,
             isPublished: updateDto.isPublished ?? existingPodcast.isPublished,
           })

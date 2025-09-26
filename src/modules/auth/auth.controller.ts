@@ -81,6 +81,15 @@ export class AuthController {
     });
   }
 
+  // Check authentication status without returning user data
+  @Get('check')
+  @UseGuards(AuthGuard('jwt'))
+  async checkAuth() {
+    return ResponseDto.createSuccessResponse('User is authenticated', {
+      authenticated: true,
+    });
+  }
+
   // Clear the auth cookie
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
