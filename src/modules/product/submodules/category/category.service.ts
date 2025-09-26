@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, like, count } from 'drizzle-orm';
+import { eq, and, like, count, SQL } from 'drizzle-orm';
 import { DatabaseService } from 'src/database/database.service';
 import { categories, CategoryService } from 'src/database/schema';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -35,7 +35,7 @@ export class CategoryServiceProvider {
     const offset = (pageNum - 1) * limitNum;
 
     // Build the where condition
-    const conditions = [];
+    const conditions: SQL[] = [];
 
     if (search) {
       conditions.push(like(categories.name, `%${search}%`));

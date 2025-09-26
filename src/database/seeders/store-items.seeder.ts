@@ -13,7 +13,7 @@ export async function seedStoreItems(db: Database) {
   console.log(`✅ Created ${storeProducts.length} store products`);
 
   // Insert store items
-  await db.insert(storeItems).values(storeItemsData);
+  await db.insert(storeItems).values(storeItemsData as any);
   console.log(`✅ Created ${storeItemsData.length} store items`);
 
   console.log('🛍️ Store items seeding completed!');

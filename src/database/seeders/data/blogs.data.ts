@@ -8,7 +8,7 @@ export const blogEntries = [
     contentKey: 'blogs/wellness-journey-start.md',
     isFeatured: true,
     isPublished: true,
-    tags: ['wellness', 'beginner', 'lifestyle', 'tips'],
+    categories: ['wellness', 'beginner', 'lifestyle', 'tips'],
   },
   {
     id: createId(),
@@ -16,7 +16,7 @@ export const blogEntries = [
     contentKey: 'blogs/mindful-eating-science.md',
     isFeatured: false,
     isPublished: true,
-    tags: ['nutrition', 'mindfulness', 'science', 'eating'],
+    categories: ['nutrition', 'mindfulness', 'science', 'eating'],
   },
   {
     id: createId(),
@@ -24,7 +24,7 @@ export const blogEntries = [
     contentKey: 'blogs/sustainable-exercise-routine.md',
     isFeatured: true,
     isPublished: true,
-    tags: ['fitness', 'exercise', 'sustainability', 'routine'],
+    categories: ['fitness', 'exercise', 'sustainability', 'routine'],
   },
   {
     id: createId(),
@@ -32,7 +32,7 @@ export const blogEntries = [
     contentKey: 'blogs/sleep-cycles-quality-rest.md',
     isFeatured: false,
     isPublished: true,
-    tags: ['sleep', 'health', 'rest', 'recovery'],
+    categories: ['sleep', 'health', 'rest', 'recovery'],
   },
   {
     id: createId(),
@@ -40,7 +40,7 @@ export const blogEntries = [
     contentKey: 'blogs/daily-meditation-benefits.md',
     isFeatured: true,
     isPublished: true,
-    tags: ['meditation', 'mindfulness', 'mental health', 'practice'],
+    categories: ['meditation', 'mindfulness', 'mental health', 'practice'],
   },
   {
     id: createId(),
@@ -48,7 +48,7 @@ export const blogEntries = [
     contentKey: 'blogs/seasonal-wellness-adaptation.md',
     isFeatured: false,
     isPublished: true,
-    tags: ['seasonal', 'wellness', 'adaptation', 'routine'],
+    categories: ['seasonal', 'wellness', 'adaptation', 'routine'],
   },
   {
     id: createId(),
@@ -56,6 +56,6 @@ export const blogEntries = [
     contentKey: 'blogs/healthy-relationships-wellness.md',
     isFeatured: false,
     isPublished: false, // Draft
-    tags: ['relationships', 'mental health', 'wellness', 'social'],
+    categories: ['relationships', 'mental health', 'wellness', 'social'],
   },
 ];
