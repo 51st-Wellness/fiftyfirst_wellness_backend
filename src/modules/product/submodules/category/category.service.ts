@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { eq, and, like, count } from 'drizzle-orm';
-import { DatabaseService } from '../../database/database.service';
-import { categories, CategoryService } from '../../database/schema';
+import { DatabaseService } from 'src/database/database.service';
+import { categories, CategoryService } from 'src/database/schema';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoryQueryDto } from './dto/category-query.dto';
-import { generateId } from '../../database/utils';
+import { generateId } from 'src/database/utils';
 
 @Injectable()
 export class CategoryServiceProvider {

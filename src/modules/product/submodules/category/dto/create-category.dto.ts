@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsOptional, IsString, IsIn } from 'class-validator';
-import { CategoryService } from '../../../../../database/schema';
+import { CategoryService } from 'src/database/schema';
 
 export class CreateCategoryDto {
   @IsNotEmpty()

@@ -16,5 +16,5 @@ export class ProgrammeQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  tags?: string[];
+  categories?: string[];
 }

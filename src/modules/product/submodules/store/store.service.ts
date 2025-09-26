@@ -37,7 +37,7 @@ export class StoreService {
       stock: createStoreItemDto.stock,
       isFeatured: createStoreItemDto.isFeatured || false,
       isPublished: createStoreItemDto.isPublished ?? true,
-      tags: createStoreItemDto.tags || [],
+      categories: createStoreItemDto.categories || [],
       display: {},
       images: [],
     };

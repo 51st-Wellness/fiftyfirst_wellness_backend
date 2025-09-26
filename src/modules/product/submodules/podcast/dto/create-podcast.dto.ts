@@ -7,7 +7,7 @@ import {
   IsArray,
 } from 'class-validator';
 import { AccessItem } from 'src/database/schema';
-import { CategoryExists } from '../../../category/validators/category-exists.validator';
+import { CategoryExists } from '../../category/validators/category-exists.validator';
 
 export class CreatePodcastDto {
   @IsString()
@@ -24,9 +24,9 @@ export class UpdatePodcast {
   @IsArray()
   @IsString({ each: true })
   @CategoryExists('podcast', {
-    message: 'All tags must be existing podcast categories',
+    message: 'All categories must be existing podcast categories',
   })
-  tags?: string[];
+  categories?: string[];
 
   @IsBoolean()
   @IsOptional()

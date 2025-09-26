@@ -10,7 +10,6 @@ import { CommonModule } from './common/common.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { ProductModule } from './modules/product/product.module';
-import { CategoryModule } from './modules/category/category.module';
 
 @Module({
   imports: [
@@ -25,7 +24,6 @@ import { CategoryModule } from './modules/category/category.module';
     AuthModule,
     ProductModule,
     PaymentModule,
-    CategoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

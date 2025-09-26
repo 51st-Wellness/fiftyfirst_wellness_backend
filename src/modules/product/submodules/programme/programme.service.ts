@@ -83,7 +83,7 @@ export class ProgrammeService extends BaseProductService {
             isFeatured: false,
             requiresAccess: AccessItem.PROGRAMME_ACCESS,
             duration: 0, // Will be updated via webhook
-            tags: [] as any,
+            categories: [] as any,
           })
           .returning()
       )[0];
@@ -269,9 +269,9 @@ export class ProgrammeService extends BaseProductService {
           .update(programmes)
           .set({
             description: updateDto.description ?? existingProgramme.description,
-            tags: updateDto.tags
-              ? (updateDto.tags as any)
-              : existingProgramme.tags,
+            categories: updateDto.categories
+              ? (updateDto.categories as any)
+              : existingProgramme.categories,
             isFeatured: updateDto.isFeatured ?? existingProgramme.isFeatured,
             isPublished: updateDto.isPublished ?? existingProgramme.isPublished,
           })
@@ -356,7 +356,7 @@ export class ProgrammeService extends BaseProductService {
    * Gets all programmes with filtering and pagination
    */
   async getAllProgrammes(query: ProgrammeQueryDto) {
-    const { page = 1, limit = 20, isPublished, isFeatured, tags } = query;
+    const { page = 1, limit = 20, isPublished, isFeatured, categories } = query;
     const skip = (page - 1) * limit;
 
     // Build conditions for filtering
@@ -443,12 +443,12 @@ export class ProgrammeService extends BaseProductService {
       }
     }
 
-    // Filter by tags if specified (since SQLite doesn't support array_contains)
-    if (tags && tags.length > 0) {
+    // Filter by categories if specified (since SQLite doesn't support array_contains)
+    if (categories && categories.length > 0) {
       programmeResults = programmeResults.filter((programme) => {
-        if (!programme?.tags) return false;
-        const programmeTags = programme.tags as string[];
-        return tags.some((tag) => programmeTags.includes(tag));
+        if (!programme?.categories) return false;
+        const programmeCategories = programme.categories as string[];
+        return categories.some((category) => programmeCategories.includes(category));
       });
     }
 
@@ -456,7 +456,7 @@ export class ProgrammeService extends BaseProductService {
       'Programmes retrieved successfully',
       programmeResults,
       {
-        total: tags && tags.length > 0 ? programmeResults.length : total,
+        total: categories && categories.length > 0 ? programmeResults.length : total,
         page,
         pageSize: limit,
       },

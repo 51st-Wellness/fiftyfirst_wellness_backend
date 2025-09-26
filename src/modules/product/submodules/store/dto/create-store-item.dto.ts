@@ -8,7 +8,7 @@ import {
   Max,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { CategoryExists } from '../../../category/validators/category-exists.validator';
+import { CategoryExists } from '../../category/validators/category-exists.validator';
 
 export class CreateStoreItemDto {
   @IsString()
@@ -39,7 +39,7 @@ export class CreateStoreItemDto {
   @IsString({ each: true })
   @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   @CategoryExists('store', {
-    message: 'All tags must be existing store categories',
+    message: 'All categories must be existing store categories',
   })
-  tags?: string[];
+  categories?: string[];
 }

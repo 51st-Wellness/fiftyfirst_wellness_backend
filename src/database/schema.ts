@@ -210,7 +210,7 @@ export const storeItems = sqliteTable('StoreItem', {
   stock: integer('stock').notNull().default(0),
   display: text('display', { mode: 'json' }).notNull(), // {url: string, type: image/video}
   images: text('images', { mode: 'json' }).notNull(), // [string] -> urls
-  tags: text('tags', { mode: 'json' }).notNull(), // [string] -> category names
+  categories: text('categories', { mode: 'json' }).notNull(), // [string] -> category names
   isFeatured: integer('isFeatured', { mode: 'boolean' })
     .notNull()
     .default(false),
@@ -240,7 +240,7 @@ export const programmes = sqliteTable('Programme', {
   thumbnail: text('thumbnail'),
   requiresAccess: text('requiresAccess', { enum: accessItems }).notNull(),
   duration: integer('duration').notNull(), // in seconds
-  tags: text('tags', { mode: 'json' }), // [string] -> category names
+  categories: text('categories', { mode: 'json' }), // [string] -> category names
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -321,7 +321,7 @@ export const blogs = sqliteTable('Blogs', {
   isPublished: integer('isPublished', { mode: 'boolean' })
     .notNull()
     .default(true),
-  tags: text('tags', { mode: 'json' }).notNull(),
+  categories: text('categories', { mode: 'json' }).notNull(),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

@@ -344,7 +344,7 @@ export class PodcastService extends BaseProductService {
    * Gets all podcasts with filtering and pagination
    */
   async getAllPodcasts(query: PodcastQueryDto) {
-    const { page = 1, limit = 20, isPublished, isFeatured, tags } = query;
+    const { page = 1, limit = 20, isPublished, isFeatured, categories } = query;
     const skip = (page - 1) * limit;
 
     // Build conditions for filtering
@@ -431,12 +431,12 @@ export class PodcastService extends BaseProductService {
       }
     }
 
-    // Filter by tags if specified (since SQLite doesn't support array_contains)
-    if (tags && tags.length > 0) {
+    // Filter by categories if specified (since SQLite doesn't support array_contains)
+    if (categories && categories.length > 0) {
       podcastResults = podcastResults.filter((podcast) => {
-        if (!podcast?.tags) return false;
-        const podcastTags = podcast.tags as string[];
-        return tags.some((tag) => podcastTags.includes(tag));
+        if (!podcast?.categories) return false;
+        const podcastCategories = podcast.categories as string[];
+        return categories.some((category) => podcastCategories.includes(category));
       });
     }
 
@@ -444,7 +444,7 @@ export class PodcastService extends BaseProductService {
       'Podcasts retrieved successfully',
       podcastResults,
       {
-        total: tags && tags.length > 0 ? podcastResults.length : total,
+        total: categories && categories.length > 0 ? podcastResults.length : total,
         page,
         pageSize: limit,
       },

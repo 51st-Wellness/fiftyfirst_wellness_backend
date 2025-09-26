@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { CategoryServiceProvider } from '../category.service';
-import { CategoryService } from '../../../database/schema';
+import { CategoryService } from 'src/database/schema';
 
 @ValidatorConstraint({ async: true })
 @Injectable()

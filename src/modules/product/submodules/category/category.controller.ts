@@ -7,24 +7,23 @@ import {
   Param,
   Delete,
   Query,
-  UseGuards,
   BadRequestException,
 } from '@nestjs/common';
 import { CategoryServiceProvider } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoryQueryDto } from './dto/category-query.dto';
-import { JwtAuthGuard } from '../../common/gaurds/jwt-auth.guard';
-import { RequireRole } from '../../common/decorators/require-role.decorator';
-import { UserRole } from '../../database/schema';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { UserRole } from 'src/database/schema';
 
-@Controller('categories')
-@UseGuards(JwtAuthGuard)
+@Controller('product/category')
+@Auth()
 export class CategoryController {
   constructor(private readonly categoryService: CategoryServiceProvider) {}
 
   @Post()
-  @RequireRole([UserRole.ADMIN])
+  @Roles(UserRole.ADMIN)
   async create(@Body() createCategoryDto: CreateCategoryDto) {
     // Check if category name already exists for this service
     const exists = await this.categoryService.categoryNameExists(
@@ -61,7 +60,7 @@ export class CategoryController {
   }
 
   @Patch(':id')
-  @RequireRole([UserRole.ADMIN])
+  @Roles(UserRole.ADMIN)
   async update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
@@ -86,7 +85,7 @@ export class CategoryController {
   }
 
   @Delete(':id')
-  @RequireRole([UserRole.ADMIN])
+  @Roles(UserRole.ADMIN)
   async remove(@Param('id') id: string) {
     return this.categoryService.remove(id);
   }
