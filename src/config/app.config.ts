@@ -12,10 +12,11 @@ const CORS_OPTIONS: CorsOptions = {
   origin: [
     configService.get(ENV.DEVELOPMENT_URL),
     configService.get(ENV.PRODUCTION_URL),
-    "http://localhost:3000",
-    "http://localhost:3001", //nextjs dev server
-    "http://localhost:5173", //react vite dev server
-    "http://localhost:4200",
+    'http://localhost:3000',
+    'http://localhost:3001', //nextjs dev server
+    'http://localhost:5173', //react vite dev server
+    'http://localhost:4200',
+    'https://fifty-firsts-wellness-seven.vercel.app',
     configService.get(ENV.FRONTEND_URL),
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
