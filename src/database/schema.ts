@@ -37,6 +37,9 @@ export type AccessItem = (typeof accessItems)[number];
 export const productTypes = ['STORE', 'PROGRAMME', 'PODCAST'] as const;
 export type ProductType = (typeof productTypes)[number];
 
+export const categoryServices = ['store', 'programme', 'podcast'] as const;
+export type CategoryService = (typeof categoryServices)[number];
+
 export const pricingModels = ['ONE_TIME', 'SUBSCRIPTION', 'FREE'] as const;
 export type PricingModel = (typeof pricingModels)[number];
 
@@ -207,7 +210,7 @@ export const storeItems = sqliteTable('StoreItem', {
   stock: integer('stock').notNull().default(0),
   display: text('display', { mode: 'json' }).notNull(), // {url: string, type: image/video}
   images: text('images', { mode: 'json' }).notNull(), // [string] -> urls
-  tags: text('tags', { mode: 'json' }).notNull(), // [string]
+  tags: text('tags', { mode: 'json' }).notNull(), // [string] -> category names
   isFeatured: integer('isFeatured', { mode: 'boolean' })
     .notNull()
     .default(false),
@@ -237,7 +240,7 @@ export const programmes = sqliteTable('Programme', {
   thumbnail: text('thumbnail'),
   requiresAccess: text('requiresAccess', { enum: accessItems }).notNull(),
   duration: integer('duration').notNull(), // in seconds
-  tags: text('tags', { mode: 'json' }),
+  tags: text('tags', { mode: 'json' }), // [string] -> category names
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -345,6 +348,19 @@ export const aiConversations = sqliteTable('AIConversation', {
   userId: text('userId').notNull(),
   title: text('title').notNull(),
   messages: text('messages', { mode: 'json' }).notNull(),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+    .notNull()
+    .$onUpdateFn(() => new Date()),
+});
+
+export const categories = sqliteTable('Category', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  service: text('service', { enum: categoryServices }).notNull(),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -534,3 +550,5 @@ export const aiConversationsRelations = relations(
     }),
   }),
 );
+
+export const categoriesRelations = relations(categories, ({ many }) => ({}));

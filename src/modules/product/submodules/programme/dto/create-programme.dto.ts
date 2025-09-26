@@ -4,8 +4,10 @@ import {
   IsOptional,
   IsBoolean,
   IsEnum,
+  IsArray,
 } from 'class-validator';
 import { AccessItem } from 'src/database/schema';
+import { CategoryExists } from '../../../category/validators/category-exists.validator';
 
 export class CreateProgrammeDto {
   @IsString()
@@ -23,6 +25,11 @@ export class UpdateProgramme {
   description?: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @CategoryExists('programme', {
+    message: 'All tags must be existing programme categories',
+  })
   tags?: string[];
 
   @IsBoolean()

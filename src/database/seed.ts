@@ -12,6 +12,7 @@ config();
 // Entity seeders
 import { seedUsers } from 'src/database/seeders/users.seeder';
 import { seedSubscriptionPlans } from 'src/database/seeders/subscription-plans.seeder';
+import { seedCategories } from 'src/database/seeders/categories.seeder';
 import { seedStoreItems } from 'src/database/seeders/store-items.seeder';
 import { seedProgrammes } from 'src/database/seeders/programmes.seeder';
 import { seedPodcasts } from 'src/database/seeders/podcasts.seeder';
@@ -21,6 +22,7 @@ import { seedBlogs } from 'src/database/seeders/blogs.seeder';
 const SEEDERS = {
   users: seedUsers,
   'subscription-plans': seedSubscriptionPlans,
+  categories: seedCategories,
   'store-items': seedStoreItems,
   programmes: seedProgrammes,
   podcasts: seedPodcasts,
@@ -29,6 +31,7 @@ const SEEDERS = {
     console.log('🌱 Seeding all entities...');
     await seedUsers(db);
     await seedSubscriptionPlans(db);
+    await seedCategories(db);
     await seedStoreItems(db);
     await seedProgrammes(db);
     await seedPodcasts(db);
