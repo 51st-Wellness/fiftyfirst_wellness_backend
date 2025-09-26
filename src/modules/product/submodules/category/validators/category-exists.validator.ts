@@ -26,9 +26,12 @@ export class CategoryExistsConstraint implements ValidatorConstraintInterface {
 
     try {
       // Get all categories for the service
-      const existingCategories =
-        await this.categoryService.findByService(service);
-      const existingCategoryNames = existingCategories.map((cat) => cat.name);
+      const existingCategories = await this.categoryService.findAll({
+        service,
+      });
+      const existingCategoryNames = existingCategories.data.map(
+        (cat) => cat.name,
+      );
 
       // Check if all provided category names exist
       return categoryNames.every((name) =>

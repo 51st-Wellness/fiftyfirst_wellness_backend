@@ -74,15 +74,6 @@ export class CategoryServiceProvider {
     };
   }
 
-  // Get categories by service
-  async findByService(service: CategoryService) {
-    return await this.databaseService.db
-      .select()
-      .from(categories)
-      .where(eq(categories.service, service))
-      .orderBy(categories.name);
-  }
-
   // Get category by ID
   async findOne(id: string) {
     const [category] = await this.databaseService.db

@@ -18,11 +18,11 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/database/schema';
 
 @Controller('product/category')
-@Auth()
 export class CategoryController {
   constructor(private readonly categoryService: CategoryServiceProvider) {}
 
   @Post()
+  @Auth()
   @Roles(UserRole.ADMIN)
   async create(@Body() createCategoryDto: CreateCategoryDto) {
     // Check if category name already exists for this service
@@ -45,21 +45,13 @@ export class CategoryController {
     return this.categoryService.findAll(query);
   }
 
-  @Get('service/:service')
-  async findByService(@Param('service') service: string) {
-    if (!['store', 'programme', 'podcast'].includes(service)) {
-      throw new BadRequestException('Invalid service type');
-    }
-
-    return this.categoryService.findByService(service as any);
-  }
-
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.categoryService.findOne(id);
   }
 
   @Patch(':id')
+  @Auth()
   @Roles(UserRole.ADMIN)
   async update(
     @Param('id') id: string,
@@ -85,6 +77,7 @@ export class CategoryController {
   }
 
   @Delete(':id')
+  @Auth()
   @Roles(UserRole.ADMIN)
   async remove(@Param('id') id: string) {
     return this.categoryService.remove(id);
