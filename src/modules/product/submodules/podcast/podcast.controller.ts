@@ -32,7 +32,7 @@ import { User } from 'src/database/types';
 import { UserRole } from 'src/database/schema';
 import { Request } from 'express';
 import { ResponseDto } from 'src/util/dto/response.dto';
-import { MulterFile } from 'src/types/multer-file.d';
+import { MulterFile } from '@/types';
 
 @Controller('product/podcast')
 @UseGuards(RolesGuard)

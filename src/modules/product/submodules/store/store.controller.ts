@@ -84,6 +84,7 @@ export class StoreController {
   // Get all store items (public access)
   @Get()
   async findAll(@Query() query: StoreItemQueryDto) {
+    console.log('query', query);
     const result = await this.storeService.findAll(query);
     return ResponseDto.createPaginatedResponse(
       'Store items retrieved successfully',

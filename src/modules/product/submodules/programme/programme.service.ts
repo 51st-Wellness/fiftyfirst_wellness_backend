@@ -22,9 +22,9 @@ import { eq, and, gte, lte, desc, count, or } from 'drizzle-orm';
 import {
   products,
   programmes,
-  subscriptions,
-  subscriptionPlans,
-  subscriptionAccess,
+  // subscriptions,
+  // subscriptionPlans,
+  // subscriptionAccess,
 } from 'src/database/schema';
 import { generateId } from 'src/database/utils';
 import { StorageService } from 'src/util/storage/storage.service';
@@ -33,13 +33,14 @@ import { ProgrammeQueryDto } from './dto/programme-query.dto';
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { BaseProductService } from '../../services/base-product.service';
 import { v4 as uuidv4 } from 'uuid';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class ProgrammeService extends BaseProductService {
   constructor(
     database: DatabaseService,
     private storageService: StorageService,
-    configService: any,
+    configService: ConfigService,
   ) {
     super(database, configService);
   }

@@ -15,16 +15,16 @@ import {
   AccessItem,
   PricingModel,
   ProductType,
-  PaymentStatus,
+  //  PaymentStatus,
 } from 'src/database/schema';
-import { User, Product, Podcast } from 'src/database/types';
+import { User } from 'src/database/types';
 import { eq, and, gte, lte, desc, count, or } from 'drizzle-orm';
 import {
   products,
   podcasts,
-  subscriptions,
-  subscriptionPlans,
-  subscriptionAccess,
+  // subscriptions,
+  // subscriptionPlans,
+  // subscriptionAccess,
 } from 'src/database/schema';
 import { generateId } from 'src/database/utils';
 import { StorageService } from 'src/util/storage/storage.service';
@@ -34,13 +34,14 @@ import { ResponseDto } from 'src/util/dto/response.dto';
 import { BaseProductService } from '../../services/base-product.service';
 import { v4 as uuidv4 } from 'uuid';
 import { MulterFile } from '@/types';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PodcastService extends BaseProductService {
   constructor(
     database: DatabaseService,
     private storageService: StorageService,
-    configService: any,
+    protected configService: ConfigService,
   ) {
     super(database, configService);
   }
