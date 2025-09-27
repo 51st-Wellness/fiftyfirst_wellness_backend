@@ -22,6 +22,7 @@ import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { SignupDto } from './dto/signup.dto';
+import { AppConfig } from 'src/config/app.config';
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -180,15 +181,7 @@ export class AuthController {
 
   // Validate and sanitize origin against allowed domains
   private validateAndSanitizeOrigin(origin: string): string {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173', // Common Vite dev server
-      'http://localhost:4200', // Angular dev server
-      this.configService.get(ENV.FRONTEND_URL),
-      this.configService.get(ENV.PRODUCTION_URL),
-      this.configService.get(ENV.DEVELOPMENT_URL),
-    ].filter(Boolean); // Remove any undefined values
+    const allowedOrigins = AppConfig.CORS_OPTIONS.origin as string[];
 
     // Check if origin is in allowed list
     if (allowedOrigins.includes(origin)) {

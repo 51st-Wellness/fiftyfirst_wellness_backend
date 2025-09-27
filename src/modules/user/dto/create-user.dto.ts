@@ -4,7 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  MinLength,
+  IsStrongPassword,
 } from 'class-validator';
 import { UserRole } from 'src/database/schema';
 
@@ -15,7 +15,10 @@ export class CreateUserDto {
 
   @IsString()
   @IsOptional()
-  @MinLength(6)
+  @IsStrongPassword(undefined, {
+    message:
+      'Password must contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 symbol',
+  })
   password?: string; // Optional for Google OAuth users
 
   @IsString()
