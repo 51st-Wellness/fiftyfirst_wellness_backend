@@ -52,12 +52,12 @@ export class CartController {
 
   @Patch(':productId')
   async updateCartItem(
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: User,
     @Param('productId') productId: string,
     @Body() updateCartItemDto: UpdateCartItemDto,
   ): Promise<ResponseDto<CartItemWithRelations>> {
     const cartItem = await this.cartService.updateCartItem(
-      userId,
+      user.id,
       productId,
       updateCartItemDto,
     );
@@ -70,11 +70,11 @@ export class CartController {
 
   @Delete(':productId')
   async removeFromCart(
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: User,
     @Param('productId') productId: string,
   ): Promise<ResponseDto<CartItem>> {
     const deletedItem = await this.cartService.removeFromCart(
-      userId,
+      user.id,
       productId,
     );
 
@@ -86,9 +86,14 @@ export class CartController {
 
   // Clear entire cart
   @Delete()
-  async clearCart(@CurrentUser('id') userId: string): Promise<ResponseDto<{ deletedCount: number }>> {
-    const result = await this.cartService.clearCart(userId);
+  async clearCart(
+    @CurrentUser() user: User,
+  ): Promise<ResponseDto<{ deletedCount: number }>> {
+    const result = await this.cartService.clearCart(user.id);
 
-    return ResponseDto.createSuccessResponse('Cart cleared successfully', result);
+    return ResponseDto.createSuccessResponse(
+      'Cart cleared successfully',
+      result,
+    );
   }
 }
