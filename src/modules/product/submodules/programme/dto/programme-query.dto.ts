@@ -4,6 +4,10 @@ import { IsOptional, IsBoolean, IsString, IsArray } from 'class-validator';
 
 export class ProgrammeQueryDto extends PaginationQueryDto {
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => value === 'true')
   isPublished?: boolean;
@@ -16,5 +20,10 @@ export class ProgrammeQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value.split(',').map((item) => item.trim())
+      : value,
+  )
   categories?: string[];
 }

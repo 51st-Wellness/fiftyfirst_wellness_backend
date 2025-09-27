@@ -35,6 +35,7 @@ import { BaseProductService } from '../../services/base-product.service';
 import { v4 as uuidv4 } from 'uuid';
 import { MulterFile } from '@/types';
 import { ConfigService } from '@nestjs/config';
+import { PodcastRepository } from './podcast.repository';
 
 @Injectable()
 export class PodcastService extends BaseProductService {
@@ -42,6 +43,7 @@ export class PodcastService extends BaseProductService {
     database: DatabaseService,
     private storageService: StorageService,
     protected configService: ConfigService,
+    private podcastRepository: PodcastRepository,
   ) {
     super(database, configService);
   }
@@ -344,107 +346,28 @@ export class PodcastService extends BaseProductService {
    * Gets all podcasts with filtering and pagination
    */
   async getAllPodcasts(query: PodcastQueryDto) {
-    const { page = 1, limit = 20, isPublished, isFeatured, categories } = query;
+    const {
+      page = 1,
+      limit = 20,
+      isPublished,
+      isFeatured,
+      categories,
+      search,
+    } = query;
     const skip = (page - 1) * limit;
 
-    // Build conditions for filtering
-    const conditions: any[] = [eq(products.type, ProductType.PODCAST)];
+    const filters = { isPublished, isFeatured, categories, search };
 
-    // Get product IDs that match podcast-specific filters
-    let podcastProductIds: string[] = [];
-
-    if (isPublished !== undefined || isFeatured !== undefined) {
-      const podcastConditions: any[] = [];
-      if (isPublished !== undefined) {
-        podcastConditions.push(eq(podcasts.isPublished, isPublished));
-      }
-      if (isFeatured !== undefined) {
-        podcastConditions.push(eq(podcasts.isFeatured, isFeatured));
-      }
-
-      let podcastQuery = this.database.db
-        .select({ productId: podcasts.productId })
-        .from(podcasts)
-        .$dynamic();
-
-      if (podcastConditions.length > 0) {
-        podcastQuery = podcastQuery.where(and(...podcastConditions));
-      }
-
-      const matchingPodcasts = await podcastQuery;
-
-      podcastProductIds = matchingPodcasts.map((p) => p.productId);
-
-      if (podcastProductIds.length === 0) {
-        // No matching podcasts found
-        return ResponseDto.createPaginatedResponse(
-          'Podcasts retrieved successfully',
-          [],
-          { total: 0, page, pageSize: limit },
-        );
-      }
-
-      if (podcastProductIds.length > 0) {
-        conditions.push(
-          or(...podcastProductIds.map((id) => eq(products.id, id))),
-        );
-      }
-    }
-
-    // Get total count for pagination
-    let countQuery = this.database.db
-      .select({ count: count() })
-      .from(products)
-      .$dynamic();
-
-    if (conditions.length > 0) {
-      countQuery = countQuery.where(and(...conditions));
-    }
-
-    const totalResults = await countQuery;
-    const total = totalResults[0].count;
-
-    // Get paginated results
-    let productQuery = this.database.db.select().from(products).$dynamic();
-
-    if (conditions.length > 0) {
-      productQuery = productQuery.where(and(...conditions));
-    }
-
-    const productResults = await productQuery
-      .orderBy(desc(products.createdAt))
-      .offset(skip)
-      .limit(limit);
-
-    // Get corresponding podcasts
-    let podcastResults: any[] = [];
-    for (const product of productResults) {
-      const podcast = (
-        await this.database.db
-          .select()
-          .from(podcasts)
-          .where(eq(podcasts.productId, product.id))
-      )[0];
-
-      if (podcast) {
-        podcastResults.push(podcast);
-      }
-    }
-
-    // Filter by categories if specified (since SQLite doesn't support array_contains)
-    if (categories && categories.length > 0) {
-      podcastResults = podcastResults.filter((podcast) => {
-        if (!podcast?.categories) return false;
-        const podcastCategories = podcast.categories as string[];
-        return categories.some((category) => podcastCategories.includes(category));
-      });
-    }
+    const [podcastResults, total] = await Promise.all([
+      this.podcastRepository.findAll(skip, limit, filters),
+      this.podcastRepository.count(filters),
+    ]);
 
     return ResponseDto.createPaginatedResponse(
       'Podcasts retrieved successfully',
       podcastResults,
       {
-        total: categories && categories.length > 0 ? podcastResults.length : total,
+        total,
         page,
         pageSize: limit,
       },

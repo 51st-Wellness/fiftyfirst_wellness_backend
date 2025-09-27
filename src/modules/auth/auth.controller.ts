@@ -11,18 +11,17 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { CreateUserDto } from 'src/modules/user/dto/create-user.dto';
 import { ForgetPasswordDto } from 'src/modules/user/dto/forget-password.dto';
 import { ResetPasswordDto } from 'src/modules/user/dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { CUSTOM_HEADERS, JWT_COOKIE_NAME } from 'src/config/constants.config';
+import { JWT_COOKIE_NAME } from 'src/config/constants.config';
 import { User } from 'src/database/types';
-import { UserRole } from 'src/database/schema';
 import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
 import { ResponseDto } from 'src/util/dto/response.dto';
+import { SignupDto } from './dto/signup.dto';
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -33,18 +32,10 @@ export class AuthController {
   // Register a new user
   @Post('signup')
   async register(
-    @Body() body: CreateUserDto,
+    @Body() body: SignupDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    if (body.role === UserRole.ADMIN) {
-      if (
-        req.headers[CUSTOM_HEADERS.rootApiKey] !==
-        (this.configService.get(ENV.ROOT_API_KEY) as string)
-      ) {
-        throw new UnauthorizedException('Invalid root api key');
-      }
-    }
     const newUser = await this.authService.register(body);
 
     // Automatically sign in the user by setting JWT cookie

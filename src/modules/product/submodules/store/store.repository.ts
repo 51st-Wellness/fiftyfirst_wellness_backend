@@ -51,6 +51,7 @@ export class StoreRepository {
       isPublished?: boolean;
       isFeatured?: boolean;
       search?: string;
+      category?: string;
     },
   ): Promise<StoreItem[]> {
     // Build where conditions
@@ -69,6 +70,9 @@ export class StoreRepository {
       if (searchCondition) {
         conditions.push(searchCondition);
       }
+    }
+    if (filters?.category) {
+      conditions.push(like(storeItems.categories, `%${filters.category}%`));
     }
 
     // Build query step by step using a dynamic query builder
@@ -94,6 +98,7 @@ export class StoreRepository {
     isPublished?: boolean;
     isFeatured?: boolean;
     search?: string;
+    category?: string;
   }): Promise<number> {
     // Build where conditions
     const conditions: SQL[] = [];
@@ -111,6 +116,9 @@ export class StoreRepository {
       if (searchCondition) {
         conditions.push(searchCondition);
       }
+    }
+    if (filters?.category) {
+      conditions.push(like(storeItems.categories, `%${filters.category}%`));
     }
 
     // Build count query step by step using a dynamic query builder

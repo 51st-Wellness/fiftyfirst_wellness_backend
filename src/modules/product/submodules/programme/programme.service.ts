@@ -34,6 +34,7 @@ import { ResponseDto } from 'src/util/dto/response.dto';
 import { BaseProductService } from '../../services/base-product.service';
 import { v4 as uuidv4 } from 'uuid';
 import { ConfigService } from '@nestjs/config';
+import { ProgrammeRepository } from './programme.repository';
 
 @Injectable()
 export class ProgrammeService extends BaseProductService {
@@ -41,6 +42,7 @@ export class ProgrammeService extends BaseProductService {
     database: DatabaseService,
     private storageService: StorageService,
     configService: ConfigService,
+    private programmeRepository: ProgrammeRepository,
   ) {
     super(database, configService);
   }
@@ -356,107 +358,28 @@ export class ProgrammeService extends BaseProductService {
    * Gets all programmes with filtering and pagination
    */
   async getAllProgrammes(query: ProgrammeQueryDto) {
-    const { page = 1, limit = 20, isPublished, isFeatured, categories } = query;
+    const {
+      page = 1,
+      limit = 20,
+      isPublished,
+      isFeatured,
+      categories,
+      search,
+    } = query;
     const skip = (page - 1) * limit;
 
-    // Build conditions for filtering
-    const conditions: any[] = [eq(products.type, ProductType.PROGRAMME)];
+    const filters = { isPublished, isFeatured, categories, search };
 
-    // Get product IDs that match programme-specific filters
-    let programmeProductIds: string[] = [];
-
-    if (isPublished !== undefined || isFeatured !== undefined) {
-      const programmeConditions: any[] = [];
-      if (isPublished !== undefined) {
-        programmeConditions.push(eq(programmes.isPublished, isPublished));
-      }
-      if (isFeatured !== undefined) {
-        programmeConditions.push(eq(programmes.isFeatured, isFeatured));
-      }
-
-      let programmeQuery = this.database.db
-        .select({ productId: programmes.productId })
-        .from(programmes)
-        .$dynamic();
-
-      if (programmeConditions.length > 0) {
-        programmeQuery = programmeQuery.where(and(...programmeConditions));
-      }
-
-      const matchingProgrammes = await programmeQuery;
-
-      programmeProductIds = matchingProgrammes.map((p) => p.productId);
-
-      if (programmeProductIds.length === 0) {
-        // No matching programmes found
-        return ResponseDto.createPaginatedResponse(
-          'Programmes retrieved successfully',
-          [],
-          { total: 0, page, pageSize: limit },
-        );
-      }
-
-      if (programmeProductIds.length > 0) {
-        conditions.push(
-          or(...programmeProductIds.map((id) => eq(products.id, id))),
-        );
-      }
-    }
-
-    // Get total count for pagination
-    let countQuery = this.database.db
-      .select({ count: count() })
-      .from(products)
-      .$dynamic();
-
-    if (conditions.length > 0) {
-      countQuery = countQuery.where(and(...conditions));
-    }
-
-    const totalResults = await countQuery;
-    const total = totalResults[0].count;
-
-    // Get paginated results
-    let productQuery = this.database.db.select().from(products).$dynamic();
-
-    if (conditions.length > 0) {
-      productQuery = productQuery.where(and(...conditions));
-    }
-
-    const productResults = await productQuery
-      .orderBy(desc(products.createdAt))
-      .offset(skip)
-      .limit(limit);
-
-    // Get corresponding programmes
-    let programmeResults: any[] = [];
-    for (const product of productResults) {
-      const programme = (
-        await this.database.db
-          .select()
-          .from(programmes)
-          .where(eq(programmes.productId, product.id))
-      )[0];
-
-      if (programme) {
-        programmeResults.push(programme);
-      }
-    }
-
-    // Filter by categories if specified (since SQLite doesn't support array_contains)
-    if (categories && categories.length > 0) {
-      programmeResults = programmeResults.filter((programme) => {
-        if (!programme?.categories) return false;
-        const programmeCategories = programme.categories as string[];
-        return categories.some((category) => programmeCategories.includes(category));
-      });
-    }
+    const [programmeResults, total] = await Promise.all([
+      this.programmeRepository.findAll(skip, limit, filters),
+      this.programmeRepository.count(filters),
+    ]);
 
     return ResponseDto.createPaginatedResponse(
       'Programmes retrieved successfully',
       programmeResults,
       {
-        total: categories && categories.length > 0 ? programmeResults.length : total,
+        total,
         page,
         pageSize: limit,
       },

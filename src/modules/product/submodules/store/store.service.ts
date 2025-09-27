@@ -105,41 +105,27 @@ export class StoreService {
 
   // Find all store items with pagination and filters
   async findAll(query: StoreItemQueryDto) {
-    const { page = 1, limit = 10, search, isFeatured, isPublished } = query;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      isFeatured,
+      isPublished,
+      category,
+    } = query;
     const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where: any = {};
-
-    if (isFeatured !== undefined) {
-      where.isFeatured = isFeatured;
-    }
-
-    if (isPublished !== undefined) {
-      where.isPublished = isPublished;
-    }
-
-    // If search is provided, use search method instead
-    if (search) {
-      const searchResults = await this.storeRepository.search(search);
-      const total = searchResults.length;
-      const paginatedResults = searchResults.slice(skip, skip + limit);
-
-      return {
-        data: paginatedResults,
-        meta: {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    }
+    const filters = {
+      isFeatured,
+      isPublished,
+      category,
+      search,
+    };
 
     // Get store items with filters
     const [storeItems, total] = await Promise.all([
-      this.storeRepository.findAll(skip, limit, where),
-      this.storeRepository.count(where),
+      this.storeRepository.findAll(skip, limit, filters),
+      this.storeRepository.count(filters),
     ]);
 
     return {

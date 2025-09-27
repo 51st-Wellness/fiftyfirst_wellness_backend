@@ -14,6 +14,8 @@ import { CategoryServiceProvider } from 'src/modules/product/submodules/category
 import { CategoryExistsConstraint } from 'src/modules/product/submodules/category/validators/category-exists.validator';
 import { MuxWebhookController } from 'src/modules/product/controllers/mux-webhook.controller';
 import { StoreRepository } from 'src/modules/product/submodules/store/store.repository';
+import { ProgrammeRepository } from 'src/modules/product/submodules/programme/programme.repository';
+import { PodcastRepository } from 'src/modules/product/submodules/podcast/podcast.repository';
 @Module({
   imports: [DatabaseModule, ConfigModule, UserModule, StorageModule],
   controllers: [
@@ -30,6 +32,8 @@ import { StoreRepository } from 'src/modules/product/submodules/store/store.repo
     CategoryServiceProvider,
     CategoryExistsConstraint,
     StoreRepository,
+    ProgrammeRepository,
+    PodcastRepository,
   ],
   exports: [
     ProgrammeService,

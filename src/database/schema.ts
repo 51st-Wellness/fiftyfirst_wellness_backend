@@ -264,6 +264,7 @@ export const podcasts = sqliteTable('Podcast', {
   thumbnail: text('thumbnail'),
   requiresAccess: text('requiresAccess', { enum: accessItems }).notNull(), // Always PODCAST_ACCESS
   duration: integer('duration').notNull(), // in seconds
+  categories: text('categories', { mode: 'json' }), // [string] -> category names
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
