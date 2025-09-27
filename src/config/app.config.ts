@@ -16,7 +16,7 @@ const CORS_OPTIONS: CorsOptions = {
     'http://localhost:3001', //nextjs dev server
     'http://localhost:5173', //react vite dev server
     'http://localhost:4200',
-    'https://fifty-firsts-wellness-git-dev-prosper-enwerems-projects.vercel.app',
+    'https://fifty-firsts-wellness2.vercel.app',
     configService.get(ENV.FRONTEND_URL),
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

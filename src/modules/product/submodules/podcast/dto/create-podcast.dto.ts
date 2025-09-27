@@ -48,3 +48,4 @@ export class CreateUploadUrlResponseDto {
   uploadId: string;
   productId: string;
 }
+
