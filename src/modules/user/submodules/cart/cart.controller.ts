@@ -87,7 +87,7 @@ export class CartController {
 
   // Clear entire cart
   @Delete()
-  @HttpCode(HttpStatus.NO_CONTENT)
+  // @HttpCode(HttpStatus.NO_CONTENT)
   async clearCart(@CurrentUser('id') userId: string): Promise<{
     message: string;
     data: { deletedCount: number };

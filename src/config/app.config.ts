@@ -19,7 +19,7 @@ const CORS_OPTIONS: CorsOptions = {
     'https://fifty-firsts-wellness2.vercel.app',
     configService.get(ENV.FRONTEND_URL),
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
     'Authorization',
