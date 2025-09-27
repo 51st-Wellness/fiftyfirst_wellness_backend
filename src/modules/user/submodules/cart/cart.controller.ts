@@ -69,7 +69,6 @@ export class CartController {
   }
 
   @Delete(':productId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   async removeFromCart(
     @CurrentUser('id') userId: string,
     @Param('productId') productId: string,
@@ -87,16 +86,9 @@ export class CartController {
 
   // Clear entire cart
   @Delete()
-  // @HttpCode(HttpStatus.NO_CONTENT)
-  async clearCart(@CurrentUser('id') userId: string): Promise<{
-    message: string;
-    data: { deletedCount: number };
-  }> {
+  async clearCart(@CurrentUser('id') userId: string): Promise<ResponseDto<{ deletedCount: number }>> {
     const result = await this.cartService.clearCart(userId);
 
-    return {
-      message: 'Cart cleared successfully',
-      data: result,
-    };
+    return ResponseDto.createSuccessResponse('Cart cleared successfully', result);
   }
 }
