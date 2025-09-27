@@ -4,10 +4,6 @@ import { IsOptional, IsBoolean, IsString, IsArray } from 'class-validator';
 
 export class PodcastQueryDto extends PaginationQueryDto {
   @IsOptional()
-  @IsString()
-  search?: string;
-
-  @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => value === 'true')
   isPublished?: boolean;

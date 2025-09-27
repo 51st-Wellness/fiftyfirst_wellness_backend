@@ -22,7 +22,6 @@ export class PodcastRepository {
     filters?: {
       isPublished?: boolean;
       isFeatured?: boolean;
-      search?: string;
       categories?: string[];
     },
   ): Promise<Podcast[]> {
@@ -33,20 +32,12 @@ export class PodcastRepository {
     if (filters?.isFeatured !== undefined) {
       conditions.push(eq(podcasts.isFeatured, filters.isFeatured));
     }
-    if (filters?.search) {
-      const searchCondition = or(
-        like(podcasts.title, `%${filters.search}%`),
-        like(podcasts.description, `%${filters.search}%`),
-      );
-      if (searchCondition) {
-        conditions.push(searchCondition);
-      }
-    }
+
     if (filters?.categories && filters.categories.length > 0) {
       const categoryConditions = filters.categories.map((category) =>
         like(podcasts.categories, `%"${category}"%`),
       );
-      conditions.push(or(...categoryConditions));
+      conditions.push(or(...categoryConditions) as any);
     }
 
     let query = this.database.db.select().from(podcasts).$dynamic();
@@ -67,7 +58,6 @@ export class PodcastRepository {
   async count(filters?: {
     isPublished?: boolean;
     isFeatured?: boolean;
-    search?: string;
     categories?: string[];
   }): Promise<number> {
     const conditions: SQL[] = [];
@@ -77,20 +67,12 @@ export class PodcastRepository {
     if (filters?.isFeatured !== undefined) {
       conditions.push(eq(podcasts.isFeatured, filters.isFeatured));
     }
-    if (filters?.search) {
-      const searchCondition = or(
-        like(podcasts.title, `%${filters.search}%`),
-        like(podcasts.description, `%${filters.search}%`),
-      );
-      if (searchCondition) {
-        conditions.push(searchCondition);
-      }
-    }
+
     if (filters?.categories && filters.categories.length > 0) {
       const categoryConditions = filters.categories.map((category) =>
         like(podcasts.categories, `%"${category}"%`),
       );
-      conditions.push(or(...categoryConditions));
+      conditions.push(or(...categoryConditions) as any);
     }
 
     let query = this.database.db

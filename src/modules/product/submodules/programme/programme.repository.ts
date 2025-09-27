@@ -46,7 +46,7 @@ export class ProgrammeRepository {
       const categoryConditions = filters.categories.map((category) =>
         like(programmes.categories, `%"${category}"%`),
       );
-      conditions.push(or(...categoryConditions));
+      conditions.push(or(...categoryConditions) as any  );
     }
 
     let query = this.database.db.select().from(programmes).$dynamic();
@@ -90,7 +90,7 @@ export class ProgrammeRepository {
       const categoryConditions = filters.categories.map((category) =>
         like(programmes.categories, `%"${category}"%`),
       );
-      conditions.push(or(...categoryConditions));
+      conditions.push(or(...categoryConditions) as any);
     }
 
     let query = this.database.db
