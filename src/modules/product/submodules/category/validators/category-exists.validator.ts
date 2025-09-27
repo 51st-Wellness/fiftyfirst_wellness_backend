@@ -11,17 +11,12 @@ import { CategoryService } from 'src/database/schema';
 
 @ValidatorConstraint({ async: true })
 @Injectable()
-export class CategoryExistsConstraint implements ValidatorConstraintInterface {
+export class CategoryExistsConstraint {
   constructor(private readonly categoryService: CategoryServiceProvider) {}
 
-  async validate(categoryNames: string[], args: ValidationArguments) {
+  async validate(categoryNames: string[], service: CategoryService) {
     if (!Array.isArray(categoryNames) || categoryNames.length === 0) {
-      return true; // Allow empty arrays
-    }
-
-    const service = args.constraints[0] as CategoryService;
-    if (!service) {
-      return false;
+      return true;
     }
 
     try {
@@ -33,32 +28,19 @@ export class CategoryExistsConstraint implements ValidatorConstraintInterface {
         (cat) => cat.name,
       );
 
+      console.log('existingCategoryNames', existingCategoryNames);
+
       // Check if all provided category names exist
       return categoryNames.every((name) =>
         existingCategoryNames.includes(name),
       );
     } catch (error) {
+      console.log('error', error);
       return false;
     }
   }
 
-  defaultMessage(args: ValidationArguments) {
-    const service = args.constraints[0] as CategoryService;
+  static defaultMessage(service: CategoryService) {
     return `One or more categories do not exist for ${service} service. Please use existing categories or create new ones first.`;
   }
-}
-
-export function CategoryExists(
-  service: CategoryService,
-  validationOptions?: ValidationOptions,
-) {
-  return function (object: object, propertyName: string) {
-    registerDecorator({
-      target: object.constructor,
-      propertyName: propertyName,
-      options: validationOptions,
-      constraints: [service],
-      validator: CategoryExistsConstraint,
-    });
-  };
 }

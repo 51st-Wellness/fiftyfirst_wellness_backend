@@ -3,11 +3,8 @@ import {
   IsNotEmpty,
   IsOptional,
   IsBoolean,
-  IsEnum,
   IsArray,
 } from 'class-validator';
-import { AccessItem } from 'src/database/schema';
-import { CategoryExists } from '../../category/validators/category-exists.validator';
 
 export class CreatePodcastDto {
   @IsString()
@@ -23,9 +20,6 @@ export class UpdatePodcast {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @CategoryExists('podcast', {
-    message: 'All categories must be existing podcast categories',
-  })
   categories?: string[];
 
   @IsBoolean()
@@ -48,4 +42,3 @@ export class CreateUploadUrlResponseDto {
   uploadId: string;
   productId: string;
 }
-

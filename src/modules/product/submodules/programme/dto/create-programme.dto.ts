@@ -6,8 +6,6 @@ import {
   IsEnum,
   IsArray,
 } from 'class-validator';
-import { AccessItem } from 'src/database/schema';
-import { CategoryExists } from '../../category/validators/category-exists.validator';
 
 export class CreateProgrammeDto {
   @IsString()
@@ -27,9 +25,6 @@ export class UpdateProgramme {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @CategoryExists('programme', {
-    message: 'All categories must be existing programme categories',
-  })
   categories?: string[];
 
   @IsBoolean()

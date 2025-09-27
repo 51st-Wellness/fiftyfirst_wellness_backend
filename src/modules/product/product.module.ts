@@ -15,12 +15,7 @@ import { CategoryExistsConstraint } from 'src/modules/product/submodules/categor
 import { MuxWebhookController } from 'src/modules/product/controllers/mux-webhook.controller';
 import { StoreRepository } from 'src/modules/product/submodules/store/store.repository';
 @Module({
-  imports: [
-    DatabaseModule,
-    ConfigModule,
-    UserModule,
-    StorageModule,
-  ],
+  imports: [DatabaseModule, ConfigModule, UserModule, StorageModule],
   controllers: [
     ProgrammeController,
     PodcastController,

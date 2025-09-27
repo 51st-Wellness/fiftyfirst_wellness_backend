@@ -25,10 +25,14 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/database/schema';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseDto } from 'src/util/dto/response.dto';
+import { CategoryExistsConstraint } from '../category/validators/category-exists.validator';
 
 @Controller('product/store')
 export class StoreController {
-  constructor(private readonly storeService: StoreService) {}
+  constructor(
+    private readonly storeService: StoreService,
+    private readonly categoryValidator: CategoryExistsConstraint,
+  ) {}
 
   // Create store item (Admin only)
   @Post()
@@ -56,6 +60,18 @@ export class StoreController {
     )
     files?: { display?: MulterFile[]; images?: MulterFile[] },
   ): Promise<ResponseDto<any>> {
+    // Validate categories if provided
+
+    const isValid = await this.categoryValidator.validate(
+      createStoreItemDto.categories || [],
+      'store',
+    );
+    if (!isValid) {
+      throw new BadRequestException(
+        CategoryExistsConstraint.defaultMessage('store'),
+      );
+    }
+
     // Get display file from the files object
     const displayFile = files?.display?.[0];
 
@@ -133,6 +149,23 @@ export class StoreController {
     )
     files?: { display?: MulterFile[]; images?: MulterFile[] },
   ): Promise<ResponseDto<any>> {
+    // Validate categories if provided
+    if (
+      updateStoreItemDto.categories &&
+      updateStoreItemDto.categories.length > 0
+    ) {
+      const isValid = await this.categoryValidator.validate(
+        updateStoreItemDto.categories,
+        'store',
+      );
+
+      if (!isValid) {
+        throw new BadRequestException(
+          CategoryExistsConstraint.defaultMessage('store'),
+        );
+      }
+    }
+
     // Get files from the files object
     const displayFile = files?.display?.[0];
     const imageFiles = files?.images || [];
