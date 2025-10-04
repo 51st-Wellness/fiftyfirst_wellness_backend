@@ -93,7 +93,7 @@ export class CloudinaryProvider implements IStorageProvider {
           public_id: fileKey,
           timestamp: Math.round(Date.now() / 1000) + expiresIn,
         },
-        this.configService.get(ENV.CLOUDINARY_API_SECRET),
+        this.configService.get(ENV.CLOUDINARY_API_SECRET) as string,
       );
 
       // For Cloudinary, we need to construct the URL differently
