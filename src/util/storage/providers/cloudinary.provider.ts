@@ -49,12 +49,18 @@ export class CloudinaryProvider implements IStorageProvider {
               access_mode: bucketType === 'public' ? 'public' : 'authenticated',
               overwrite: true,
               invalidate: true,
-              metadata: {
-                originalName: file.originalname,
-                uploadedBy: 'storage-service',
-                uploadedAt: new Date().toISOString(),
-                bucketType: bucketType,
+              // Use Cloudinary's built-in context for metadata
+              context: {
+                original_name: file.originalname,
+                uploaded_by: 'storage-service',
+                bucket_type: bucketType,
               },
+              // Use tags for additional categorization
+              tags: [
+                'storage-service',
+                bucketType,
+                file.mimetype.split('/')[0],
+              ],
             },
             (error, result) => {
               if (error) {
@@ -87,21 +93,29 @@ export class CloudinaryProvider implements IStorageProvider {
     expiresIn = 3600,
   ): Promise<string> {
     try {
-      // Generate signed URL for private files
-      const signedUrl = cloudinary.utils.api_sign_request(
-        {
-          public_id: fileKey,
-          timestamp: Math.round(Date.now() / 1000) + expiresIn,
-        },
-        this.configService.get(ENV.CLOUDINARY_API_SECRET) as string,
-      );
-
-      // For Cloudinary, we need to construct the URL differently
       const cloudName = this.configService.get(ENV.CLOUDINARY_CLOUD_NAME);
-      const baseUrl = `https://res.cloudinary.com/${cloudName}/image/upload`;
+      const apiSecret = this.configService.get(ENV.CLOUDINARY_API_SECRET);
 
-      // For private files, we'll use the authenticated URL
-      return `${baseUrl}/v${Date.now()}/${fileKey}`;
+      // Generate timestamp for expiration
+      const timestamp = Math.round(Date.now() / 1000) + expiresIn;
+
+      // Create the signature parameters
+      const params = {
+        public_id: fileKey,
+        timestamp: timestamp,
+      };
+
+      // Generate signature
+      const signature = cloudinary.utils.api_sign_request(params, apiSecret);
+
+      // Construct the signed URL
+      const baseUrl = `https://res.cloudinary.com/${cloudName}/image/upload`;
+      const queryParams = new URLSearchParams();
+      queryParams.append('public_id', params.public_id);
+      queryParams.append('timestamp', params.timestamp.toString());
+      queryParams.append('signature', signature);
+
+      return `${baseUrl}?${queryParams.toString()}`;
     } catch (error) {
       throw new Error(`Failed to generate signed URL: ${error.message}`);
     }
