@@ -369,7 +369,13 @@ export const categories = sqliteTable('Category', {
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
-
+// export const blogs = sqliteTable('Blogs', {
+//   id: text('id').primaryKey(),
+//   title: text('title').notNull(),
+//   contentKey: text('contentKey').notNull(),
+//   isFeatured: integer('isFeatured', { mode: 'boolean' }).notNull().default(false),
+//   isPublished: integer('isPublished', { mode: 'boolean' }).notNull().default(true),
+// });
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   passwordResetOTP: one(passwordResetOTPs, {

@@ -17,6 +17,7 @@ const CORS_OPTIONS: CorsOptions = {
     'http://localhost:5173', //react vite dev server
     'http://localhost:4200',
     'https://fifty-firsts-wellness2.vercel.app',
+    'https://fifty-firsts-wellness-drab.vercel.app',
     configService.get(ENV.FRONTEND_URL),
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
