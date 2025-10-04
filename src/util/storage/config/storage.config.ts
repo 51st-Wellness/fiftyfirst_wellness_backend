@@ -3,7 +3,7 @@ import { ConfigService, configService } from 'src/config/config.service';
 import { ENV } from '../../../config/env.enum';
 
 export const createStorageConfig = (configService: ConfigService) => ({
-  provider: configService.get(ENV.STORAGE_PROVIDER, 'aws'),
+  provider: configService.get(ENV.STORAGE_PROVIDER, 'cloudinary'),
   maxFileSize: parseInt(configService.get(ENV.MAX_FILE_SIZE, '10485760')), // 10MB
   allowedMimeTypes: [
     'image/jpeg',
@@ -22,9 +22,19 @@ export const createStorageConfig = (configService: ConfigService) => ({
     accessKeyId: configService.get(ENV.AWS_ACCESS_KEY_ID),
     secretAccessKey: configService.get(ENV.AWS_SECRET_ACCESS_KEY),
   },
+  cloudinary: {
+    cloudName: configService.get(ENV.CLOUDINARY_CLOUD_NAME),
+    apiKey: configService.get(ENV.CLOUDINARY_API_KEY),
+    apiSecret: configService.get(ENV.CLOUDINARY_API_SECRET),
+    publicBucket: 'public', // Cloudinary uses folders instead of buckets
+    privateBucket: 'private',
+  },
 });
 
-export const CurrentProvider = configService.get(ENV.STORAGE_PROVIDER, 'aws');
+export const CurrentProvider = configService.get(
+  ENV.STORAGE_PROVIDER,
+  'cloudinary',
+);
 export const MaxFileSize = parseInt(
   configService.get(ENV.MAX_FILE_SIZE, '10485760'),
 );
@@ -35,6 +45,13 @@ export const Providers = {
     privateBucket: configService.get(ENV.S3_PRIVATE_BUCKET_NAME),
     accessKeyId: configService.get(ENV.AWS_ACCESS_KEY_ID),
     secretAccessKey: configService.get(ENV.AWS_SECRET_ACCESS_KEY),
+  },
+  cloudinary: {
+    cloudName: configService.get(ENV.CLOUDINARY_CLOUD_NAME),
+    apiKey: configService.get(ENV.CLOUDINARY_API_KEY),
+    apiSecret: configService.get(ENV.CLOUDINARY_API_SECRET),
+    publicBucket: 'public',
+    privateBucket: 'private',
   },
 };
 console.log('providers', Providers);
