@@ -4,7 +4,7 @@ import { StorageConfigService } from './config/storage.config';
 import { AWSS3Provider } from './providers/aws-s3.provider';
 import { CloudinaryProvider } from './providers/cloudinary.provider';
 import { createStorageConfig } from './config/storage.config';
-import { configService } from 'src/config/config.service';
+import { ConfigService } from '@nestjs/config';
 
 @Module({
   providers: [
@@ -12,12 +12,13 @@ import { configService } from 'src/config/config.service';
     StorageConfigService,
     {
       provide: 'STORAGE_PROVIDER',
-      useFactory: () => {
+      useFactory: (configService: ConfigService) => {
         const storageConfig = createStorageConfig(configService);
         return storageConfig.provider === 'cloudinary'
           ? new CloudinaryProvider(configService)
           : new AWSS3Provider(configService);
       },
+      inject: [ConfigService],
     },
   ],
   exports: [StorageService],

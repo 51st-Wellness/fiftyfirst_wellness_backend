@@ -1,19 +1,22 @@
 import { Inject, Injectable, BadRequestException } from '@nestjs/common';
-import { configService } from 'src/config/config.service';
+import { ConfigService } from '@nestjs/config';
 import { StructuredLoggerService } from 'src/lib/logging';
 import { IStorageProvider } from './interfaces/storage.interface';
-import { createStorageConfig, CurrentProvider } from './config/storage.config';
+import { createStorageConfig } from './config/storage.config';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { DocumentType } from './constants';
 
 @Injectable()
 export class StorageService {
-  private storageConfig = createStorageConfig(configService);
+  private storageConfig: ReturnType<typeof createStorageConfig>;
 
   constructor(
     @Inject('STORAGE_PROVIDER') private storageProvider: IStorageProvider,
     private logger: StructuredLoggerService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.storageConfig = createStorageConfig(this.configService);
+  }
 
   // Upload file with document type information
   async uploadFileWithMetadata(
@@ -54,7 +57,10 @@ export class StorageService {
     );
 
     // Determine bucket based on bucket type
-    const bucket = this.getBucketForType(CurrentProvider, bucketType);
+    const bucket = this.getBucketForType(
+      this.storageConfig.provider,
+      bucketType,
+    );
 
     try {
       // Upload to storage provider
@@ -129,7 +135,10 @@ export class StorageService {
     const bucketType = options.bucketType || 'private';
 
     // Determine bucket based on bucket type
-    const bucket = this.getBucketForType(CurrentProvider, bucketType);
+    const bucket = this.getBucketForType(
+      this.storageConfig.provider,
+      bucketType,
+    );
 
     try {
       // Upload to storage provider
@@ -171,7 +180,10 @@ export class StorageService {
   ): Promise<string> {
     try {
       // Determine bucket based on bucket type
-      const bucket = this.getBucketForType(CurrentProvider, bucketType);
+      const bucket = this.getBucketForType(
+        this.storageConfig.provider,
+        bucketType,
+      );
 
       // For public files, return direct URL using provider-specific method
       if (bucketType === 'public') {
@@ -270,13 +282,18 @@ export class StorageService {
     provider: string,
     bucketType: 'public' | 'private',
   ): string {
+    const providerConfig = this.storageConfig[provider];
+    if (!providerConfig) {
+      throw new Error(`Provider ${provider} not configured`);
+    }
+
     switch (bucketType) {
       case 'public':
-        return this.storageConfig[provider].publicBucket;
+        return providerConfig.publicBucket;
       case 'private':
-        return this.storageConfig[provider].privateBucket;
+        return providerConfig.privateBucket;
       default:
-        return this.storageConfig[provider].publicBucket;
+        return providerConfig.publicBucket;
     }
   }
 
