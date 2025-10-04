@@ -17,6 +17,7 @@ import { ConfigService } from '@nestjs/config';
         return storageConfig.provider === 'cloudinary'
           ? new CloudinaryProvider(configService)
           : new AWSS3Provider(configService);
+        // return new AWSS3Provider(configService);
       },
       inject: [ConfigService],
     },
