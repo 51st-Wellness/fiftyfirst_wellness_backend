@@ -10,6 +10,8 @@ import { CommonModule } from './common/common.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { ProductModule } from './modules/product/product.module';
+import { AppCacheModule } from './util/cache/cache.module';
+import { PodcastModule } from './modules/podcast/podcast.module';
 
 @Module({
   imports: [
@@ -17,6 +19,7 @@ import { ProductModule } from './modules/product/product.module';
       isGlobal: true,
       load: [databaseConfig],
     }),
+    AppCacheModule,
     DatabaseModule,
     CommonModule,
     NotificationModule,
@@ -24,6 +27,7 @@ import { ProductModule } from './modules/product/product.module';
     AuthModule,
     ProductModule,
     PaymentModule,
+    PodcastModule,
   ],
   controllers: [AppController],
   providers: [AppService],
