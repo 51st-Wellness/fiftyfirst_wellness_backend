@@ -35,6 +35,7 @@ import { BaseProductService } from '../../services/base-product.service';
 import { v4 as uuidv4 } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import { ProgrammeRepository } from './programme.repository';
+import { MulterFile } from '@/types';
 
 @Injectable()
 export class ProgrammeService extends BaseProductService {
@@ -139,11 +140,11 @@ export class ProgrammeService extends BaseProductService {
 
       while (!asset && attempts < maxAttempts) {
         try {
-          const uploadStatus = await this.muxClient.video.uploads.get(
+          const uploadStatus = await this.muxClient.video.uploads.retrieve(
             upload.id,
           );
           if (uploadStatus.asset_id) {
-            asset = await this.muxClient.video.assets.get(
+            asset = await this.muxClient.video.assets.retrieve(
               uploadStatus.asset_id,
             );
             break;
@@ -163,13 +164,13 @@ export class ProgrammeService extends BaseProductService {
       }
 
       // Handle thumbnail upload if provided
-      let thumbnailUrl = null;
+      let thumbnailUrl: string | null = null;
       if (thumbnailFile) {
         try {
           const uploadResult = await this.storageService.uploadFileWithMetadata(
             thumbnailFile,
             {
-              documentType: 'PROFILE_PICTURE', // Reuse existing document type
+              documentType: DocumentType.PROGRAMME_THUMBNAIL, // Reuse existing document type
               fileName: `programme_thumbnail_${productId}`,
               folder: 'programme-thumbnails',
             },

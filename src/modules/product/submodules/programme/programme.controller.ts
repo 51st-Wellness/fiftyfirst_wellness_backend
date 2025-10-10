@@ -17,6 +17,7 @@ import {
   FileTypeValidator,
   Query,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   FileInterceptor,
@@ -36,6 +37,7 @@ import { User } from 'src/database/types';
 import { UserRole } from 'src/database/schema';
 import { Request } from 'express';
 import { ResponseDto } from 'src/util/dto/response.dto';
+import { MulterFile } from '@/types';
 
 @Controller('product/programme')
 @UseGuards(RolesGuard)
@@ -154,6 +156,7 @@ export class ProgrammeController {
    * Gets a secure programme by ID with subscription access control and signed playback token
    */
   @Get('secure/:productId')
+  @UseGuards(AuthGuard('jwt'))
   async getSecureProgrammeById(
     @Param('productId') productId: string,
     @Req() req: Request,
