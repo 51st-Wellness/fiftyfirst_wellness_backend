@@ -47,66 +47,6 @@ export class ProgrammeController {
   constructor(private readonly programmeService: ProgrammeService) {}
 
   /**
-   * Creates a programme with video upload
-   */
-  @Post('create-with-video')
-  @Roles(UserRole.ADMIN, UserRole.COACH)
-  @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'video', maxCount: 1 },
-      { name: 'thumbnail', maxCount: 1 },
-    ]),
-  )
-  @HttpCode(HttpStatus.CREATED)
-  async createProgrammeWithVideo(
-    @UploadedFiles()
-    files: {
-      video?: MulterFile[];
-      thumbnail?: MulterFile[];
-    },
-    @Body() createProgrammeDto: CreateProgrammeDto,
-  ) {
-    const videoFile = files.video?.[0];
-    const thumbnailFile = files.thumbnail?.[0];
-
-    if (!videoFile) {
-      throw new BadRequestException('Video file is required');
-    }
-
-    // Validate video file
-    if (videoFile.size > 500 * 1024 * 1024) {
-      throw new BadRequestException('Video file too large (max 500MB)');
-    }
-
-    // Validate thumbnail file if provided
-    if (thumbnailFile && thumbnailFile.size > 5 * 1024 * 1024) {
-      throw new BadRequestException('Thumbnail file too large (max 5MB)');
-    }
-
-    // Handle categories array - parse JSON string if needed
-    let categories: string[] = [];
-    if (typeof createProgrammeDto.categories === 'string') {
-      try {
-        categories = JSON.parse(createProgrammeDto.categories);
-      } catch (e) {
-        // If parsing fails, treat as single category
-        categories = [createProgrammeDto.categories];
-      }
-    } else if (Array.isArray(createProgrammeDto.categories)) {
-      categories = createProgrammeDto.categories;
-    }
-
-    // Update the DTO with proper categories handling
-    createProgrammeDto.categories = categories;
-
-    return await this.programmeService.createProgrammeWithVideo(
-      createProgrammeDto,
-      videoFile,
-      thumbnailFile,
-    );
-  }
-
-  /**
    * Creates a programme draft with title and video
    */
   @Post('create-draft')
@@ -236,6 +176,16 @@ export class ProgrammeController {
       'Programme metadata updated successfully',
       result,
     );
+  }
+
+  /**
+   * Deletes a programme
+   */
+  @Delete(':productId')
+  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @HttpCode(HttpStatus.OK)
+  async deleteProgramme(@Param('productId') productId: string) {
+    return await this.programmeService.deleteProgramme(productId);
   }
 
   /**

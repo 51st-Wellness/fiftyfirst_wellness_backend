@@ -86,20 +86,21 @@ export abstract class BaseProductService {
   }
 
   /**
-   * Generates a signed Mux playback token for secure content access
-   */
+   /**
+    * Generates a signed Mux playback token for secure content access
+    */
   protected async generateSignedPlaybackToken(
     playbackId: string,
     userId: string,
   ): Promise<string> {
     try {
-      // Generate signed playback token with 5 hours expiry
-      const expirationTime = Math.floor(Date.now() / 1000) + 5 * 60 * 60; // 5 hours from now
+      // Generate signed playback token with 5 hours expiry (expiration as number, not string)
+      const expirationTime = Math.floor(Date.now() / 1000) + 5 * 60 * 60; // 5 hours from now, in Unix timestamp seconds
 
       const token = await this.muxClient.jwt.signPlaybackId(playbackId, {
         keyId: this.configService.get(ENV.MUX_SIGNING_KEY_ID),
         keySecret: this.configService.get(ENV.MUX_SIGNING_KEY_PRIVATE),
-        expiration: expirationTime.toString(),
+        expiration: expirationTime as any, // pass as number (Unix timestamp)
         params: {
           user_id: userId,
         },
@@ -112,5 +113,3 @@ export abstract class BaseProductService {
     }
   }
 }
-
-

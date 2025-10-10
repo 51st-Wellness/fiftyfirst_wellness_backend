@@ -18,6 +18,7 @@ import {
   PricingModel,
   ProductType,
   PaymentStatus,
+  UserRole,
 } from 'src/database/schema';
 import { User, Product, Programme } from 'src/database/types';
 import { eq, and, gte, lte, desc, count, or } from 'drizzle-orm';
@@ -52,170 +53,6 @@ export class ProgrammeService extends BaseProductService {
   }
 
   /**
-   * Creates a programme entity and handles video upload to Mux directly
-   */
-  async createProgrammeWithVideo(
-    createProgrammeDto: CreateProgrammeDto,
-    videoFile: any,
-    thumbnailFile?: any,
-  ): Promise<any> {
-    try {
-      // Generate a unique product ID for the programme
-      const productId = generateId();
-
-      // Create product first
-      const product = (
-        await this.database.db
-          .insert(products)
-          .values({
-            id: productId,
-            type: ProductType.PROGRAMME,
-            pricingModel: PricingModel.FREE,
-          })
-          .returning()
-      )[0];
-
-      // Create programme with initial data
-      const programme = (
-        await this.database.db
-          .insert(programmes)
-          .values({
-            productId: product.id,
-            title: createProgrammeDto.title,
-            description: createProgrammeDto.description || null,
-            muxAssetId: null, // Will be set after Mux upload
-            muxPlaybackId: null, // Will be set after Mux upload
-            isPublished: createProgrammeDto.isPublished || false,
-            isFeatured: createProgrammeDto.isFeatured || false,
-            requiresAccess: AccessItem.PROGRAMME_ACCESS,
-            duration: 0, // Will be updated after Mux processing
-            categories: createProgrammeDto.categories
-              ? (createProgrammeDto.categories as any)
-              : ([] as any),
-          })
-          .returning()
-      )[0];
-
-      // Upload video to Mux using direct upload
-      console.log('Creating Mux upload for product:', product.id);
-
-      // First create a direct upload URL
-      const upload = await this.muxClient.video.uploads.create({
-        new_asset_settings: {
-          playback_policy: ['signed'],
-          passthrough: JSON.stringify({
-            productId: product.id,
-            title: createProgrammeDto.title,
-            type: 'programme',
-          }),
-        },
-        cors_origin: '*',
-      });
-
-      console.log('Mux upload URL created:', upload.id);
-
-      // Upload the file to Mux using the upload URL
-      const FormData = require('form-data');
-      const axios = require('axios');
-
-      const form = new FormData();
-      form.append('file', videoFile.buffer, {
-        filename: videoFile.originalname,
-        contentType: videoFile.mimetype,
-      });
-
-      await axios.put(upload.url, videoFile.buffer, {
-        headers: {
-          'Content-Type': videoFile.mimetype,
-        },
-      });
-
-      console.log('Video uploaded to Mux successfully');
-
-      // Wait a moment for Mux to process and get the asset
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Get the asset information by checking the upload status
-      let asset;
-      let attempts = 0;
-      const maxAttempts = 10;
-
-      while (!asset && attempts < maxAttempts) {
-        try {
-          const uploadStatus = await this.muxClient.video.uploads.retrieve(
-            upload.id,
-          );
-          if (uploadStatus.asset_id) {
-            asset = await this.muxClient.video.assets.retrieve(
-              uploadStatus.asset_id,
-            );
-            break;
-          }
-        } catch (error) {
-          console.log('Waiting for asset to be created...');
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        attempts++;
-      }
-
-      if (!asset) {
-        throw new Error(
-          'Asset not found after upload - Mux may still be processing',
-        );
-      }
-
-      // Handle thumbnail upload if provided
-      let thumbnailUrl: string | null = null;
-      if (thumbnailFile) {
-        try {
-          const uploadResult = await this.storageService.uploadFileWithMetadata(
-            thumbnailFile,
-            {
-              documentType: DocumentType.PROGRAMME_THUMBNAIL, // Reuse existing document type
-              fileName: `programme_thumbnail_${productId}`,
-              folder: 'programme-thumbnails',
-            },
-          );
-          thumbnailUrl = uploadResult.url;
-          console.log('Thumbnail uploaded successfully:', thumbnailUrl);
-        } catch (error) {
-          console.error('Failed to upload thumbnail:', error);
-          // Don't fail the entire process if thumbnail upload fails
-        }
-      }
-
-      // Update programme with Mux asset information and thumbnail
-      const updatedProgramme = (
-        await this.database.db
-          .update(programmes)
-          .set({
-            muxAssetId: asset.id,
-            muxPlaybackId: asset.playback_ids?.[0]?.id,
-            thumbnail: thumbnailUrl,
-            isPublished: createProgrammeDto.isPublished || true, // Auto-publish when video is uploaded
-            updatedAt: new Date(),
-          })
-          .where(eq(programmes.productId, product.id))
-          .returning()
-      )[0];
-
-      return ResponseDto.createSuccessResponse(
-        'Programme created and video uploaded successfully',
-        {
-          programme: updatedProgramme,
-          product: product,
-          muxAssetId: asset.id,
-          muxPlaybackId: asset.playback_ids?.[0]?.id,
-        },
-      );
-    } catch (error) {
-      console.error('Failed to create programme with video:', error);
-      throw new BadRequestException('Failed to create programme with video');
-    }
-  }
-
-  /**
    * Creates a programme draft with title and video upload
    */
   async createProgrammeDraft(
@@ -234,7 +71,6 @@ export class ProgrammeService extends BaseProductService {
             id: productId,
             type: ProductType.PROGRAMME,
             pricingModel: PricingModel.FREE,
-            price: 0,
           })
           .returning()
       )[0];
@@ -291,7 +127,9 @@ export class ProgrammeService extends BaseProductService {
 
       while (!asset && attempts < maxAttempts) {
         try {
-          const uploadStatus = await this.muxClient.video.uploads.get(upload.id);
+          const uploadStatus = await this.muxClient.video.uploads.retrieve(
+            upload.id,
+          );
           if (uploadStatus.asset_id) {
             asset = await this.muxClient.video.assets.retrieve(
               uploadStatus.asset_id,
@@ -351,8 +189,14 @@ export class ProgrammeService extends BaseProductService {
     try {
       // Check if programme exists
       const [existingProduct, existingProgramme] = await Promise.all([
-        this.database.db.select().from(products).where(eq(products.id, productId)),
-        this.database.db.select().from(programmes).where(eq(programmes.productId, productId))
+        this.database.db
+          .select()
+          .from(products)
+          .where(eq(products.id, productId)),
+        this.database.db
+          .select()
+          .from(programmes)
+          .where(eq(programmes.productId, productId)),
       ]);
 
       if (!existingProduct[0] || !existingProgramme[0]) {
@@ -384,10 +228,19 @@ export class ProgrammeService extends BaseProductService {
         await this.database.db
           .update(programmes)
           .set({
-            description: updateDetailsDto.description || existingProgramme[0].description,
-            categories: updateDetailsDto.categories ? (updateDetailsDto.categories as any) : existingProgramme[0].categories,
-            isFeatured: updateDetailsDto.isFeatured !== undefined ? updateDetailsDto.isFeatured : existingProgramme[0].isFeatured,
-            isPublished: updateDetailsDto.isPublished !== undefined ? updateDetailsDto.isPublished : existingProgramme[0].isPublished,
+            description:
+              updateDetailsDto.description || existingProgramme[0].description,
+            categories: updateDetailsDto.categories
+              ? (updateDetailsDto.categories as any)
+              : existingProgramme[0].categories,
+            isFeatured:
+              updateDetailsDto.isFeatured !== undefined
+                ? updateDetailsDto.isFeatured
+                : existingProgramme[0].isFeatured,
+            isPublished:
+              updateDetailsDto.isPublished !== undefined
+                ? updateDetailsDto.isPublished
+                : existingProgramme[0].isPublished,
             thumbnail: thumbnailUrl,
             updatedAt: new Date(),
           })
@@ -662,23 +515,19 @@ export class ProgrammeService extends BaseProductService {
       throw new NotFoundException('Programme not found');
     }
 
-    // Check if programme is published
-    if (!programme.isPublished) {
-      throw new NotFoundException('Programme not available');
-    }
-
-    // Check if user has required access
-    const hasAccess = await this.hasActiveSubscription(
-      user.id,
-      programme.requiresAccess,
-    );
-
-    if (!hasAccess) {
-      throw new ForbiddenException(
-        'You need an active subscription to access this programme. Please upgrade your plan.',
+    if (user.role === UserRole.USER) {
+      // Check if user has required access
+      const hasAccess = await this.hasActiveSubscription(
+        user.id,
+        programme.requiresAccess,
       );
-    }
 
+      if (!hasAccess) {
+        throw new ForbiddenException(
+          'You need an active subscription to access this programme. Please upgrade your plan.',
+        );
+      }
+    }
     // Verify programme has valid Mux data
     if (!programme.muxPlaybackId) {
       throw new BadRequestException('Programme video is not available');
@@ -706,5 +555,75 @@ export class ProgrammeService extends BaseProductService {
         },
       },
     );
+  }
+
+  /**
+   * Deletes a programme and its associated Mux assets
+   */
+  async deleteProgramme(productId: string): Promise<any> {
+    try {
+      // Get programme details first
+      const [existingProduct, existingProgramme] = await Promise.all([
+        this.database.db
+          .select()
+          .from(products)
+          .where(eq(products.id, productId)),
+        this.database.db
+          .select()
+          .from(programmes)
+          .where(eq(programmes.productId, productId)),
+      ]);
+
+      if (!existingProduct[0] || !existingProgramme[0]) {
+        throw new NotFoundException('Programme not found');
+      }
+
+      const programme = existingProgramme[0];
+
+      // Delete Mux asset if it exists
+      if (programme.muxAssetId) {
+        try {
+          await this.muxClient.video.assets.delete(programme.muxAssetId);
+          console.log('Mux asset deleted:', programme.muxAssetId);
+        } catch (error) {
+          console.error('Failed to delete Mux asset:', error);
+          // Continue with deletion even if Mux deletion fails
+        }
+      }
+
+      // Delete thumbnail from storage if it exists
+      if (programme.thumbnail) {
+        try {
+          // Extract filename from URL and delete from storage
+          // This would depend on your storage service implementation
+          console.log(
+            'Thumbnail deletion would happen here:',
+            programme.thumbnail,
+          );
+        } catch (error) {
+          console.error('Failed to delete thumbnail:', error);
+          // Continue with deletion even if thumbnail deletion fails
+        }
+      }
+
+      // Delete programme from database
+      await this.database.db
+        .delete(programmes)
+        .where(eq(programmes.productId, productId));
+
+      // Delete product from database
+      await this.database.db.delete(products).where(eq(products.id, productId));
+
+      return ResponseDto.createSuccessResponse(
+        'Programme deleted successfully',
+        { productId },
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Failed to delete programme:', error);
+      throw new BadRequestException('Failed to delete programme');
+    }
   }
 }
