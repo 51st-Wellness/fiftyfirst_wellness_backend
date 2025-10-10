@@ -79,8 +79,8 @@ export class ProgrammeService extends BaseProductService {
             productId: product.id,
             title: createProgrammeDto.title,
             description: null,
-            muxAssetId: uuidv4(), // Temporary done for uniqueness , will be updated via webhook
-            muxPlaybackId: uuidv4(), // Temporary, will be updated via webhook
+            muxAssetId: null, // Will be set by webhook when video is processed
+            muxPlaybackId: null, // Will be set by webhook when video is processed
             isPublished: false,
             isFeatured: false,
             requiresAccess: AccessItem.PROGRAMME_ACCESS,
@@ -116,6 +116,146 @@ export class ProgrammeService extends BaseProductService {
       throw new BadRequestException(
         'Could not create upload URL for programme',
       );
+    }
+  }
+
+  /**
+   * Creates a programme entity and handles video upload to Mux directly
+   */
+  async createProgrammeWithVideo(
+    createProgrammeDto: CreateProgrammeDto,
+    videoFile: any,
+  ): Promise<any> {
+    try {
+      // Generate a unique product ID for the programme
+      const productId = generateId();
+
+      // Create product first
+      const product = (
+        await this.database.db
+          .insert(products)
+          .values({
+            id: productId,
+            type: ProductType.PROGRAMME,
+            pricingModel: PricingModel.SUBSCRIPTION,
+          })
+          .returning()
+      )[0];
+
+      // Create programme with initial data
+      const programme = (
+        await this.database.db
+          .insert(programmes)
+          .values({
+            productId: product.id,
+            title: createProgrammeDto.title,
+            description: createProgrammeDto.description || null,
+            muxAssetId: null, // Will be set after Mux upload
+            muxPlaybackId: null, // Will be set after Mux upload
+            isPublished: false,
+            isFeatured: false,
+            requiresAccess: AccessItem.PROGRAMME_ACCESS,
+            duration: 0, // Will be updated after Mux processing
+            categories: [] as any,
+          })
+          .returning()
+      )[0];
+
+      // Upload video to Mux using direct upload
+      console.log('Creating Mux upload for product:', product.id);
+
+      // First create a direct upload URL
+      const upload = await this.muxClient.video.uploads.create({
+        new_asset_settings: {
+          playback_policy: ['signed'],
+          passthrough: JSON.stringify({
+            productId: product.id,
+            title: createProgrammeDto.title,
+            type: 'programme',
+          }),
+        },
+        cors_origin: '*',
+      });
+
+      console.log('Mux upload URL created:', upload.id);
+
+      // Upload the file to Mux using the upload URL
+      const FormData = require('form-data');
+      const axios = require('axios');
+
+      const form = new FormData();
+      form.append('file', videoFile.buffer, {
+        filename: videoFile.originalname,
+        contentType: videoFile.mimetype,
+      });
+
+      await axios.put(upload.url, videoFile.buffer, {
+        headers: {
+          'Content-Type': videoFile.mimetype,
+        },
+      });
+
+      console.log('Video uploaded to Mux successfully');
+
+      // Wait a moment for Mux to process and get the asset
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Get the asset information by checking the upload status
+      let asset;
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      while (!asset && attempts < maxAttempts) {
+        try {
+          const uploadStatus = await this.muxClient.video.uploads.get(
+            upload.id,
+          );
+          if (uploadStatus.asset_id) {
+            asset = await this.muxClient.video.assets.get(
+              uploadStatus.asset_id,
+            );
+            break;
+          }
+        } catch (error) {
+          console.log('Waiting for asset to be created...');
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        attempts++;
+      }
+
+      if (!asset) {
+        throw new Error(
+          'Asset not found after upload - Mux may still be processing',
+        );
+      }
+
+      // Update programme with Mux asset information
+      const updatedProgramme = (
+        await this.database.db
+          .update(programmes)
+          .set({
+            muxAssetId: asset.id,
+            muxPlaybackId: asset.playback_ids?.[0]?.id,
+            isPublished: true, // Auto-publish when video is uploaded
+            updatedAt: new Date(),
+          })
+          .where(eq(programmes.productId, product.id))
+          .returning()
+      )[0];
+
+      return ResponseDto.createSuccessResponse(
+        'Programme created and video uploaded successfully',
+        {
+          programme: updatedProgramme,
+          product: product,
+          muxAssetId: asset.id,
+          muxPlaybackId: asset.playback_ids?.[0]?.id,
+        },
+      );
+    } catch (error) {
+      console.error('Failed to create programme with video:', error);
+      throw new BadRequestException('Failed to create programme with video');
     }
   }
 
@@ -288,44 +428,6 @@ export class ProgrammeService extends BaseProductService {
       }
       console.error('Failed to update programme metadata:', error);
       throw new BadRequestException('Could not update programme metadata');
-    }
-  }
-
-  /**
-   * Handles Mux webhook to update programme with video asset data
-   */
-  async handleMuxWebhook(
-    muxAssetId: string,
-    muxPlaybackId: string,
-    passthroughData: any,
-    duration: number,
-  ) {
-    try {
-      const { productId } = passthroughData;
-
-      // Update the programme with Mux asset information
-      const updatedProgramme = (
-        await this.database.db
-          .update(programmes)
-          .set({
-            muxAssetId: muxAssetId,
-            muxPlaybackId: muxPlaybackId,
-            isPublished: true,
-            duration: duration,
-          })
-          .where(eq(programmes.productId, productId))
-          .returning()
-      )[0];
-
-      console.log(
-        `Programme ${productId} updated with Mux asset ${muxAssetId}`,
-      );
-      return updatedProgramme;
-    } catch (error) {
-      console.error('Failed to update programme from webhook:', error);
-      throw new BadRequestException(
-        'Failed to process Mux webhook for programme',
-      );
     }
   }
 

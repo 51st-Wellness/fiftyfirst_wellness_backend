@@ -12,9 +12,9 @@ export class CreateProgrammeDto {
   @IsNotEmpty()
   title: string;
 
-  // @IsEnum(AccessItem)
-  // @IsOptional()
-  // isPremium?: F;
+  @IsString()
+  @IsOptional()
+  description?: string;
 }
 
 export class UpdateProgramme {

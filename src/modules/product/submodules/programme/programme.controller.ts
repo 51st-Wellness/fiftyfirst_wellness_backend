@@ -56,6 +56,31 @@ export class ProgrammeController {
   }
 
   /**
+   * Creates a programme with video upload
+   */
+  @Post('create-with-video')
+  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @UseInterceptors(FileInterceptor('video'))
+  @HttpCode(HttpStatus.CREATED)
+  async createProgrammeWithVideo(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 500 * 1024 * 1024 }), // 500MB max
+          new FileTypeValidator({ fileType: '.(mp4|mov|avi|mkv|webm)' }),
+        ],
+      }),
+    )
+    videoFile: MulterFile,
+    @Body() createProgrammeDto: CreateProgrammeDto,
+  ) {
+    return await this.programmeService.createProgrammeWithVideo(
+      createProgrammeDto,
+      videoFile,
+    );
+  }
+
+  /**
    * Uploads a thumbnail image for a programme
    */
   @Post('thumbnail')

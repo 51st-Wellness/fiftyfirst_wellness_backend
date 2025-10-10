@@ -12,7 +12,6 @@ import { PodcastService } from 'src/modules/product/submodules/podcast/podcast.s
 import { StoreService } from 'src/modules/product/submodules/store/store.service';
 import { CategoryServiceProvider } from 'src/modules/product/submodules/category/category.service';
 import { CategoryExistsConstraint } from 'src/modules/product/submodules/category/validators/category-exists.validator';
-import { MuxWebhookController } from 'src/modules/product/controllers/mux-webhook.controller';
 import { StoreRepository } from 'src/modules/product/submodules/store/store.repository';
 import { ProgrammeRepository } from 'src/modules/product/submodules/programme/programme.repository';
 import { PodcastRepository } from 'src/modules/product/submodules/podcast/podcast.repository';
@@ -23,7 +22,6 @@ import { PodcastRepository } from 'src/modules/product/submodules/podcast/podcas
     PodcastController,
     StoreController,
     CategoryController,
-    MuxWebhookController,
   ],
   providers: [
     ProgrammeService,
