@@ -11,13 +11,17 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
   Query,
   Req,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileInterceptor,
+  FileFieldsInterceptor,
+} from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { ProgrammeService } from './programme.service';
 import {
@@ -39,44 +43,46 @@ export class ProgrammeController {
   constructor(private readonly programmeService: ProgrammeService) {}
 
   /**
-   * Creates a programme and generates Mux upload URL
-   */
-  @Post('create-upload-url')
-  @Roles(UserRole.ADMIN, UserRole.COACH)
-  @HttpCode(HttpStatus.CREATED)
-  async createProgrammeUploadUrl(
-    @Body() createProgrammeDto: CreateProgrammeDto,
-  ) {
-    const result =
-      await this.programmeService.createProgrammeUploadUrl(createProgrammeDto);
-    return ResponseDto.createSuccessResponse(
-      'Programme upload URL created successfully',
-      result,
-    );
-  }
-
-  /**
    * Creates a programme with video upload
    */
   @Post('create-with-video')
   @Roles(UserRole.ADMIN, UserRole.COACH)
-  @UseInterceptors(FileInterceptor('video'))
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'video', maxCount: 1 },
+      { name: 'thumbnail', maxCount: 1 },
+    ]),
+  )
   @HttpCode(HttpStatus.CREATED)
   async createProgrammeWithVideo(
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 500 * 1024 * 1024 }), // 500MB max
-          new FileTypeValidator({ fileType: '.(mp4|mov|avi|mkv|webm)' }),
-        ],
-      }),
-    )
-    videoFile: MulterFile,
+    @UploadedFiles()
+    files: {
+      video?: MulterFile[];
+      thumbnail?: MulterFile[];
+    },
     @Body() createProgrammeDto: CreateProgrammeDto,
   ) {
+    const videoFile = files.video?.[0];
+    const thumbnailFile = files.thumbnail?.[0];
+
+    if (!videoFile) {
+      throw new BadRequestException('Video file is required');
+    }
+
+    // Validate video file
+    if (videoFile.size > 500 * 1024 * 1024) {
+      throw new BadRequestException('Video file too large (max 500MB)');
+    }
+
+    // Validate thumbnail file if provided
+    if (thumbnailFile && thumbnailFile.size > 5 * 1024 * 1024) {
+      throw new BadRequestException('Thumbnail file too large (max 5MB)');
+    }
+
     return await this.programmeService.createProgrammeWithVideo(
       createProgrammeDto,
       videoFile,
+      thumbnailFile,
     );
   }
 

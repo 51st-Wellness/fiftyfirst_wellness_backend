@@ -48,83 +48,12 @@ export class ProgrammeService extends BaseProductService {
   }
 
   /**
-   * Creates a programme entity and generates Mux upload URL
-   */
-  async createProgrammeUploadUrl(
-    createProgrammeDto: CreateProgrammeDto,
-  ): Promise<CreateUploadUrlResponseDto> {
-    try {
-      // Generate a unique product ID for the programme
-
-      // Create the Product and Programme entities in the database
-      const productId = generateId();
-
-      // Create product first
-      const product = (
-        await this.database.db
-          .insert(products)
-          .values({
-            id: productId,
-            type: ProductType.PROGRAMME,
-            pricingModel: PricingModel.SUBSCRIPTION,
-          })
-          .returning()
-      )[0];
-
-      // Create programme
-      const programme = (
-        await this.database.db
-          .insert(programmes)
-          .values({
-            productId: product.id,
-            title: createProgrammeDto.title,
-            description: null,
-            muxAssetId: null, // Will be set by webhook when video is processed
-            muxPlaybackId: null, // Will be set by webhook when video is processed
-            isPublished: false,
-            isFeatured: false,
-            requiresAccess: AccessItem.PROGRAMME_ACCESS,
-            duration: 0, // Will be updated via webhook
-            categories: [] as any,
-          })
-          .returning()
-      )[0];
-
-      // Create Mux direct upload URL
-      console.log('Creating Mux upload URL for product:', product.id);
-      const upload = await this.muxClient.video.uploads.create({
-        new_asset_settings: {
-          playback_policy: ['signed'],
-          passthrough: JSON.stringify({
-            productId: product.id,
-            title: createProgrammeDto.title,
-            type: 'programme', // Mark as programme for webhook handling
-          }),
-        },
-        cors_origin: '*',
-      });
-      console.log('Mux upload URL created successfully:', upload.id);
-
-      return {
-        uploadUrl: upload.url,
-        uploadId: upload.id,
-        productId: product.id,
-      };
-    } catch (error) {
-      console.error('Failed to create programme upload URL:', error);
-      console.error(error?.error?.messages?.toString());
-      throw new BadRequestException(
-        'Could not create upload URL for programme',
-      );
-    }
-  }
-
-  /**
    * Creates a programme entity and handles video upload to Mux directly
    */
   async createProgrammeWithVideo(
     createProgrammeDto: CreateProgrammeDto,
     videoFile: any,
+    thumbnailFile?: any,
   ): Promise<any> {
     try {
       // Generate a unique product ID for the programme
@@ -137,7 +66,8 @@ export class ProgrammeService extends BaseProductService {
           .values({
             id: productId,
             type: ProductType.PROGRAMME,
-            pricingModel: PricingModel.SUBSCRIPTION,
+            pricingModel: PricingModel.FREE,
+            price: 0,
           })
           .returning()
       )[0];
@@ -152,11 +82,13 @@ export class ProgrammeService extends BaseProductService {
             description: createProgrammeDto.description || null,
             muxAssetId: null, // Will be set after Mux upload
             muxPlaybackId: null, // Will be set after Mux upload
-            isPublished: false,
-            isFeatured: false,
+            isPublished: createProgrammeDto.isPublished || false,
+            isFeatured: createProgrammeDto.isFeatured || false,
             requiresAccess: AccessItem.PROGRAMME_ACCESS,
             duration: 0, // Will be updated after Mux processing
-            categories: [] as any,
+            categories: createProgrammeDto.categories
+              ? (createProgrammeDto.categories as any)
+              : ([] as any),
           })
           .returning()
       )[0];
@@ -230,14 +162,35 @@ export class ProgrammeService extends BaseProductService {
         );
       }
 
-      // Update programme with Mux asset information
+      // Handle thumbnail upload if provided
+      let thumbnailUrl = null;
+      if (thumbnailFile) {
+        try {
+          const uploadResult = await this.storageService.uploadFileWithMetadata(
+            thumbnailFile,
+            {
+              documentType: 'PROFILE_PICTURE', // Reuse existing document type
+              fileName: `programme_thumbnail_${productId}`,
+              folder: 'programme-thumbnails',
+            },
+          );
+          thumbnailUrl = uploadResult.url;
+          console.log('Thumbnail uploaded successfully:', thumbnailUrl);
+        } catch (error) {
+          console.error('Failed to upload thumbnail:', error);
+          // Don't fail the entire process if thumbnail upload fails
+        }
+      }
+
+      // Update programme with Mux asset information and thumbnail
       const updatedProgramme = (
         await this.database.db
           .update(programmes)
           .set({
             muxAssetId: asset.id,
             muxPlaybackId: asset.playback_ids?.[0]?.id,
-            isPublished: true, // Auto-publish when video is uploaded
+            thumbnail: thumbnailUrl,
+            isPublished: createProgrammeDto.isPublished || true, // Auto-publish when video is uploaded
             updatedAt: new Date(),
           })
           .where(eq(programmes.productId, product.id))

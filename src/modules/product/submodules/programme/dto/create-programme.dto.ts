@@ -3,7 +3,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsBoolean,
-  IsEnum,
   IsArray,
 } from 'class-validator';
 
@@ -15,6 +14,19 @@ export class CreateProgrammeDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categories?: string[];
+
+  @IsBoolean()
+  @IsOptional()
+  isFeatured?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isPublished?: boolean;
 }
 
 export class UpdateProgramme {
