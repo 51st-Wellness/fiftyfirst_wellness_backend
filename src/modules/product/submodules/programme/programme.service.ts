@@ -7,6 +7,8 @@ import {
 import { DatabaseService } from 'src/database/database.service';
 import {
   CreateProgrammeDto,
+  CreateProgrammeDraftDto,
+  UpdateProgrammeDetailsDto,
   CreateUploadUrlResponseDto,
   UpdateProgramme,
   UpdateProgrammeThumbnailDto,
@@ -35,6 +37,7 @@ import { BaseProductService } from '../../services/base-product.service';
 import { v4 as uuidv4 } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import { ProgrammeRepository } from './programme.repository';
+import axios from 'axios';
 import { MulterFile } from '@/types';
 
 @Injectable()
@@ -68,7 +71,6 @@ export class ProgrammeService extends BaseProductService {
             id: productId,
             type: ProductType.PROGRAMME,
             pricingModel: PricingModel.FREE,
-            price: 0,
           })
           .returning()
       )[0];
@@ -210,6 +212,201 @@ export class ProgrammeService extends BaseProductService {
     } catch (error) {
       console.error('Failed to create programme with video:', error);
       throw new BadRequestException('Failed to create programme with video');
+    }
+  }
+
+  /**
+   * Creates a programme draft with title and video upload
+   */
+  async createProgrammeDraft(
+    createProgrammeDraftDto: CreateProgrammeDraftDto,
+    videoFile: any,
+  ): Promise<any> {
+    try {
+      // Generate a unique product ID for the programme
+      const productId = generateId();
+
+      // Create product first
+      const product = (
+        await this.database.db
+          .insert(products)
+          .values({
+            id: productId,
+            type: ProductType.PROGRAMME,
+            pricingModel: PricingModel.FREE,
+            price: 0,
+          })
+          .returning()
+      )[0];
+
+      // Create programme with minimal data (draft state)
+      const programme = (
+        await this.database.db
+          .insert(programmes)
+          .values({
+            productId: product.id,
+            title: createProgrammeDraftDto.title,
+            description: null,
+            muxAssetId: null, // Will be set after Mux upload
+            muxPlaybackId: null, // Will be set after Mux upload
+            isPublished: false, // Draft state
+            isFeatured: false,
+            requiresAccess: AccessItem.PROGRAMME_ACCESS,
+            duration: 0, // Will be updated after Mux processing
+            categories: [] as any,
+          })
+          .returning()
+      )[0];
+
+      // Upload video to Mux using direct upload
+      console.log('Creating Mux upload for draft programme:', product.id);
+
+      const upload = await this.muxClient.video.uploads.create({
+        new_asset_settings: {
+          playback_policy: ['signed'],
+          passthrough: JSON.stringify({
+            productId: product.id,
+            title: createProgrammeDraftDto.title,
+            type: 'programme',
+          }),
+        },
+        cors_origin: '*',
+      });
+
+      console.log('Mux upload URL created:', upload.id);
+
+      // Upload video to Mux
+      await axios.put(upload.url, videoFile.buffer, {
+        headers: {
+          'Content-Type': videoFile.mimetype,
+        },
+      });
+
+      console.log('Video uploaded to Mux successfully');
+
+      // Poll for asset creation
+      let asset;
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      while (!asset && attempts < maxAttempts) {
+        try {
+          const uploadStatus = await this.muxClient.video.uploads.get(upload.id);
+          if (uploadStatus.asset_id) {
+            asset = await this.muxClient.video.assets.retrieve(
+              uploadStatus.asset_id,
+            );
+            break;
+          }
+        } catch (error) {
+          console.log('Waiting for asset to be created...');
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        attempts++;
+      }
+
+      if (!asset) {
+        throw new Error(
+          'Asset not found after upload - Mux may still be processing',
+        );
+      }
+
+      // Update programme with Mux asset information
+      const updatedProgramme = (
+        await this.database.db
+          .update(programmes)
+          .set({
+            muxAssetId: asset.id,
+            muxPlaybackId: asset.playback_ids?.[0]?.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(programmes.productId, product.id))
+          .returning()
+      )[0];
+
+      return ResponseDto.createSuccessResponse(
+        'Programme draft created and video uploaded successfully',
+        {
+          programme: updatedProgramme,
+          product: product,
+          muxAssetId: asset.id,
+          muxPlaybackId: asset.playback_ids?.[0]?.id,
+        },
+      );
+    } catch (error) {
+      console.error('Failed to create programme draft:', error);
+      throw new BadRequestException('Failed to create programme draft');
+    }
+  }
+
+  /**
+   * Updates programme with additional details
+   */
+  async updateProgrammeDetails(
+    productId: string,
+    updateDetailsDto: UpdateProgrammeDetailsDto,
+    thumbnailFile?: any,
+  ): Promise<any> {
+    try {
+      // Check if programme exists
+      const [existingProduct, existingProgramme] = await Promise.all([
+        this.database.db.select().from(products).where(eq(products.id, productId)),
+        this.database.db.select().from(programmes).where(eq(programmes.productId, productId))
+      ]);
+
+      if (!existingProduct[0] || !existingProgramme[0]) {
+        throw new NotFoundException('Programme not found');
+      }
+
+      // Handle thumbnail upload if provided
+      let thumbnailUrl: string | null = existingProgramme[0].thumbnail;
+      if (thumbnailFile) {
+        try {
+          const uploadResult = await this.storageService.uploadFileWithMetadata(
+            thumbnailFile,
+            {
+              documentType: DocumentType.PROGRAMME_THUMBNAIL,
+              fileName: `programme_thumbnail_${productId}`,
+              folder: 'programme-thumbnails',
+            },
+          );
+          thumbnailUrl = uploadResult.url;
+          console.log('Thumbnail uploaded successfully:', thumbnailUrl);
+        } catch (error) {
+          console.error('Failed to upload thumbnail:', error);
+          // Don't fail the entire process if thumbnail upload fails
+        }
+      }
+
+      // Update programme with additional details
+      const updatedProgramme = (
+        await this.database.db
+          .update(programmes)
+          .set({
+            description: updateDetailsDto.description || existingProgramme[0].description,
+            categories: updateDetailsDto.categories ? (updateDetailsDto.categories as any) : existingProgramme[0].categories,
+            isFeatured: updateDetailsDto.isFeatured !== undefined ? updateDetailsDto.isFeatured : existingProgramme[0].isFeatured,
+            isPublished: updateDetailsDto.isPublished !== undefined ? updateDetailsDto.isPublished : existingProgramme[0].isPublished,
+            thumbnail: thumbnailUrl,
+            updatedAt: new Date(),
+          })
+          .where(eq(programmes.productId, productId))
+          .returning()
+      )[0];
+
+      return ResponseDto.createSuccessResponse(
+        'Programme details updated successfully',
+        {
+          programme: updatedProgramme,
+        },
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Failed to update programme details:', error);
+      throw new BadRequestException('Failed to update programme details');
     }
   }
 

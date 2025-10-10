@@ -194,7 +194,6 @@ export const products = sqliteTable('Product', {
   id: text('id').primaryKey(),
   type: text('type', { enum: productTypes }).notNull(),
   pricingModel: text('pricingModel', { enum: pricingModels }).notNull(),
-  price: real('price').default(0),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

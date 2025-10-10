@@ -16,9 +16,8 @@ export class CreateProgrammeDto {
   description?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  categories?: string[];
+  @IsString()
+  categories: string[];
 
   @IsBoolean()
   @IsOptional()
@@ -58,4 +57,29 @@ export class CreateUploadUrlResponseDto {
   uploadUrl: string;
   uploadId: string;
   productId: string;
+}
+
+export class CreateProgrammeDraftDto {
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+}
+
+export class UpdateProgrammeDetailsDto {
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categories?: string[];
+
+  @IsBoolean()
+  @IsOptional()
+  isFeatured?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isPublished?: boolean;
 }

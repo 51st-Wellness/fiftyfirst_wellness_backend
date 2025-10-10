@@ -27,6 +27,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { ProgrammeService } from './programme.service';
 import {
   CreateProgrammeDto,
+  CreateProgrammeDraftDto,
+  UpdateProgrammeDetailsDto,
   UpdateProgramme,
   UpdateProgrammeThumbnailDto,
 } from './dto/create-programme.dto';
@@ -81,9 +83,93 @@ export class ProgrammeController {
       throw new BadRequestException('Thumbnail file too large (max 5MB)');
     }
 
+    // Handle categories array - parse JSON string if needed
+    let categories: string[] = [];
+    if (typeof createProgrammeDto.categories === 'string') {
+      try {
+        categories = JSON.parse(createProgrammeDto.categories);
+      } catch (e) {
+        // If parsing fails, treat as single category
+        categories = [createProgrammeDto.categories];
+      }
+    } else if (Array.isArray(createProgrammeDto.categories)) {
+      categories = createProgrammeDto.categories;
+    }
+
+    // Update the DTO with proper categories handling
+    createProgrammeDto.categories = categories;
+
     return await this.programmeService.createProgrammeWithVideo(
       createProgrammeDto,
       videoFile,
+      thumbnailFile,
+    );
+  }
+
+  /**
+   * Creates a programme draft with title and video
+   */
+  @Post('create-draft')
+  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @UseInterceptors(FileInterceptor('video'))
+  @HttpCode(HttpStatus.CREATED)
+  async createProgrammeDraft(
+    @UploadedFile() videoFile: MulterFile,
+    @Body() body: any,
+  ) {
+    if (!videoFile) {
+      throw new BadRequestException('Video file is required');
+    }
+
+    // Validate video file
+    if (videoFile.size > 500 * 1024 * 1024) {
+      throw new BadRequestException('Video file too large (max 500MB)');
+    }
+
+    const createProgrammeDraftDto: CreateProgrammeDraftDto = {
+      title: body.title,
+    };
+
+    return await this.programmeService.createProgrammeDraft(
+      createProgrammeDraftDto,
+      videoFile,
+    );
+  }
+
+  /**
+   * Updates programme with additional details
+   */
+  @Patch('update-details/:productId')
+  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @UseInterceptors(FileInterceptor('thumbnail'))
+  @HttpCode(HttpStatus.OK)
+  async updateProgrammeDetails(
+    @Param('productId') productId: string,
+    @UploadedFile() thumbnailFile: MulterFile,
+    @Body() body: any,
+  ) {
+    // Handle categories array - parse JSON string if needed
+    let categories: string[] = [];
+    if (typeof body.categories === 'string') {
+      try {
+        categories = JSON.parse(body.categories);
+      } catch (e) {
+        categories = body.categories ? [body.categories] : [];
+      }
+    } else if (Array.isArray(body.categories)) {
+      categories = body.categories;
+    }
+
+    const updateDetailsDto: UpdateProgrammeDetailsDto = {
+      description: body.description,
+      categories: categories,
+      isFeatured: body.isFeatured === 'true',
+      isPublished: body.isPublished === 'true',
+    };
+
+    return await this.programmeService.updateProgrammeDetails(
+      productId,
+      updateDetailsDto,
       thumbnailFile,
     );
   }
@@ -153,6 +239,14 @@ export class ProgrammeController {
   }
 
   /**
+   * Gets all programmes with filtering and pagination
+   */
+  @Get()
+  async getAllProgrammes(@Query() query: ProgrammeQueryDto) {
+    return this.programmeService.getAllProgrammes(query);
+  }
+
+  /**
    * Gets a secure programme by ID with subscription access control and signed playback token
    */
   @Get('secure/:productId')
@@ -176,13 +270,5 @@ export class ProgrammeController {
       'Programme retrieved successfully',
       result,
     );
-  }
-
-  /**
-   * Gets all programmes with filtering and pagination
-   */
-  @Get()
-  async getAllProgrammes(@Query() query: ProgrammeQueryDto) {
-    return this.programmeService.getAllProgrammes(query);
   }
 }
