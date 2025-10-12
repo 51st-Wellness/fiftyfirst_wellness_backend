@@ -210,6 +210,20 @@ export class ProgrammeController {
   }
 
   /**
+   * Gets a programme for admin editing (includes all details)
+   */
+  @Get('admin/:productId')
+  @Roles(UserRole.ADMIN, UserRole.COACH)
+  async getProgrammeForEdit(@Param('productId') productId: string) {
+    const result =
+      await this.programmeService.getProgrammeByProductId(productId);
+    return ResponseDto.createSuccessResponse(
+      'Programme retrieved successfully for editing',
+      result,
+    );
+  }
+
+  /**
    * Gets a specific programme by product ID
    */
   @Get(':productId')
