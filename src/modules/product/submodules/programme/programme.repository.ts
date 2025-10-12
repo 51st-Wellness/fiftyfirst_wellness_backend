@@ -27,11 +27,21 @@ export class ProgrammeRepository {
     },
   ): Promise<Programme[]> {
     const conditions: SQL[] = [];
+    console.log(' filters', filters);
     if (filters?.isPublished !== undefined) {
-      conditions.push(eq(programmes.isPublished, filters.isPublished));
+      // Explicitly convert boolean to integer for LibSQL/SQLite compatibility
+      conditions.push(
+        eq(
+          programmes.isPublished,
+          filters.isPublished ? (1 as any) : (0 as any),
+        ),
+      );
     }
     if (filters?.isFeatured !== undefined) {
-      conditions.push(eq(programmes.isFeatured, filters.isFeatured));
+      // Explicitly convert boolean to integer for LibSQL/SQLite compatibility
+      conditions.push(
+        eq(programmes.isFeatured, filters.isFeatured ? (1 as any) : (0 as any)),
+      );
     }
     if (filters?.search) {
       const searchCondition = or(
@@ -46,7 +56,7 @@ export class ProgrammeRepository {
       const categoryConditions = filters.categories.map((category) =>
         like(programmes.categories, `%"${category}"%`),
       );
-      conditions.push(or(...categoryConditions) as any  );
+      conditions.push(or(...categoryConditions) as any);
     }
 
     let query = this.database.db.select().from(programmes).$dynamic();

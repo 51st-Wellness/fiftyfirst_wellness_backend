@@ -5,12 +5,14 @@ import { IsOptional, IsBoolean, IsString, IsArray } from 'class-validator';
 export class ProgrammeQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => {
+    return value === 'true' || value === true;
+  })
   isPublished?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => value === 'true' || value === true)
   isFeatured?: boolean;
 
   @IsOptional()
