@@ -130,7 +130,6 @@ export class SubscriptionController {
   }
 
   @Get('user/active')
-  @UseGuards(AuthGuard('jwt'))
   @UseGuards(RolesGuard)
   @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async getCurrentUserActiveSubscription(@CurrentUser() user: User) {
@@ -143,7 +142,6 @@ export class SubscriptionController {
   }
 
   @Get('user')
-  @UseGuards(AuthGuard('jwt'))
   @UseGuards(RolesGuard)
   @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async getCurrentUserSubscriptions(@CurrentUser() user: User) {
