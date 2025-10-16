@@ -20,6 +20,7 @@ export type WebhookResult = {
   status: PaymentStatus;
   raw: any;
   eventType: string;
+  metadata?: any;
 };
 
 export type PaymentCaptureResult = {

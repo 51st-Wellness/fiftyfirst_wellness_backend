@@ -21,14 +21,16 @@ import { StrictRoles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/database/schema';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { ResponseDto } from 'src/util/dto/response.dto';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { User } from 'src/database/types';
 
 @Controller('payment/subscriptions')
-@UseGuards(RolesGuard)
 export class SubscriptionController {
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
   // Subscription Plan endpoints (Admin only)
   @Post('plans')
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   async createSubscriptionPlan(
@@ -43,7 +45,6 @@ export class SubscriptionController {
   }
 
   @Get('plans')
-  @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async findAllSubscriptionPlans() {
     const plans = await this.subscriptionService.findAllSubscriptionPlans();
     return ResponseDto.createSuccessResponse(
@@ -53,7 +54,6 @@ export class SubscriptionController {
   }
 
   @Get('plans/:id')
-  @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async findOneSubscriptionPlan(@Param('id') id: string) {
     const plan = await this.subscriptionService.findOneSubscriptionPlan(id);
     return ResponseDto.createSuccessResponse(
@@ -63,6 +63,7 @@ export class SubscriptionController {
   }
 
   @Patch('plans/:id')
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   async updateSubscriptionPlan(
     @Param('id') id: string,
@@ -79,6 +80,7 @@ export class SubscriptionController {
   }
 
   @Delete('plans/:id')
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeSubscriptionPlan(@Param('id') id: string) {
@@ -90,6 +92,7 @@ export class SubscriptionController {
 
   // Admin Subscription endpoints
   @Post()
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   async createSubscription(
@@ -105,7 +108,6 @@ export class SubscriptionController {
   }
 
   @Get()
-  @StrictRoles(UserRole.ADMIN)
   async findAllSubscriptions(@Query() query: SubscriptionQueryDto) {
     const result = await this.subscriptionService.findAllSubscriptions(query);
     return ResponseDto.createPaginatedResponse(
@@ -116,6 +118,7 @@ export class SubscriptionController {
   }
 
   @Get('stats')
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   async getSubscriptionStats() {
     const stats = await this.subscriptionService.getSubscriptionStats();
@@ -125,7 +128,33 @@ export class SubscriptionController {
     );
   }
 
+  @Get('user/active')
+  @StrictRoles(UserRole.USER, UserRole.ADMIN)
+  async getCurrentUserActiveSubscription(@CurrentUser() user: User) {
+    const subscription =
+      await this.subscriptionService.getUserActiveSubscription(user.id);
+    return ResponseDto.createSuccessResponse(
+      'User subscription retrieved successfully',
+      subscription,
+    );
+  }
+
+  @Get('user')
+  @StrictRoles(UserRole.USER, UserRole.ADMIN)
+  async getCurrentUserSubscriptions(@CurrentUser() user: User) {
+    const subscriptions = await this.subscriptionService.findAllSubscriptions({
+      userId: user.id,
+      page: 1,
+      limit: 100,
+    });
+    return ResponseDto.createSuccessResponse(
+      'User subscriptions retrieved successfully',
+      subscriptions.data,
+    );
+  }
+
   @Get('my/:userId')
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async getUserActiveSubscription(@Param('userId') userId: string) {
     const subscription =
@@ -137,6 +166,7 @@ export class SubscriptionController {
   }
 
   @Get('access/:userId/:accessItem')
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async checkUserAccess(
     @Param('userId') userId: string,
@@ -154,6 +184,7 @@ export class SubscriptionController {
   }
 
   @Get(':id')
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   async findOneSubscription(@Param('id') id: string) {
     const subscription = await this.subscriptionService.findOneSubscription(id);
@@ -164,6 +195,7 @@ export class SubscriptionController {
   }
 
   @Patch(':id')
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   async updateSubscription(
     @Param('id') id: string,
@@ -180,6 +212,7 @@ export class SubscriptionController {
   }
 
   @Delete(':id')
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeSubscription(@Param('id') id: string) {

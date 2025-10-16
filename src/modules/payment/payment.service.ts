@@ -11,7 +11,7 @@ import {
   WebhookResult,
 } from './providers/payment.types';
 import { SubscriptionCheckoutDto } from './dto/checkout.dto';
-import { eq, and, gt, desc } from 'drizzle-orm';
+import { eq, and, gt, desc, sql, or } from 'drizzle-orm';
 import {
   cartItems,
   products,
@@ -33,6 +33,17 @@ export class PaymentService {
     private readonly database: DatabaseService, // Database service
     @Inject(PAYMENT_PROVIDER_TOKEN) private readonly provider: PaymentProvider, // Payment provider
   ) {}
+
+  private getProviderType(): PaymentProviderEnum {
+    // Determine provider type based on the injected provider instance
+    if (this.provider.constructor.name.includes('Stripe')) {
+      return PaymentProviderEnum.STRIPE;
+    } else if (this.provider.constructor.name.includes('PayPal')) {
+      return PaymentProviderEnum.PAYPAL;
+    }
+    // Default fallback
+    return PaymentProviderEnum.STRIPE;
+  }
 
   private async getCartSummary(userId: string) {
     console.log('user id - getCartSummary', userId);
@@ -183,7 +194,7 @@ export class PaymentService {
     const paymentId = generateId();
     await this.database.db.insert(payments).values({
       id: paymentId,
-      provider: PaymentProviderEnum.STRIPE,
+      provider: this.getProviderType(),
       providerRef: paymentInit.providerRef,
       status: PaymentStatus.PENDING,
       currency: currency as any,
@@ -285,7 +296,7 @@ export class PaymentService {
         .insert(payments)
         .values({
           id: paymentId,
-          provider: PaymentProviderEnum.STRIPE,
+          provider: this.getProviderType(),
           providerRef: paymentInit.providerRef,
           status: PaymentStatus.PENDING,
           currency: 'USD' as any,
@@ -361,16 +372,40 @@ export class PaymentService {
             .set({ status: PaymentStatus.PAID })
             .where(eq(orders.paymentId, payment.id));
 
-          // Clear user's cart for store purchases
+          // Clear user's cart for store purchases and decrement stock
           const metadata = payment.metadata as any;
           if (metadata?.cartItemIds) {
+            // Get cart items before deletion to decrement stock
+            const cartItemsToProcess = await tx
+              .select({
+                cartItemId: cartItems.id,
+                productId: cartItems.productId,
+                quantity: cartItems.quantity,
+              })
+              .from(cartItems)
+              .where(
+                or(
+                  ...metadata.cartItemIds.map((id: string) =>
+                    eq(cartItems.id, id),
+                  ),
+                ),
+              );
+
+            // Decrement stock for each cart item
+            for (const cartItem of cartItemsToProcess) {
+              await tx
+                .update(storeItems)
+                .set({
+                  stock: sql`${storeItems.stock} - ${cartItem.quantity}`,
+                })
+                .where(eq(storeItems.productId, cartItem.productId));
+            }
+
+            // Clear cart items
             for (const cartItemId of metadata.cartItemIds) {
               await tx.delete(cartItems).where(eq(cartItems.id, cartItemId));
             }
           }
-
-          // Optionally: Decrement stock for store items
-          // This would require additional logic to handle stock management
         }
 
         // Get and update all related subscriptions
@@ -414,11 +449,21 @@ export class PaymentService {
       // Verify webhook signature
       const isValid = await this.provider.verifyWebhook(headers, body);
       if (!isValid) {
+        console.warn('Invalid webhook signature received');
         throw new BadRequestException('Invalid webhook signature');
       }
 
       // Parse webhook payload
       const webhookResult: WebhookResult = this.provider.parseWebhook(body);
+
+      // Validate webhook result
+      if (!webhookResult.providerRef) {
+        console.warn(
+          'Webhook result missing provider reference:',
+          webhookResult,
+        );
+        return { processed: false, reason: 'Missing provider reference' };
+      }
 
       // Find payment by provider reference
       const payment = (
@@ -432,13 +477,17 @@ export class PaymentService {
         console.log(
           `Payment not found for provider ref: ${webhookResult.providerRef}`,
         );
-        return; // Ignore unknown payments
+        return { processed: false, reason: 'Payment not found' }; // Ignore unknown payments
       }
 
       // Update payment status if it changed
       if (payment.status !== webhookResult.status) {
+        console.log(
+          `Updating payment ${payment.id} status from ${payment.status} to ${webhookResult.status}`,
+        );
+
         await this.database.db.transaction(async (tx) => {
-          // Update payment
+          // Update payment with enhanced metadata
           await tx
             .update(payments)
             .set({
@@ -447,6 +496,7 @@ export class PaymentService {
                 ...(payment.metadata as any),
                 lastWebhookEvent: webhookResult.eventType,
                 lastWebhookAt: new Date().toISOString(),
+                webhookMetadata: webhookResult.metadata,
               } as any,
             })
             .where(eq(payments.id, payment.id));
@@ -462,9 +512,17 @@ export class PaymentService {
             .set({ status: webhookResult.status })
             .where(eq(subscriptions.paymentId, payment.id));
         });
+      } else {
+        console.log(
+          `Payment ${payment.id} status unchanged: ${webhookResult.status}`,
+        );
       }
 
-      return { processed: true, paymentId: payment.id };
+      return {
+        processed: true,
+        paymentId: payment.id,
+        status: webhookResult.status,
+      };
     } catch (error) {
       console.error('Webhook processing error:', error);
       throw error;
