@@ -158,18 +158,22 @@ export const subscriptionAccess = sqliteTable('SubscriptionAccess', {
 });
 
 export const subscriptions = sqliteTable('Subscription', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey(), // Use payment_intent ID or checkout_session ID directly
   userId: text('userId').notNull(),
   planId: text('planId').notNull(),
   status: text('status', { enum: paymentStatuses })
     .notNull()
     .default('PENDING'),
-  startDate: integer('startDate', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
+  startDate: integer('startDate', { mode: 'timestamp' }).notNull(),
   endDate: integer('endDate', { mode: 'timestamp' }).notNull(),
   autoRenew: integer('autoRenew', { mode: 'boolean' }).notNull().default(true),
-  paymentId: text('paymentId'),
+  paymentId: text('paymentId'), // Link to payments table
+  providerSubscriptionId: text('providerSubscriptionId'), // Stripe subscription ID for grouping
+  invoiceId: text('invoiceId'), // Invoice ID for recurring payments
+  billingCycle: integer('billingCycle').notNull().default(1), // Which billing cycle this is
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 });
 
 export const payments = sqliteTable('Payment', {

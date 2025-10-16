@@ -377,11 +377,12 @@ export class StripeProvider implements PaymentProvider {
       // Invoice events
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
-        providerRef = (invoice.subscription as string) || invoice.id;
+        providerRef = invoice.payment_intent as string; // Use payment_intent ID as unique identifier
         status = PaymentStatus.PAID;
         metadata = {
           invoiceId: invoice.id,
           subscriptionId: invoice.subscription,
+          paymentIntentId: invoice.payment_intent,
           customerId: invoice.customer,
           amount: invoice.amount_paid,
           amountDue: invoice.amount_due,
@@ -390,17 +391,19 @@ export class StripeProvider implements PaymentProvider {
           periodEnd: invoice.period_end,
           status: invoice.status,
           paid: invoice.paid,
+          billingReason: invoice.billing_reason,
         };
         break;
       }
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
-        providerRef = (invoice.subscription as string) || invoice.id;
+        providerRef = invoice.payment_intent as string; // Use payment_intent ID as unique identifier
         status = PaymentStatus.FAILED;
         metadata = {
           invoiceId: invoice.id,
           subscriptionId: invoice.subscription,
+          paymentIntentId: invoice.payment_intent,
           customerId: invoice.customer,
           amount: invoice.amount_due,
           currency: invoice.currency,
@@ -408,17 +411,19 @@ export class StripeProvider implements PaymentProvider {
           nextPaymentAttempt: invoice.next_payment_attempt,
           status: invoice.status,
           paid: invoice.paid,
+          billingReason: invoice.billing_reason,
         };
         break;
       }
 
       case 'invoice.finalized': {
         const invoice = event.data.object as Stripe.Invoice;
-        providerRef = (invoice.subscription as string) || invoice.id;
+        providerRef = invoice.payment_intent as string; // Use payment_intent ID as unique identifier
         status = PaymentStatus.PENDING;
         metadata = {
           invoiceId: invoice.id,
           subscriptionId: invoice.subscription,
+          paymentIntentId: invoice.payment_intent,
           customerId: invoice.customer,
           amount: invoice.amount_due,
           currency: invoice.currency,

@@ -45,6 +45,85 @@ export class PaymentService {
     return PaymentProviderEnum.STRIPE;
   }
 
+  private async findPaymentForWebhook(webhookResult: WebhookResult) {
+    // Direct payment lookup by provider reference (payment_intent ID)
+    const payment = (
+      await this.database.db
+        .select()
+        .from(payments)
+        .where(eq(payments.providerRef, webhookResult.providerRef))
+    )[0];
+
+    return payment;
+  }
+
+  private async handleSubscriptionWebhook(
+    tx: any,
+    webhookResult: WebhookResult,
+  ) {
+    // Only handle invoice events for recurring subscriptions
+    if (
+      !webhookResult.eventType.startsWith('invoice.') ||
+      !webhookResult.metadata?.subscriptionId
+    ) {
+      return;
+    }
+
+    // For invoice events, create a new subscription record (transaction history)
+    if (
+      webhookResult.eventType === 'invoice.payment_succeeded' ||
+      webhookResult.eventType === 'invoice.payment_failed'
+    ) {
+      // Get the latest subscription to determine billing cycle and user info
+      const latestSubscription = (
+        await this.database.db
+          .select()
+          .from(subscriptions)
+          .where(
+            eq(
+              subscriptions.providerSubscriptionId,
+              webhookResult.metadata.subscriptionId,
+            ),
+          )
+          .orderBy(desc(subscriptions.createdAt))
+          .limit(1)
+      )[0];
+
+      if (!latestSubscription) {
+        console.warn(
+          `No existing subscription found for provider subscription ID: ${webhookResult.metadata.subscriptionId}`,
+        );
+        return;
+      }
+
+      // Calculate new billing period
+      const periodStart = new Date(webhookResult.metadata.periodStart * 1000);
+      const periodEnd = new Date(webhookResult.metadata.periodEnd * 1000);
+      const nextBillingCycle = latestSubscription.billingCycle + 1;
+
+      // Create new subscription record for this billing cycle
+      const newSubscriptionId = webhookResult.providerRef; // Use payment_intent ID
+
+      await tx.insert(subscriptions).values({
+        id: newSubscriptionId,
+        userId: latestSubscription.userId,
+        planId: latestSubscription.planId,
+        status: webhookResult.status,
+        startDate: periodStart,
+        endDate: periodEnd,
+        autoRenew: latestSubscription.autoRenew,
+        paymentId: null, // Will be linked when payment is created
+        providerSubscriptionId: webhookResult.metadata.subscriptionId,
+        invoiceId: webhookResult.metadata.invoiceId,
+        billingCycle: nextBillingCycle,
+      });
+
+      console.log(
+        `Created new subscription record ${newSubscriptionId} for billing cycle ${nextBillingCycle}`,
+      );
+    }
+  }
+
   private async getCartSummary(userId: string) {
     console.log('user id - getCartSummary', userId);
 
@@ -264,30 +343,32 @@ export class PaymentService {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + plan.duration);
 
-    // Create subscription
-    const subscriptionId = generateId();
-    const subscription = (
-      await this.database.db
-        .insert(subscriptions)
-        .values({
-          id: subscriptionId,
-          userId: user.id,
-          planId,
-          status: PaymentStatus.PENDING,
-          startDate,
-          endDate,
-        })
-        .returning()
-    )[0];
-
-    // Initialize payment with provider
+    // Initialize payment first to get checkout session ID
     const paymentInit = await this.provider.initializePayment({
-      subscriptionId: subscription.id,
+      subscriptionId: generateId(), // Temporary ID for metadata
       amount: plan.price,
       currency: 'USD',
       description: `Subscription: ${plan.name}`,
       userId: user.id,
     });
+
+    // Create subscription using checkout session ID as primary key
+    const subscription = (
+      await this.database.db
+        .insert(subscriptions)
+        .values({
+          id: paymentInit.providerRef, // Use checkout session ID
+          userId: user.id,
+          planId,
+          status: PaymentStatus.PENDING,
+          startDate,
+          endDate,
+          billingCycle: 1, // First billing cycle
+        })
+        .returning()
+    )[0];
+
+    // Payment initialization already done above
 
     // Create payment record
     const paymentId = generateId();
@@ -305,6 +386,7 @@ export class PaymentService {
             planId,
             planName: plan.name,
             type: 'subscription',
+            subscriptionId: subscription.id,
           } as any,
         })
         .returning()
@@ -471,19 +553,50 @@ export class PaymentService {
         return { processed: false, reason: 'Missing provider reference' };
       }
 
-      // Find payment by provider reference
-      const payment = (
-        await this.database.db
-          .select()
-          .from(payments)
-          .where(eq(payments.providerRef, webhookResult.providerRef))
-      )[0];
+      // Handle recurring subscription webhooks (create new subscription records)
+      if (webhookResult.eventType.startsWith('invoice.')) {
+        await this.database.db.transaction(async (tx) => {
+          // Create new subscription record for this billing cycle
+          await this.handleSubscriptionWebhook(tx, webhookResult);
+
+          // Create payment record for this invoice
+          if (webhookResult.metadata?.invoiceId) {
+            await tx.insert(payments).values({
+              id: generateId(),
+              provider: this.getProviderType(),
+              providerRef: webhookResult.providerRef,
+              status: webhookResult.status,
+              currency: webhookResult.metadata.currency || 'USD',
+              amount: webhookResult.metadata.amount / 100, // Convert from cents
+              metadata: {
+                invoiceId: webhookResult.metadata.invoiceId,
+                subscriptionId: webhookResult.metadata.subscriptionId,
+                billingReason: webhookResult.metadata.billingReason,
+                type: 'subscription_invoice',
+              } as any,
+            });
+          }
+        });
+
+        return {
+          processed: true,
+          paymentId: webhookResult.providerRef,
+          status: webhookResult.status,
+        };
+      }
+
+      // Handle regular payments (checkout sessions, one-time payments)
+      let payment = await this.findPaymentForWebhook(webhookResult);
 
       if (!payment) {
         console.log(
           `Payment not found for provider ref: ${webhookResult.providerRef}`,
+          {
+            eventType: webhookResult.eventType,
+            subscriptionId: webhookResult.metadata?.subscriptionId,
+          },
         );
-        return { processed: false, reason: 'Payment not found' }; // Ignore unknown payments
+        return { processed: false, reason: 'Payment not found' };
       }
 
       // Update payment status if it changed
@@ -493,7 +606,7 @@ export class PaymentService {
         );
 
         await this.database.db.transaction(async (tx) => {
-          // Update payment with enhanced metadata
+          // Update payment status and metadata
           await tx
             .update(payments)
             .set({
@@ -507,16 +620,32 @@ export class PaymentService {
             })
             .where(eq(payments.id, payment.id));
 
-          // Update related entities
+          // Update related orders
           await tx
             .update(orders)
             .set({ status: webhookResult.status })
             .where(eq(orders.paymentId, payment.id));
 
-          await tx
-            .update(subscriptions)
-            .set({ status: webhookResult.status })
-            .where(eq(subscriptions.paymentId, payment.id));
+          // Update subscription status for initial checkout sessions
+          if (
+            webhookResult.metadata?.subscriptionId &&
+            webhookResult.eventType === 'checkout.session.completed'
+          ) {
+            await tx
+              .update(subscriptions)
+              .set({
+                status: webhookResult.status,
+                providerSubscriptionId: webhookResult.metadata.subscriptionId,
+                paymentId: payment.id,
+              })
+              .where(eq(subscriptions.paymentId, payment.id));
+          } else {
+            // Update regular subscriptions
+            await tx
+              .update(subscriptions)
+              .set({ status: webhookResult.status })
+              .where(eq(subscriptions.paymentId, payment.id));
+          }
         });
       } else {
         console.log(
@@ -583,5 +712,72 @@ export class PaymentService {
     };
 
     return enrichedPayment;
+  }
+
+  async getUserSubscriptionStatus(userId: string) {
+    // Get current subscription status for a user
+    const latestSubscription = (
+      await this.database.db
+        .select({
+          id: subscriptions.id,
+          planId: subscriptions.planId,
+          status: subscriptions.status,
+          startDate: subscriptions.startDate,
+          endDate: subscriptions.endDate,
+          billingCycle: subscriptions.billingCycle,
+          providerSubscriptionId: subscriptions.providerSubscriptionId,
+          planName: subscriptionPlans.name,
+          planPrice: subscriptionPlans.price,
+        })
+        .from(subscriptions)
+        .leftJoin(
+          subscriptionPlans,
+          eq(subscriptions.planId, subscriptionPlans.id),
+        )
+        .where(eq(subscriptions.userId, userId))
+        .orderBy(desc(subscriptions.createdAt))
+        .limit(1)
+    )[0];
+
+    if (!latestSubscription) {
+      return { hasSubscription: false, isActive: false };
+    }
+
+    const now = new Date();
+    const isActive =
+      latestSubscription.status === PaymentStatus.PAID &&
+      latestSubscription.startDate <= now &&
+      latestSubscription.endDate >= now;
+
+    return {
+      hasSubscription: true,
+      isActive,
+      subscription: latestSubscription,
+    };
+  }
+
+  async getUserSubscriptionHistory(userId: string) {
+    // Get complete subscription history for a user
+    return await this.database.db
+      .select({
+        id: subscriptions.id,
+        planId: subscriptions.planId,
+        status: subscriptions.status,
+        startDate: subscriptions.startDate,
+        endDate: subscriptions.endDate,
+        billingCycle: subscriptions.billingCycle,
+        providerSubscriptionId: subscriptions.providerSubscriptionId,
+        invoiceId: subscriptions.invoiceId,
+        createdAt: subscriptions.createdAt,
+        planName: subscriptionPlans.name,
+        planPrice: subscriptionPlans.price,
+      })
+      .from(subscriptions)
+      .leftJoin(
+        subscriptionPlans,
+        eq(subscriptions.planId, subscriptionPlans.id),
+      )
+      .where(eq(subscriptions.userId, userId))
+      .orderBy(desc(subscriptions.createdAt));
   }
 }

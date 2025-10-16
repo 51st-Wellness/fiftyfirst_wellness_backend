@@ -10,7 +10,7 @@ import {
   subscriptionPlans,
   subscriptionAccess,
 } from 'src/database/schema';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 @Injectable()
 export abstract class BaseProductService {
@@ -42,53 +42,84 @@ export abstract class BaseProductService {
   ): Promise<boolean> {
     const now = new Date();
 
-    // Find active subscriptions for the user
-    const activeSubscriptions = await this.database.db
-      .select()
-      .from(subscriptions)
-      .where(
-        and(
-          eq(subscriptions.userId, userId),
-          eq(subscriptions.status, PaymentStatus.PAID),
-          lte(subscriptions.startDate, now),
-          gte(subscriptions.endDate, now),
-        ),
-      );
+    // Get the latest subscription for the user (transaction history approach)
+    const latestSubscription = (
+      await this.database.db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.userId, userId))
+        .orderBy(desc(subscriptions.createdAt))
+        .limit(1)
+    )[0];
 
-    // Check if any active subscription provides the required access
-    for (const subscription of activeSubscriptions) {
-      const plan = (
-        await this.database.db
-          .select()
-          .from(subscriptionPlans)
-          .where(eq(subscriptionPlans.id, subscription.planId))
-      )[0];
-
-      if (plan) {
-        const planAccess = await this.database.db
-          .select()
-          .from(subscriptionAccess)
-          .where(eq(subscriptionAccess.planId, plan.id));
-
-        const hasRequiredAccess = planAccess.some(
-          (access) =>
-            access.accessItem === requiredAccess ||
-            access.accessItem === AccessItem.ALL_ACCESS,
-        );
-
-        if (hasRequiredAccess) {
-          return true;
-        }
-      }
+    // Check if user has any subscription
+    if (!latestSubscription) {
+      return false;
     }
 
-    return false;
+    // Check if the latest subscription is active
+    const isActive =
+      latestSubscription.status === PaymentStatus.PAID &&
+      latestSubscription.startDate <= now &&
+      latestSubscription.endDate >= now;
+
+    if (!isActive) {
+      return false;
+    }
+
+    // Check if the subscription plan provides the required access
+    const plan = (
+      await this.database.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, latestSubscription.planId))
+    )[0];
+
+    if (!plan) {
+      return false;
+    }
+
+    const planAccess = await this.database.db
+      .select()
+      .from(subscriptionAccess)
+      .where(eq(subscriptionAccess.planId, plan.id));
+
+    const hasRequiredAccess = planAccess.some(
+      (access) =>
+        access.accessItem === requiredAccess ||
+        access.accessItem === AccessItem.ALL_ACCESS,
+    );
+
+    return hasRequiredAccess;
   }
 
   /**
-   /**
-    * Generates a signed Mux playback token for secure content access
-    */
+   * Get subscription history for a user (for debugging/admin purposes)
+   */
+  protected async getUserSubscriptionHistory(userId: string) {
+    return await this.database.db
+      .select({
+        id: subscriptions.id,
+        planId: subscriptions.planId,
+        status: subscriptions.status,
+        startDate: subscriptions.startDate,
+        endDate: subscriptions.endDate,
+        billingCycle: subscriptions.billingCycle,
+        createdAt: subscriptions.createdAt,
+        planName: subscriptionPlans.name,
+      })
+      .from(subscriptions)
+      .leftJoin(
+        subscriptionPlans,
+        eq(subscriptions.planId, subscriptionPlans.id),
+      )
+      .where(eq(subscriptions.userId, userId))
+      .orderBy(desc(subscriptions.createdAt));
+  }
+
+  /**
+   * Generates a signed Mux playback token for secure content access
+   */
   protected async generateSignedPlaybackToken(
     playbackId: string,
     userId: string,
