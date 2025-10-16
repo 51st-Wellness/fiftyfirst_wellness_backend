@@ -135,27 +135,60 @@ export class StripeProvider implements PaymentProvider {
     }
 
     try {
-      // Handle different body types properly
-      let rawBody: Buffer;
+      // Ensure we have the raw body as Buffer or string
+      let rawBody: Buffer | string;
       if (Buffer.isBuffer(body)) {
         rawBody = body;
       } else if (typeof body === 'string') {
-        rawBody = Buffer.from(body, 'utf8');
+        rawBody = body;
       } else {
-        rawBody = Buffer.from(JSON.stringify(body), 'utf8');
+        // If body is already parsed JSON, we can't verify signature
+        console.error(
+          'Webhook body is parsed as JSON, signature verification will fail',
+        );
+        rawBody = JSON.stringify(body);
       }
 
-      // Construct event to verify signature
+      // Construct event to verify signature - this will throw if invalid
       this.stripe.webhooks.constructEvent(rawBody, sig, this.webhookSecret);
       return true;
     } catch (error) {
-      console.error('Stripe webhook verification failed:', error.message);
+      console.error('Stripe webhook verification failed:', {
+        error: error.message,
+        hasRawBody: Buffer.isBuffer(body) || typeof body === 'string',
+        bodyType: typeof body,
+        signaturePresent: !!sig,
+      });
       return false;
     }
   }
 
   parseWebhook(body: any): WebhookResult {
-    const event = body as Stripe.Event;
+    // Handle both raw string/buffer and parsed JSON
+    let event: Stripe.Event;
+
+    try {
+      if (typeof body === 'string') {
+        event = JSON.parse(body) as Stripe.Event;
+      } else if (Buffer.isBuffer(body)) {
+        event = JSON.parse(body.toString('utf8')) as Stripe.Event;
+      } else {
+        event = body as Stripe.Event;
+      }
+    } catch (parseError) {
+      console.error('Failed to parse webhook body:', parseError);
+      return {
+        providerRef: '',
+        status: PaymentStatus.PENDING,
+        raw: body,
+        eventType: 'parse_error',
+        metadata: {
+          error: 'Failed to parse webhook body',
+          parseError: parseError.message,
+        },
+      };
+    }
+
     let providerRef = '';
     let status: PaymentStatus = PaymentStatus.PENDING;
     let eventType = event.type;

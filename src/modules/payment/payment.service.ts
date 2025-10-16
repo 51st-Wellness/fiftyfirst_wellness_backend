@@ -443,18 +443,24 @@ export class PaymentService {
     };
   }
 
-  async handleWebhook(headers: Record<string, string>, body: any) {
+  async handleWebhook(
+    headers: Record<string, string>,
+    rawBody: any,
+    parsedBody?: any,
+  ) {
     // Handle webhook from payment provider
     try {
-      // Verify webhook signature
-      const isValid = await this.provider.verifyWebhook(headers, body);
+      // Verify webhook signature using raw body
+      const isValid = await this.provider.verifyWebhook(headers, rawBody);
       if (!isValid) {
         console.warn('Invalid webhook signature received');
         throw new BadRequestException('Invalid webhook signature');
       }
 
-      // Parse webhook payload
-      const webhookResult: WebhookResult = this.provider.parseWebhook(body);
+      // Parse webhook payload using parsed body if available, otherwise raw body
+      const bodyForParsing = parsedBody || rawBody;
+      const webhookResult: WebhookResult =
+        this.provider.parseWebhook(bodyForParsing);
 
       // Validate webhook result
       if (!webhookResult.providerRef) {
@@ -548,10 +554,25 @@ export class PaymentService {
       .from(orders)
       .where(eq(orders.paymentId, paymentId));
 
-    // Get related subscriptions
+    // Get related subscriptions with plan details
     const relatedSubscriptions = await this.database.db
-      .select()
+      .select({
+        id: subscriptions.id,
+        userId: subscriptions.userId,
+        planId: subscriptions.planId,
+        status: subscriptions.status,
+        startDate: subscriptions.startDate,
+        endDate: subscriptions.endDate,
+        paymentId: subscriptions.paymentId,
+        planName: subscriptionPlans.name,
+        planPrice: subscriptionPlans.price,
+        planDuration: subscriptionPlans.duration,
+      })
       .from(subscriptions)
+      .leftJoin(
+        subscriptionPlans,
+        eq(subscriptions.planId, subscriptionPlans.id),
+      )
       .where(eq(subscriptions.paymentId, paymentId));
 
     // Build enriched payment object
