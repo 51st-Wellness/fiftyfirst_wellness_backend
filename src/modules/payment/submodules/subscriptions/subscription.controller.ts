@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { SubscriptionService } from './subscription.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
@@ -129,6 +130,8 @@ export class SubscriptionController {
   }
 
   @Get('user/active')
+  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async getCurrentUserActiveSubscription(@CurrentUser() user: User) {
     const subscription =
@@ -140,6 +143,8 @@ export class SubscriptionController {
   }
 
   @Get('user')
+  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(RolesGuard)
   @StrictRoles(UserRole.USER, UserRole.ADMIN)
   async getCurrentUserSubscriptions(@CurrentUser() user: User) {
     const subscriptions = await this.subscriptionService.findAllSubscriptions({

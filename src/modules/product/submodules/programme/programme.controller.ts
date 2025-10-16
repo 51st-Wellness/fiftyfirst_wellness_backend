@@ -42,7 +42,6 @@ import { ResponseDto } from 'src/util/dto/response.dto';
 import { MulterFile } from '@/types';
 
 @Controller('product/programme')
-@UseGuards(RolesGuard)
 export class ProgrammeController {
   constructor(private readonly programmeService: ProgrammeService) {}
 
@@ -50,6 +49,7 @@ export class ProgrammeController {
    * Creates a programme draft with title and video
    */
   @Post('create-draft')
+  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH)
   @UseInterceptors(FileInterceptor('video'))
   @HttpCode(HttpStatus.CREATED)
@@ -80,6 +80,7 @@ export class ProgrammeController {
    * Updates programme with additional details
    */
   @Patch('update-details/:productId')
+  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH)
   @UseInterceptors(FileInterceptor('thumbnail'))
   @HttpCode(HttpStatus.OK)
@@ -118,6 +119,7 @@ export class ProgrammeController {
    * Uploads a thumbnail image for a programme
    */
   @Post('thumbnail')
+  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH)
   @UseInterceptors(FileInterceptor('thumbnail'))
   @HttpCode(HttpStatus.OK)
@@ -147,6 +149,7 @@ export class ProgrammeController {
    * Removes a programme thumbnail
    */
   @Delete('thumbnail/:productId')
+  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH)
   @HttpCode(HttpStatus.OK)
   async removeProgrammeThumbnail(@Param('productId') productId: string) {
@@ -162,6 +165,7 @@ export class ProgrammeController {
    * Updates programme metadata after video upload
    */
   @Patch(':id')
+  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH)
   @HttpCode(HttpStatus.OK)
   async updateProgrammeMetadata(
@@ -182,6 +186,7 @@ export class ProgrammeController {
    * Deletes a programme
    */
   @Delete(':productId')
+  @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.COACH)
   @HttpCode(HttpStatus.OK)
   async deleteProgramme(@Param('productId') productId: string) {
@@ -200,6 +205,7 @@ export class ProgrammeController {
    * Gets a secure programme by ID with subscription access control and signed playback token
    */
   @Get('secure/:productId')
+  @UseGuards(RolesGuard)
   @UseGuards(AuthGuard('jwt'))
   async getSecureProgrammeById(
     @Param('productId') productId: string,
@@ -213,7 +219,6 @@ export class ProgrammeController {
    * Gets a programme for admin editing (includes all details)
    */
   @Get('admin/:productId')
-  @Roles(UserRole.ADMIN, UserRole.COACH)
   async getProgrammeForEdit(@Param('productId') productId: string) {
     const result =
       await this.programmeService.getProgrammeByProductId(productId);
