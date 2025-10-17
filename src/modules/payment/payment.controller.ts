@@ -70,9 +70,6 @@ export class PaymentController {
   @HttpCode(HttpStatus.OK)
   async handleWebhook(@Req() req: any) {
     // Handle webhook notifications from payment provider
-    console.log('stripe body request RAWBODY', req.rawBody);
-    console.log('stripe body request BODY', req.body);
-    // Use raw body for signature verification, parsed body for processing
     const result = await this.paymentService.handleWebhook(
       req.headers,
       req.rawBody || req.body, // Use raw body if available, fallback to parsed
@@ -81,7 +78,7 @@ export class PaymentController {
     return {
       success: true,
       processed: result?.processed || false,
-      paymentId: result?.paymentId,
+      paymentId: (result as any)?.paymentId,
     };
   }
 

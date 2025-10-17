@@ -57,6 +57,68 @@ export class PaymentService {
     return payment;
   }
 
+  private shouldIgnoreEvent(eventType: string): boolean {
+    // Events that don't require payment processing
+    const ignoredEvents = [
+      'customer.created',
+      'customer.updated',
+      'customer.deleted',
+      'payment_intent.created', // Only care about succeeded/failed
+      'payment_method.attached',
+      'setup_intent.created',
+      'setup_intent.succeeded',
+    ];
+
+    return ignoredEvents.includes(eventType);
+  }
+
+  private isSubscriptionPaymentIntent(webhookResult: WebhookResult): boolean {
+    // Check if this payment_intent is related to a subscription
+    return (
+      webhookResult.metadata?.customerId &&
+      webhookResult.eventType === 'payment_intent.succeeded' &&
+      // If it has setup_future_usage, it's likely a subscription
+      (webhookResult.raw?.data?.object?.setup_future_usage === 'off_session' ||
+        webhookResult.raw?.data?.object?.description?.includes('Subscription'))
+    );
+  }
+
+  private async handleInvoiceWebhook(webhookResult: WebhookResult) {
+    try {
+      await this.database.db.transaction(async (tx) => {
+        // Create new subscription record for this billing cycle
+        await this.handleSubscriptionWebhook(tx, webhookResult);
+
+        // Create payment record for this invoice
+        if (webhookResult.metadata?.invoiceId) {
+          await tx.insert(payments).values({
+            id: generateId(),
+            provider: this.getProviderType(),
+            providerRef: webhookResult.providerRef,
+            status: webhookResult.status,
+            currency: webhookResult.metadata.currency || 'USD',
+            amount: webhookResult.metadata.amount / 100, // Convert from cents
+            metadata: {
+              invoiceId: webhookResult.metadata.invoiceId,
+              subscriptionId: webhookResult.metadata.subscriptionId,
+              billingReason: webhookResult.metadata.billingReason,
+              type: 'subscription_invoice',
+            } as any,
+          });
+        }
+      });
+
+      return {
+        processed: true,
+        paymentId: webhookResult.providerRef,
+        status: webhookResult.status,
+      };
+    } catch (error) {
+      console.error('Invoice webhook processing error:', error);
+      return { processed: false, reason: 'Invoice processing failed' };
+    }
+  }
+
   private async handleSubscriptionWebhook(
     tx: any,
     webhookResult: WebhookResult,
@@ -90,13 +152,46 @@ export class PaymentService {
       )[0];
 
       if (!latestSubscription) {
-        console.warn(
-          `No existing subscription found for provider subscription ID: ${webhookResult.metadata.subscriptionId}`,
+        // This might be the first invoice for a subscription created via checkout
+        // Try to find subscription by checking for checkout sessions with this subscription ID
+        const checkoutSubscription = (
+          await this.database.db
+            .select()
+            .from(subscriptions)
+            .innerJoin(payments, eq(subscriptions.paymentId, payments.id))
+            .where(
+              and(
+                eq(payments.provider, 'STRIPE'),
+                sql`JSON_EXTRACT(${payments.metadata}, '$.subscriptionId') = ${webhookResult.metadata.subscriptionId}`,
+              ),
+            )
+            .orderBy(desc(subscriptions.createdAt))
+            .limit(1)
+        )[0];
+
+        if (!checkoutSubscription) {
+          console.warn(
+            `No existing subscription found for provider subscription ID: ${webhookResult.metadata.subscriptionId}`,
+          );
+          return;
+        }
+
+        // Update the existing subscription with provider subscription ID
+        await tx
+          .update(subscriptions)
+          .set({
+            providerSubscriptionId: webhookResult.metadata.subscriptionId,
+            status: webhookResult.status,
+          })
+          .where(eq(subscriptions.id, checkoutSubscription.Subscription.id));
+
+        console.log(
+          `Updated existing subscription ${checkoutSubscription.Subscription.id} with provider subscription ID`,
         );
         return;
       }
 
-      // Calculate new billing period
+      // Calculate new billing period for recurring payment
       const periodStart = new Date(webhookResult.metadata.periodStart * 1000);
       const periodEnd = new Date(webhookResult.metadata.periodEnd * 1000);
       const nextBillingCycle = latestSubscription.billingCycle + 1;
@@ -553,36 +648,26 @@ export class PaymentService {
         return { processed: false, reason: 'Missing provider reference' };
       }
 
-      // Handle recurring subscription webhooks (create new subscription records)
-      if (webhookResult.eventType.startsWith('invoice.')) {
-        await this.database.db.transaction(async (tx) => {
-          // Create new subscription record for this billing cycle
-          await this.handleSubscriptionWebhook(tx, webhookResult);
+      // Handle events that don't require existing payments
+      if (this.shouldIgnoreEvent(webhookResult.eventType)) {
+        console.log(`Ignoring event: ${webhookResult.eventType}`);
+        return { processed: true, reason: 'Event ignored' };
+      }
 
-          // Create payment record for this invoice
-          if (webhookResult.metadata?.invoiceId) {
-            await tx.insert(payments).values({
-              id: generateId(),
-              provider: this.getProviderType(),
-              providerRef: webhookResult.providerRef,
-              status: webhookResult.status,
-              currency: webhookResult.metadata.currency || 'USD',
-              amount: webhookResult.metadata.amount / 100, // Convert from cents
-              metadata: {
-                invoiceId: webhookResult.metadata.invoiceId,
-                subscriptionId: webhookResult.metadata.subscriptionId,
-                billingReason: webhookResult.metadata.billingReason,
-                type: 'subscription_invoice',
-              } as any,
-            });
-          }
-        });
-
+      // Ignore subscription-related payment_intent events (handled via invoice events)
+      if (this.isSubscriptionPaymentIntent(webhookResult)) {
+        console.log(
+          `Ignoring subscription payment_intent: ${webhookResult.providerRef}`,
+        );
         return {
           processed: true,
-          paymentId: webhookResult.providerRef,
-          status: webhookResult.status,
+          reason: 'Subscription payment_intent ignored',
         };
+      }
+
+      // Handle recurring subscription webhooks (create new subscription records)
+      if (webhookResult.eventType.startsWith('invoice.')) {
+        return await this.handleInvoiceWebhook(webhookResult);
       }
 
       // Handle regular payments (checkout sessions, one-time payments)
