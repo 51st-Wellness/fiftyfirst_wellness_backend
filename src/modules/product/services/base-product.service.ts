@@ -42,55 +42,64 @@ export abstract class BaseProductService {
   ): Promise<boolean> {
     const now = new Date();
 
-    // Get the latest subscription for the user (transaction history approach)
-    const latestSubscription = (
-      await this.database.db
-        .select()
-        .from(subscriptions)
-        .where(eq(subscriptions.userId, userId))
-        .orderBy(desc(subscriptions.createdAt))
-        .limit(1)
-    )[0];
-
-    // Check if user has any subscription
-    if (!latestSubscription) {
-      return false;
-    }
-
-    // Check if the latest subscription is active
-    const isActive =
-      latestSubscription.status === PaymentStatus.PAID &&
-      latestSubscription.startDate <= now &&
-      latestSubscription.endDate >= now;
-
-    if (!isActive) {
-      return false;
-    }
-
-    // Check if the subscription plan provides the required access
-    const plan = (
-      await this.database.db
-        .select()
-        .from(subscriptionPlans)
-        .where(eq(subscriptionPlans.id, latestSubscription.planId))
-    )[0];
-
-    if (!plan) {
-      return false;
-    }
-
-    const planAccess = await this.database.db
+    // Get ALL active subscriptions for the user (not just latest by creation)
+    const activeSubscriptions = await this.database.db
       .select()
-      .from(subscriptionAccess)
-      .where(eq(subscriptionAccess.planId, plan.id));
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.userId, userId),
+          eq(subscriptions.status, PaymentStatus.PAID),
+          lte(subscriptions.startDate, now),
+          gte(subscriptions.endDate, now),
+        ),
+      )
+      .orderBy(desc(subscriptions.endDate)); // Order by end date to get the longest running subscription first
 
-    const hasRequiredAccess = planAccess.some(
-      (access) =>
-        access.accessItem === requiredAccess ||
-        access.accessItem === AccessItem.ALL_ACCESS,
-    );
+    // Check if user has any active subscription
+    if (!activeSubscriptions || activeSubscriptions.length === 0) {
+      return false;
+    }
 
-    return hasRequiredAccess;
+    // Check each active subscription to see if any provides the required access
+    for (const subscription of activeSubscriptions) {
+      // Get the subscription plan
+      const plan = (
+        await this.database.db
+          .select()
+          .from(subscriptionPlans)
+          .where(eq(subscriptionPlans.id, subscription.planId))
+      )[0];
+
+      if (!plan || !plan.isActive) {
+        continue; // Skip inactive plans
+      }
+
+      // Get plan access permissions
+      const planAccess = await this.database.db
+        .select()
+        .from(subscriptionAccess)
+        .where(eq(subscriptionAccess.planId, plan.id));
+
+      // Check if this plan provides the required access
+      const hasRequiredAccess = planAccess.some(
+        (access) =>
+          access.accessItem === requiredAccess ||
+          access.accessItem === AccessItem.ALL_ACCESS,
+      );
+
+      if (hasRequiredAccess) {
+        console.log('User has active subscription with required access', {
+          userId,
+          requiredAccess,
+          plan: plan.name,
+          planAccess: planAccess.map((access) => access.accessItem),
+        });
+        return true; // Found an active subscription with required access
+      }
+    }
+
+    return false; // No active subscription provides the required access
   }
 
   /**

@@ -227,8 +227,12 @@ export class StripeProvider implements PaymentProvider {
               ? PaymentStatus.PAID
               : PaymentStatus.PENDING;
         } else if (session.mode === 'subscription') {
-          // For subscriptions, we need to check the subscription status
-          status = PaymentStatus.PAID; // subscription created, consider active
+          // For subscriptions, check if payment was successful
+          // Don't automatically mark as PAID - wait for subscription events
+          status =
+            session.payment_status === 'paid'
+              ? PaymentStatus.PAID
+              : PaymentStatus.PENDING;
         }
         break;
       }

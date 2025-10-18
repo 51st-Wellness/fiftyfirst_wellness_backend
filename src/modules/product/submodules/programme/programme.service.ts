@@ -523,9 +523,35 @@ export class ProgrammeService extends BaseProductService {
       );
 
       if (!hasAccess) {
-        throw new ForbiddenException(
-          'You need an active subscription to access this programme. Please upgrade your plan.',
+        // Get user's subscription status for better error message
+        const subscriptionHistory = await this.getUserSubscriptionHistory(
+          user.id,
         );
+
+        let errorMessage =
+          'You need an active subscription to access this programme.';
+
+        if (subscriptionHistory.length === 0) {
+          errorMessage +=
+            ' You currently have no subscription. Please subscribe to a plan that includes programme access.';
+        } else {
+          const latestSub = subscriptionHistory[0];
+          if (latestSub.status === PaymentStatus.PENDING) {
+            errorMessage +=
+              ' Your subscription payment is still pending. Please complete the payment process.';
+          } else if (latestSub.status === PaymentStatus.FAILED) {
+            errorMessage +=
+              ' Your subscription payment failed. Please try subscribing again.';
+          } else if (latestSub.status === PaymentStatus.CANCELLED) {
+            errorMessage +=
+              ' Your subscription has been cancelled. Please subscribe to a new plan.';
+          } else {
+            errorMessage +=
+              ' Your current subscription plan does not include access to programmes. Please upgrade your plan.';
+          }
+        }
+
+        throw new ForbiddenException(errorMessage);
       }
     }
     // Verify programme has valid Mux data

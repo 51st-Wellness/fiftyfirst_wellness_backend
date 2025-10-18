@@ -711,25 +711,62 @@ export class PaymentService {
             .set({ status: webhookResult.status })
             .where(eq(orders.paymentId, payment.id));
 
-          // Update subscription status for initial checkout sessions
+          // Handle subscription-related webhook events
           if (
-            webhookResult.metadata?.subscriptionId &&
-            webhookResult.eventType === 'checkout.session.completed'
+            webhookResult.metadata?.type === 'subscription' ||
+            webhookResult.metadata?.subscriptionId ||
+            webhookResult.eventType.startsWith('customer.subscription') ||
+            webhookResult.eventType.startsWith('invoice.payment')
           ) {
-            await tx
-              .update(subscriptions)
-              .set({
-                status: webhookResult.status,
-                providerSubscriptionId: webhookResult.metadata.subscriptionId,
-                paymentId: payment.id,
-              })
-              .where(eq(subscriptions.paymentId, payment.id));
-          } else {
-            // Update regular subscriptions
-            await tx
-              .update(subscriptions)
-              .set({ status: webhookResult.status })
-              .where(eq(subscriptions.paymentId, payment.id));
+            // For checkout.session.completed with subscription
+            if (
+              webhookResult.eventType === 'checkout.session.completed' &&
+              webhookResult.metadata?.subscriptionId
+            ) {
+              await tx
+                .update(subscriptions)
+                .set({
+                  status: webhookResult.status,
+                  providerSubscriptionId: webhookResult.metadata.subscriptionId,
+                  paymentId: payment.id,
+                })
+                .where(eq(subscriptions.paymentId, payment.id));
+            }
+            // For subscription lifecycle events (created, updated, deleted)
+            else if (
+              webhookResult.eventType.startsWith('customer.subscription')
+            ) {
+              const subscriptionId = webhookResult.metadata?.subscriptionId;
+              if (subscriptionId) {
+                await tx
+                  .update(subscriptions)
+                  .set({ status: webhookResult.status })
+                  .where(
+                    eq(subscriptions.providerSubscriptionId, subscriptionId),
+                  );
+              }
+            }
+            // For invoice payment events (recurring payments)
+            else if (webhookResult.eventType.startsWith('invoice.payment')) {
+              const subscriptionId = webhookResult.metadata?.subscriptionId;
+              if (subscriptionId) {
+                // For recurring payments, we might need to create new subscription records
+                // or update existing ones based on billing cycle
+                await tx
+                  .update(subscriptions)
+                  .set({ status: webhookResult.status })
+                  .where(
+                    eq(subscriptions.providerSubscriptionId, subscriptionId),
+                  );
+              }
+            }
+            // Fallback for other subscription events
+            else {
+              await tx
+                .update(subscriptions)
+                .set({ status: webhookResult.status })
+                .where(eq(subscriptions.paymentId, payment.id));
+            }
           }
         });
       } else {
