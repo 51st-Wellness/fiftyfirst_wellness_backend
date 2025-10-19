@@ -4,12 +4,23 @@ import { ConfigModule } from 'src/config/config.module';
 import { ConfigService } from 'src/config/config.service';
 import BrevoProvider from './email/providers/brevo.provider';
 import GmailProvider from './email/providers/gmail.provider';
+import ResendProvider from './email/providers/resend.provider';
 import { Logger } from '@nestjs/common';
 
 @Module({
   imports: [ConfigModule],
   providers: [
     EmailService,
+    {
+      provide: ResendProvider,
+      useFactory: (configService: ConfigService) => {
+        return new ResendProvider(
+          configService,
+          new Logger(ResendProvider.name),
+        );
+      },
+      inject: [ConfigService],
+    },
     {
       provide: BrevoProvider,
       useFactory: (configService: ConfigService) => {

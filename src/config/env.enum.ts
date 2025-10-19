@@ -15,6 +15,11 @@ export enum ENV {
   LOG_LEVEL = 'LOG_LEVEL',
   BREVO_API_KEY = 'BREVO_API_KEY',
   BREVO_SENDER_EMAIL = 'BREVO_SENDER_EMAIL',
+  COMPANY_NAME = 'COMPANY_NAME',
+
+  // Resend Configuration
+  RESEND_API_KEY = 'RESEND_API_KEY',
+  RESEND_SENDER_EMAIL = 'RESEND_SENDER_EMAIL',
 
   FRONTEND_URL = 'FRONTEND_URL',
   // Google OAuth Configuration
@@ -48,7 +53,6 @@ export enum ENV {
   GMAIL_EMAIL = 'GMAIL_EMAIL', // Gmail address for authentication
   GMAIL_APP_PASSWORD = 'GMAIL_APP_PASSWORD', // Gmail App Password (16-character)
   COMPANY_EMAIL = 'COMPANY_EMAIL',
-  COMPANY_NAME = 'COMPANY_NAME',
 
   SERVER_URL = 'SERVER_URL',
 
