@@ -43,7 +43,7 @@ export class PodcastController {
    * Creates a podcast and generates Mux upload URL for audio
    */
   @Post('create-upload-url')
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @HttpCode(HttpStatus.CREATED)
   async createPodcastUploadUrl(@Body() createPodcastDto: CreatePodcastDto) {
     const result =
@@ -58,7 +58,7 @@ export class PodcastController {
    * Uploads a thumbnail image for a podcast
    */
   @Post('thumbnail')
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @UseInterceptors(FileInterceptor('thumbnail'))
   @HttpCode(HttpStatus.OK)
   async uploadPodcastThumbnail(
@@ -87,7 +87,7 @@ export class PodcastController {
    * Removes a podcast thumbnail
    */
   @Delete('thumbnail/:productId')
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @HttpCode(HttpStatus.OK)
   async removePodcastThumbnail(@Param('productId') productId: string) {
     const result = await this.podcastService.removePodcastThumbnail(productId);
@@ -101,7 +101,7 @@ export class PodcastController {
    * Updates podcast metadata after audio upload
    */
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @HttpCode(HttpStatus.OK)
   async updatePodcastMetadata(
     @Param('id') podcastId: string,

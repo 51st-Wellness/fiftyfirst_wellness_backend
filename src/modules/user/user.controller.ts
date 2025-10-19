@@ -33,6 +33,8 @@ import { CUSTOM_HEADERS } from 'src/config/constants.config';
 import { StorageService } from 'src/util/storage/storage.service';
 import { DocumentType } from 'src/util/storage/constants';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { MulterFile } from 'src/types';
+
 @Controller('user')
 @UseGuards(RolesGuard)
 export class UserController {
@@ -112,8 +114,8 @@ export class UserController {
     );
   }
 
-  // Admin: Get all users with pagination and filters (Strict mode for clear suspension messaging)
-  @StrictRoles(UserRole.ADMIN)
+  // Admin/Moderator: Get all users with pagination and filters (Strict mode for clear suspension messaging)
+  @StrictRoles(UserRole.ADMIN, UserRole.MODERATOR)
   @Get()
   async getAllUsers(@Query() query: UserQueryDto) {
     const { users, total } = await this.userService.findManyWithFilters(query);
@@ -130,8 +132,8 @@ export class UserController {
     );
   }
 
-  // Admin: Get user by ID (Strict mode for clear suspension messaging)
-  @StrictRoles(UserRole.ADMIN)
+  // Admin/Moderator: Get user by ID (Strict mode for clear suspension messaging)
+  @StrictRoles(UserRole.ADMIN, UserRole.MODERATOR)
   @Get(':id')
   async findUserById(@Param('id') id: string) {
     const user = await this.userService.findOne(id);
@@ -170,17 +172,17 @@ export class UserController {
     });
   }
 
-  // Admin: Change user role (requires ROOT-API-KEY header)
+  // Admin only: Change user role - MODERATOR cannot access this
+  @StrictRoles(UserRole.ADMIN)
   @Put('role/:id')
   async changeUserRole(
     @Param('id') id: string,
     @Body() body: ChangeRoleDto,
     @Req() req: Request,
   ) {
-    const rootApiKeyHeader = req.headers[CUSTOM_HEADERS.rootApiKey] as string;
-    const expectedKey = this.configService.get(ENV.ROOT_API_KEY) as string;
-    if (!rootApiKeyHeader || rootApiKeyHeader !== expectedKey) {
-      throw new UnauthorizedException('Invalid root api key');
+    // Prevent self role change
+    if ((req.user as User).id === id) {
+      throw new BadRequestException('You cannot change your own role');
     }
 
     const user = await this.userService.changeUserRole(id, body.role);

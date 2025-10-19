@@ -9,7 +9,7 @@ import { relations } from 'drizzle-orm';
 
 // Enums as const assertions for type safety
 // Enums and constants - exported for use throughout the app
-export const userRoles = ['USER', 'ADMIN', 'COACH'] as const;
+export const userRoles = ['USER', 'ADMIN', 'MODERATOR'] as const;
 export type UserRole = (typeof userRoles)[number];
 
 export const paymentStatuses = [
@@ -47,7 +47,7 @@ export type PricingModel = (typeof pricingModels)[number];
 export const UserRole = {
   USER: 'USER' as const,
   ADMIN: 'ADMIN' as const,
-  COACH: 'COACH' as const,
+  MODERATOR: 'MODERATOR' as const,
 };
 
 export const PaymentStatus = {

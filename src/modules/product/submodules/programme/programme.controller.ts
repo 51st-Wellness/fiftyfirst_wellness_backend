@@ -50,7 +50,7 @@ export class ProgrammeController {
    */
   @Post('create-draft')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @UseInterceptors(FileInterceptor('video'))
   @HttpCode(HttpStatus.CREATED)
   async createProgrammeDraft(
@@ -81,7 +81,7 @@ export class ProgrammeController {
    */
   @Patch('update-details/:productId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @UseInterceptors(FileInterceptor('thumbnail'))
   @HttpCode(HttpStatus.OK)
   async updateProgrammeDetails(
@@ -120,7 +120,7 @@ export class ProgrammeController {
    */
   @Post('thumbnail')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @UseInterceptors(FileInterceptor('thumbnail'))
   @HttpCode(HttpStatus.OK)
   async uploadProgrammeThumbnail(
@@ -150,7 +150,7 @@ export class ProgrammeController {
    */
   @Delete('thumbnail/:productId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @HttpCode(HttpStatus.OK)
   async removeProgrammeThumbnail(@Param('productId') productId: string) {
     const result =
@@ -166,7 +166,7 @@ export class ProgrammeController {
    */
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @HttpCode(HttpStatus.OK)
   async updateProgrammeMetadata(
     @Param('id') programmeId: string,
@@ -187,7 +187,7 @@ export class ProgrammeController {
    */
   @Delete(':productId')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.COACH)
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
   @HttpCode(HttpStatus.OK)
   async deleteProgramme(@Param('productId') productId: string) {
     return await this.programmeService.deleteProgramme(productId);
