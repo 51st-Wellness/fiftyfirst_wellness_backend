@@ -15,7 +15,6 @@ export enum ENV {
   LOG_LEVEL = 'LOG_LEVEL',
   BREVO_API_KEY = 'BREVO_API_KEY',
   BREVO_SENDER_EMAIL = 'BREVO_SENDER_EMAIL',
-  COMPANY_NAME = 'COMPANY_NAME',
 
   FRONTEND_URL = 'FRONTEND_URL',
   // Google OAuth Configuration
@@ -46,12 +45,17 @@ export enum ENV {
   MUX_SIGNING_KEY_PRIVATE = 'MUX_SIGNING_KEY_PRIVATE',
 
   // Gmail Configuration
+  GMAIL_EMAIL = 'GMAIL_EMAIL', // Gmail address for authentication
+  GMAIL_APP_PASSWORD = 'GMAIL_APP_PASSWORD', // Gmail App Password (16-character)
+  COMPANY_EMAIL = 'COMPANY_EMAIL',
+  COMPANY_NAME = 'COMPANY_NAME',
+
+  SERVER_URL = 'SERVER_URL',
+
+  // Legacy OAuth2 variables (kept for backward compatibility)
   GMAIL_CLIENT_ID = 'GMAIL_CLIENT_ID',
   GMAIL_CLIENT_SECRET = 'GMAIL_CLIENT_SECRET',
   GMAIL_REFRESH_TOKEN = 'GMAIL_REFRESH_TOKEN',
-  COMPANY_EMAIL = 'COMPANY_EMAIL',
-
-  SERVER_URL = 'SERVER_URL',
   GMAIL_TRANSPORT = 'GMAIL_TRANSPORT',
 
   // Payment Configuration
