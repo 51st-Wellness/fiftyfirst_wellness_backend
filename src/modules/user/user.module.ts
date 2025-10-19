@@ -8,10 +8,19 @@ import { BookmarkService } from 'src/modules/user/submodules/bookmark/bookmark.s
 import { BookmarkController } from 'src/modules/user/submodules/bookmark/bookmark.controller';
 import { CartService } from 'src/modules/user/submodules/cart/cart.service';
 import { CartController } from 'src/modules/user/submodules/cart/cart.controller';
+import { ProgrammeRepository } from 'src/modules/product/submodules/programme/programme.repository';
+import { StoreRepository } from 'src/modules/product/submodules/store/store.repository';
 
 @Module({
   imports: [DatabaseModule, StorageModule],
-  providers: [UserService, UserRepository, BookmarkService, CartService],
+  providers: [
+    UserService,
+    UserRepository,
+    BookmarkService,
+    CartService,
+    ProgrammeRepository,
+    StoreRepository,
+  ],
   controllers: [UserController, BookmarkController, CartController],
   exports: [UserService, BookmarkService, CartService],
 })

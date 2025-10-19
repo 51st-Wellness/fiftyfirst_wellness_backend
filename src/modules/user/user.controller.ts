@@ -132,6 +132,14 @@ export class UserController {
     );
   }
 
+  // Admin/Moderator: Get simple stats for dashboard (only totals)
+  @StrictRoles(UserRole.ADMIN, UserRole.MODERATOR)
+  @Get('stats')
+  async getUserStats() {
+    const stats = await this.userService.getStats();
+    return ResponseDto.createSuccessResponse('User stats retrieved', stats);
+  }
+
   // Admin/Moderator: Get user by ID (Strict mode for clear suspension messaging)
   @StrictRoles(UserRole.ADMIN, UserRole.MODERATOR)
   @Get(':id')

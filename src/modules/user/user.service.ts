@@ -12,10 +12,16 @@ import { User } from 'src/database/types';
 import { UserRole } from 'src/database/schema';
 import * as bcrypt from 'bcrypt';
 import { DataFormatter } from 'src/lib/helpers/data-formater.helper';
+import { ProgrammeRepository } from 'src/modules/product/submodules/programme/programme.repository';
+import { StoreRepository } from 'src/modules/product/submodules/store/store.repository';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly programmeRepository: ProgrammeRepository,
+    private readonly storeRepository: StoreRepository,
+  ) {}
 
   // Create a new user with password hashing
   async create(createUserDto: CreateUserDto): Promise<Omit<User, 'password'>> {
@@ -211,5 +217,19 @@ export class UserService {
   ): Promise<Omit<User, 'password'>> {
     const user = await this.userRepository.update(userId, { role });
     return DataFormatter.formatObject(user, ['password']);
+  }
+
+  // Get platform statistics for admin dashboards
+  async getStats(): Promise<{
+    totalUsers: number;
+    totalProgrammes: number;
+    totalStoreItems: number;
+  }> {
+    const [totalUsers, totalProgrammes, totalStoreItems] = await Promise.all([
+      this.userRepository.getTotalUsers(),
+      this.programmeRepository.count(),
+      this.storeRepository.count(),
+    ]);
+    return { totalUsers, totalProgrammes, totalStoreItems };
   }
 }

@@ -326,4 +326,12 @@ export class UserRepository {
       .returning();
     return result[0];
   }
+
+  // Get total number of users efficiently using COUNT(*)
+  async getTotalUsers(): Promise<number> {
+    const result = await this.database.db
+      .select({ value: count() })
+      .from(users);
+    return result[0]?.value ?? 0;
+  }
 }
