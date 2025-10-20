@@ -114,11 +114,15 @@ export class AuthController {
   // Verify email with OTP
   @Post('verify-email')
   async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
-    await this.authService.verifyEmailWithOTP(
+    const user = await this.authService.verifyEmailWithOTP(
       verifyEmailDto.email,
       verifyEmailDto.otp,
     );
-    return ResponseDto.createSuccessResponse('Email verified successfully');
+    const accessToken = await this.authService.issueAccessToken(user);
+    return ResponseDto.createSuccessResponse('Email verified successfully', {
+      user,
+      accessToken,
+    });
   }
 
   // Resend email verification OTP

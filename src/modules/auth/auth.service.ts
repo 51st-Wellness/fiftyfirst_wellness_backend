@@ -194,7 +194,7 @@ export class AuthService {
   }
 
   // Verify OTP and mark email as verified
-  async verifyEmailWithOTP(email: string, otp: string): Promise<void> {
+  async verifyEmailWithOTP(email: string, otp: string): Promise<User> {
     const user = await this.userService.findByEmail(email);
     if (!user) {
       throw new NotFoundException('User with this email does not exist');
@@ -226,6 +226,7 @@ export class AuthService {
         lastName: user.lastName,
       },
     });
+    return user;
   }
 
   // Validate user with Google OAuth profile
