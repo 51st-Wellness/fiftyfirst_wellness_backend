@@ -149,13 +149,19 @@ export class AuthController {
 
     console.log('user', user);
 
-    // Generate access token and set cookie
+    // Generate access token
+    const accessToken = await this.authService.issueAccessToken(user);
+
+    // Set cookie for backend authentication
     await this.authService.issueAccessTokenWithCookie(user, res);
 
-    const redirectUrl = `${this.configService.get(ENV.FRONTEND_URL)}`;
+    // Redirect to auth success page with token as query param
+    const frontendUrl =
+      this.configService.get(ENV.FRONTEND_URL) || 'http://localhost:3000';
+    const redirectUrl = `${frontendUrl}/auth/success?token=${encodeURIComponent(accessToken)}`;
 
     console.log(`🔄 Google OAuth Success - Redirecting to: ${redirectUrl}`);
-    res.status(HttpStatus.FOUND).redirect(redirectUrl);
+    res.redirect(redirectUrl);
   }
 
   // Google One Tap authentication endpoint
