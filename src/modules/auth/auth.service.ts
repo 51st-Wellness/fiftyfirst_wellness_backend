@@ -87,7 +87,7 @@ export class AuthService {
       httpOnly: true,
       sameSite: 'lax',
       secure: false,
-      maxAge: 1000 * 60 * 60, // 1 hour
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
       path: '/',
     });
 

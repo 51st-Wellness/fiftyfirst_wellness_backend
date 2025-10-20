@@ -8,6 +8,7 @@ import {
   UseGuards,
   Get,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -23,6 +24,7 @@ import { ENV } from 'src/config/env.enum';
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { SignupDto } from './dto/signup.dto';
 import { AppConfig } from 'src/config/app.config';
+import { OAuth2Client } from 'google-auth-library';
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -132,121 +134,89 @@ export class AuthController {
     );
   }
 
-  // Google OAuth initiation route - intelligently detects origin
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  async googleAuth(@Req() req: Request) {
-    // Strategic origin detection for dev/prod environments
-    const detectedOrigin = this.detectOrigin(req);
+  async googleAuth(@Req() req: Request) {}
 
-    // Pass origin as state parameter for OAuth flow
-    req.query.state = detectedOrigin;
-  }
-
-  // Helper method to strategically detect request origin
-  private detectOrigin(req: Request): string {
-    // 1. Check if explicitly provided in query params (manual override)
-    if (req.query.origin && typeof req.query.origin === 'string') {
-      return this.validateAndSanitizeOrigin(req.query.origin);
-    }
-
-    const referer = req.headers.referer;
-    if (referer) {
-      try {
-        const refererUrl = new URL(referer);
-        const refererOrigin = `${refererUrl.protocol}//${refererUrl.host}`;
-        return this.validateAndSanitizeOrigin(refererOrigin);
-      } catch (error) {
-        // Invalid referer URL, fall through to next detection method
-      }
-    }
-
-    const origin = req.headers.origin;
-    if (origin) {
-      return this.validateAndSanitizeOrigin(origin);
-    }
-
-    const host = req.headers.host;
-    if (host) {
-      const protocol =
-        req.secure || req.headers['x-forwarded-proto'] === 'https'
-          ? 'https'
-          : 'http';
-      const hostOrigin = `${protocol}://${host}`;
-      return this.validateAndSanitizeOrigin(hostOrigin);
-    }
-
-    return this.getDefaultOrigin();
-  }
-
-  // Validate and sanitize origin against allowed domains
-  private validateAndSanitizeOrigin(origin: string): string {
-    const allowedOrigins = AppConfig.CORS_OPTIONS.origin as string[];
-
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
-      return origin;
-    }
-
-    // Check for localhost with different ports (development)
-    if (origin.match(/^https?:\/\/localhost:\d+$/)) {
-      return origin;
-    }
-
-    // Fallback to default if not in allowed list
-    return this.getDefaultOrigin();
-  }
-
-  // Get default origin based on environment
-  private getDefaultOrigin(): string {
-    const nodeEnv = process.env.NODE_ENV || 'development';
-
-    if (nodeEnv === 'production') {
-      return this.configService.get(ENV.FRONTEND_URL);
-    } else {
-      return (
-        this.configService.get(ENV.DEVELOPMENT_URL) || 'http://localhost:3000'
-      );
-    }
-  }
-
-  // Google OAuth callback route - uses preserved origin for intelligent redirect
-  @Get('google/callback')
+  // Google OAuth callback route
+  @Get('callback')
   @UseGuards(AuthGuard('google'))
   async googleAuthRedirect(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const userWithOrigin = req.user as any;
+    const user = req.user as any;
 
-    if (!userWithOrigin) {
-      throw new UnauthorizedException(
-        'Google authentication failed: No user profile returned.',
-      );
-    }
-
-    // Extract user data (remove internal origin info)
-    const { _redirectOrigin, ...user } = userWithOrigin;
+    console.log('user', user);
 
     // Generate access token and set cookie
-    const accessToken = await this.authService.issueAccessTokenWithCookie(
-      user,
-      res,
-    );
+    await this.authService.issueAccessTokenWithCookie(user, res);
 
-    // Determine redirect URL based on preserved origin or fallback to state
-    const redirectOrigin =
-      _redirectOrigin || req.query.state || this.getDefaultOrigin();
-
-    // Validate the redirect origin again for security
-    const safeRedirectOrigin = this.validateAndSanitizeOrigin(
-      redirectOrigin as string,
-    );
-
-    // Construct final redirect URL
-    const redirectUrl = `${safeRedirectOrigin}/auth/success`;
+    const redirectUrl = `${this.configService.get(ENV.FRONTEND_URL)}`;
 
     console.log(`🔄 Google OAuth Success - Redirecting to: ${redirectUrl}`);
     res.status(HttpStatus.FOUND).redirect(redirectUrl);
+  }
+
+  // Google One Tap authentication endpoint
+  @Post('google/onetap')
+  async googleOneTap(
+    @Body() body: { token: string },
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      // Use Google's OAuth2 client to verify the ID token
+      const client = new OAuth2Client(
+        this.configService.get(ENV.GOOGLE_CLIENT_ID),
+      );
+
+      const ticket = await client.verifyIdToken({
+        idToken: body.token,
+        audience: this.configService.get(ENV.GOOGLE_CLIENT_ID),
+      });
+
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new UnauthorizedException('Invalid Google token');
+      }
+
+      // Extract user information
+      const email = payload.email;
+      const firstName = payload.given_name || '';
+      const lastName = payload.family_name || '';
+      const googleId = payload.sub;
+      const profilePicture = payload.picture;
+
+      if (!email) {
+        throw new UnauthorizedException('No email found in Google profile');
+      }
+
+      // Validate or create user
+      const user = await this.authService.validateUserWithGoogle(
+        email,
+        firstName,
+        lastName,
+        googleId,
+        profilePicture,
+      );
+
+      // Generate access token and set cookie
+      const accessToken = await this.authService.issueAccessTokenWithCookie(
+        user,
+        res,
+      );
+
+      return ResponseDto.createSuccessResponse(
+        'Google One Tap authentication successful',
+        {
+          user,
+          accessToken,
+        },
+      );
+    } catch (error) {
+      console.error('Google One Tap error:', error);
+      throw new UnauthorizedException('Google authentication failed');
+    }
   }
 }

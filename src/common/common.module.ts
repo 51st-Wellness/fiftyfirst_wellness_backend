@@ -6,8 +6,6 @@ import { NotificationModule } from 'src/modules/notification/notification.module
 import { EventsListeners } from 'src/util/events/event.listener';
 import { EventsEmitter } from 'src/util/events/events.emitter';
 import { AuthModule } from 'src/modules/auth/auth.module';
-import { RolesGuard } from './gaurds/roles.guard';
-import { UserModule } from 'src/modules/user/user.module';
 
 @Global()
 @Module({

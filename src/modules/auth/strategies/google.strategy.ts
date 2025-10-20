@@ -19,6 +19,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       scope: ['email', 'profile'],
       passReqToCallback: true, // Enable access to request object for state handling
     });
+
+    console.log(configService.get(ENV.GOOGLE_REDIRECT_URI));
+    console.log(configService.get(ENV.GOOGLE_CLIENT_ID));
+    console.log(configService.get(ENV.GOOGLE_CLIENT_SECRET));
   }
 
   // Validate Google profile and return user data
@@ -48,13 +52,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         userProfilePhoto,
       );
 
-      // Attach origin information from state for callback redirect
-      const userWithOrigin = {
-        ...user,
-        _redirectOrigin: req.query.state, // Preserve the origin from state
-      };
-
-      return done(null, userWithOrigin);
+      return done(null, user);
     } catch (error) {
       return done(error, false);
     }
