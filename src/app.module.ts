@@ -12,6 +12,7 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { ProductModule } from './modules/product/product.module';
 import { AppCacheModule } from './util/cache/cache.module';
 import { PodcastModule } from './modules/podcast/podcast.module';
+import { StatsModule } from './modules/stats/stats.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PodcastModule } from './modules/podcast/podcast.module';
     ProductModule,
     PaymentModule,
     PodcastModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

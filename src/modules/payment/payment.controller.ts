@@ -143,4 +143,26 @@ export class PaymentController {
       message: 'Payment was cancelled by user',
     });
   }
+
+  @Get('admin/subscriptions')
+  @UseGuards(RolesGuard)
+  @StrictRoles(UserRole.ADMIN)
+  async getAllSubscriptions(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    // Get all subscriptions with user details for admin
+    const result = await this.paymentService.getAllSubscriptions({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      status,
+      search,
+    });
+    return ResponseDto.createSuccessResponse(
+      'Subscriptions retrieved successfully',
+      result,
+    );
+  }
 }

@@ -101,3 +101,11 @@ export type PaymentWithRelations = Payment & {
     plan?: SubscriptionPlan;
   })[];
 };
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+  REFUNDED = 'REFUNDED',
+}

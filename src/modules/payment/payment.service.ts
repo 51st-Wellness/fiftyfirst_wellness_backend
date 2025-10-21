@@ -21,11 +21,13 @@ import {
   payments,
   subscriptions,
   subscriptionPlans,
+  users,
   PaymentStatus,
   PaymentProvider as PaymentProviderEnum,
 } from 'src/database/schema';
 import { generateId } from 'src/database/utils';
 import { User } from 'src/database/types';
+import { SQL } from 'drizzle-orm';
 
 @Injectable()
 export class PaymentService {
@@ -415,23 +417,23 @@ export class PaymentService {
       throw new BadRequestException('Subscription plan is not active');
     }
 
-    // Check for existing active subscription
-    const existingSubscription = (
-      await this.database.db
-        .select()
-        .from(subscriptions)
-        .where(
-          and(
-            eq(subscriptions.userId, user.id),
-            eq(subscriptions.status, PaymentStatus.PAID),
-            gt(subscriptions.endDate, new Date()),
-          ),
-        )
-    )[0];
+    // // Check for existing active subscription
+    // const existingSubscription = (
+    //   await this.database.db
+    //     .select()
+    //     .from(subscriptions)
+    //     .where(
+    //       and(
+    //         eq(subscriptions.userId, user.id),
+    //         eq(subscriptions.status, PaymentStatus.PAID),
+    //         gt(subscriptions.endDate, new Date()),
+    //       ),
+    //     )
+    // )[0];
 
-    if (existingSubscription) {
-      throw new BadRequestException('User already has an active subscription');
-    }
+    // if (existingSubscription) {
+    //   throw new BadRequestException('User already has an active subscription');
+    // }
 
     // Calculate subscription end date
     const startDate = new Date();
@@ -901,5 +903,89 @@ export class PaymentService {
       )
       .where(eq(subscriptions.userId, userId))
       .orderBy(desc(subscriptions.createdAt));
+  }
+
+  async getAllSubscriptions(params: {
+    page: number;
+    limit: number;
+    status?: string;
+    search?: string;
+  }) {
+    // Get all subscriptions with user details for admin
+    const { page, limit, status, search } = params;
+    const offset = (page - 1) * limit;
+
+    // Build where conditions
+    const whereConditions: SQL<unknown>[] = [];
+    if (status) {
+      whereConditions.push(eq(subscriptions.status, status as PaymentStatus));
+    }
+    if (search) {
+      whereConditions.push(
+        or(
+          sql`${users.firstName} || ' ' || ${users.lastName} LIKE ${'%' + search + '%'}`,
+          sql`${users.email} LIKE ${'%' + search + '%'}`,
+          sql`${subscriptionPlans.name} LIKE ${'%' + search + '%'}`,
+        ) as SQL<unknown>,
+      );
+    }
+    // Get total count
+    const totalCount = await this.database.db
+      .select({ count: sql<number>`count(*)` })
+      .from(subscriptions)
+      .leftJoin(users, eq(subscriptions.userId, users.id))
+      .leftJoin(
+        subscriptionPlans,
+        eq(subscriptions.planId, subscriptionPlans.id),
+      )
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
+
+    // Get paginated results
+    const subscriptionsData = await this.database.db
+      .select({
+        id: subscriptions.id,
+        userId: subscriptions.userId,
+        planId: subscriptions.planId,
+        status: subscriptions.status,
+        startDate: subscriptions.startDate,
+        endDate: subscriptions.endDate,
+        autoRenew: subscriptions.autoRenew,
+        paymentId: subscriptions.paymentId,
+        providerSubscriptionId: subscriptions.providerSubscriptionId,
+        invoiceId: subscriptions.invoiceId,
+        billingCycle: subscriptions.billingCycle,
+        createdAt: subscriptions.createdAt,
+        // User details
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+        userEmail: users.email,
+        userPhone: users.phone,
+        userCity: users.city,
+        // Plan details
+        planName: subscriptionPlans.name,
+        planPrice: subscriptionPlans.price,
+        planDuration: subscriptionPlans.duration,
+        planDescription: subscriptionPlans.description,
+      })
+      .from(subscriptions)
+      .leftJoin(users, eq(subscriptions.userId, users.id))
+      .leftJoin(
+        subscriptionPlans,
+        eq(subscriptions.planId, subscriptionPlans.id),
+      )
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .orderBy(desc(subscriptions.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return {
+      subscriptions: subscriptionsData,
+      pagination: {
+        page,
+        limit,
+        total: totalCount[0]?.count || 0,
+        totalPages: Math.ceil((totalCount[0]?.count || 0) / limit),
+      },
+    };
   }
 }
