@@ -44,6 +44,8 @@ export class PlainTextGenerator {
       // Newsletter and marketing emails
       case EmailType.NEWSLETTER_SUBSCRIPTION:
         return this.generateNewsletterSubscriptionPlainText(baseContext);
+      case EmailType.WAITLIST_SUBSCRIPTION:
+        return this.generateWaitlistSubscriptionPlainText(baseContext);
 
       // Subscription emails
       case EmailType.SUBSCRIPTION_RENEWAL:
@@ -286,6 +288,35 @@ The Fifty Firsts Wellness Team
 
 ---
 Contact us at ${context.companyEmail || 'support@fiftyfirstswellness.com'} for assistance.
+    `.trim();
+  }
+
+  private static generateWaitlistSubscriptionPlainText(context: any): string {
+    return `
+Welcome to Our Waitlist - Stay Inspired & Informed!
+
+Dear ${context.firstName || 'Future Member'},
+
+Thank you for joining our waitlist! You're now part of an exclusive group that will be the first to experience our upcoming wellness products and services.
+
+What to Expect:
+- Early access to new wellness products
+- Exclusive previews and beta testing opportunities
+- Special launch pricing and offers
+- Priority support and personalized guidance
+- Behind-the-scenes updates on our development
+
+We're working hard to bring you innovative wellness solutions that will transform your midlife journey. You'll be among the first to know when we're ready to launch!
+
+Thank you for your patience and trust in our mission to revolutionize wellness for people in their fifties and beyond.
+
+Welcome to the future of wellness!
+
+Best regards,
+The Fifty Firsts Wellness Team
+
+---
+Contact us at ${context.companyEmail || 'support@fiftyfirstswellness.com'} for any questions.
     `.trim();
   }
 

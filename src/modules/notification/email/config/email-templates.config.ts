@@ -18,6 +18,7 @@ export const EmailTemplates: Record<EmailType, string> = {
 
   // Newsletter and marketing emails
   [EmailType.NEWSLETTER_SUBSCRIPTION]: 'newsletter-subscription.ejs',
+  [EmailType.WAITLIST_SUBSCRIPTION]: 'waitlist-subscription.ejs',
 
   // Subscription emails
   [EmailType.SUBSCRIPTION_RENEWAL]: 'subscription-renewal.ejs',

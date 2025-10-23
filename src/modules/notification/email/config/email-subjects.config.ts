@@ -20,39 +20,12 @@ export const EmailSubjects: Record<EmailType, string> = {
   [EmailType.ACCOUNT_ACTIVATION]:
     'Activate Your Fifty Firsts Wellness Account - Start Your Transformation Today! 🚀',
 
-  // Wellness and engagement emails
-  [EmailType.WELLNESS_TIP]:
-    'Your Daily Wellness Tip - Fifty Firsts Wellness 💚',
-  [EmailType.WEEKLY_INSPIRATION]:
-    'Weekly Inspiration - Your Midlife Transformation Journey 🌱',
-  [EmailType.PROGRAMME_REMINDER]:
-    "Don't Miss Out - Your Wellness Programme Awaits! 📅",
-  [EmailType.WEBINAR_INVITATION]:
-    'Exclusive Webinar Invitation - Fifty Firsts Wellness Live Event 🎥',
-
-  // Community and support emails
-
-  // Business and corporate emails
-  [EmailType.CORPORATE_WELCOME]:
-    'Welcome to Fifty Firsts Wellness Corporate Solutions - Transform Your Workforce! 🏢',
-  [EmailType.WORKSHOP_CONFIRMATION]:
-    'Workshop Confirmation - Your Corporate Wellness Journey Begins! 📋',
-  [EmailType.POLICY_TOOLKIT_ACCESS]:
-    'Access Granted - Fifty Firsts Wellness Policy Toolkit 🛠️',
-
-  // Newsletter and marketing emails
-  [EmailType.NEWSLETTER_SUBSCRIPTION]:
-    'Welcome to Our Newsletter - Stay Inspired & Informed! 📰',
-  [EmailType.PRODUCT_LAUNCH]:
-    'Exciting New Product Launch - Fifty Firsts Wellness Innovation! 🆕',
-  [EmailType.SPECIAL_OFFER]:
-    'Special Offer Just for You - Fifty Firsts Wellness Exclusive! 🎁',
-
-  // Account management emails
-  [EmailType.PROFILE_UPDATE]:
-    'Profile Updated Successfully - Fifty Firsts Wellness Account 🎯',
   [EmailType.ACCOUNT_DEACTIVATION]:
     'Account Deactivation Confirmation - Fifty Firsts Wellness 👋',
   [EmailType.SUBSCRIPTION_RENEWAL]:
     'Subscription Renewal Reminder - Continue Your Wellness Journey! 🔄',
+  [EmailType.NEWSLETTER_SUBSCRIPTION]:
+    'Welcome to Our Newsletter - Stay Inspired & Informed! 📰',
+  [EmailType.WAITLIST_SUBSCRIPTION]:
+    'Welcome to Our Waitlist - Stay Inspired & Informed! 📰',
 } as const;
