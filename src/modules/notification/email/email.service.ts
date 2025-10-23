@@ -1,9 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import BrevoProvider from './providers/brevo.provider';
-import GmailProvider from './providers/gmail.provider';
-import ResendProvider from './providers/resend.provider';
+import MailerooProvider from './providers/maileroo.provider';
 import { EmailPayloadDto } from './dto/email-payload.dto';
-import { RenderedEmailDto } from './dto/rendered-email.dto';
 import * as ejs from 'ejs';
 import * as path from 'path';
 import { EmailBaseConfig } from './config/email-base.config';
@@ -24,11 +21,10 @@ export class EmailService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly gmailProvider: GmailProvider,
-    private readonly resendProvider: ResendProvider,
+    private readonly mailerooProvider: MailerooProvider,
   ) {
-    // Primary provider is Resend (API-based, works on Railway), with Brevo as fallback
-    this.providers = [this.resendProvider, this.gmailProvider];
+    // Primary provider is Maileroo (API-based), with Resend and Gmail as fallbacks
+    this.providers = [this.mailerooProvider];
   }
 
   async sendMail(emailPayload: EmailPayloadDto): Promise<boolean> {

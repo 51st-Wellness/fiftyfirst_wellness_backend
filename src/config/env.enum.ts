@@ -54,6 +54,10 @@ export enum ENV {
   GMAIL_APP_PASSWORD = 'GMAIL_APP_PASSWORD', // Gmail App Password (16-character)
   COMPANY_EMAIL = 'COMPANY_EMAIL',
 
+  // Maileroo Configuration
+  MAILEROO_API_KEY = 'MAILEROO_API_KEY',
+  MAILEROO_SENDER_EMAIL = 'MAILEROO_SENDER_EMAIL',
+
   SERVER_URL = 'SERVER_URL',
 
   // Legacy OAuth2 variables (kept for backward compatibility)

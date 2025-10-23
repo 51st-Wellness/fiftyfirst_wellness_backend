@@ -70,6 +70,7 @@
     "googleapis": "^160.0.0",
     "helmet": "^8.1.0",
     "lodash": "^4.17.21",
+    "maileroo-sdk": "^1.0.1",
     "nodemailer": "^7.0.6",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
