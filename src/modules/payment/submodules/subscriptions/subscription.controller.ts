@@ -108,15 +108,15 @@ export class SubscriptionController {
     );
   }
 
-  @Get()
-  async findAllSubscriptions(@Query() query: SubscriptionQueryDto) {
-    const result = await this.subscriptionService.findAllSubscriptions(query);
-    return ResponseDto.createPaginatedResponse(
-      'Subscriptions retrieved successfully',
-      result.data,
-      result.pagination,
-    );
-  }
+  // @Get()
+  // async findAllSubscriptions(@Query() query: SubscriptionQueryDto) {
+  //   const result = await this.subscriptionService.findAllSubscriptions(query);
+  //   return ResponseDto.createPaginatedResponse(
+  //     'Subscriptions retrieved successfully',
+  //     result.data,
+  //     result.pagination,
+  //   );
+  // }
 
   @Get('stats')
   @UseGuards(RolesGuard)
@@ -129,17 +129,17 @@ export class SubscriptionController {
     );
   }
 
-  @Get('user/active')
-  @UseGuards(RolesGuard)
-  @StrictRoles(UserRole.USER, UserRole.ADMIN)
-  async getCurrentUserActiveSubscription(@CurrentUser() user: User) {
-    const subscription =
-      await this.subscriptionService.getUserActiveSubscription(user.id);
-    return ResponseDto.createSuccessResponse(
-      'User subscription retrieved successfully',
-      subscription,
-    );
-  }
+  // @Get('user/active')
+  // @UseGuards(RolesGuard)
+  // @StrictRoles(UserRole.USER, UserRole.ADMIN)
+  // async getCurrentUserActiveSubscription(@CurrentUser() user: User) {
+  //   const subscription =
+  //     await this.subscriptionService.getUserActiveSubscription(user.id);
+  //   return ResponseDto.createSuccessResponse(
+  //     'User subscription retrieved successfully',
+  //     subscription,
+  //   );
+  // }
 
   @Get('user')
   @UseGuards(RolesGuard)
