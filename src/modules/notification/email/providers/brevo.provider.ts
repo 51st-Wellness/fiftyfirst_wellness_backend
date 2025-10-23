@@ -64,6 +64,7 @@ export default class BrevoProvider implements EmailSenderProvider {
         ],
         subject: renderedEmail.subject,
         htmlContent: renderedEmail.htmlContent,
+        textContent: renderedEmail.plainText,
       };
 
       // Send email via Brevo API

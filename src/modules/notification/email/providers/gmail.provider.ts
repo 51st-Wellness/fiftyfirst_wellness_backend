@@ -82,6 +82,7 @@ export default class GmailProvider implements EmailSenderProvider {
           to: renderedEmail.to,
           subject: renderedEmail.subject,
           html: renderedEmail.htmlContent,
+          text: renderedEmail.plainText,
         },
         (err) => {
           if (err) return reject(err);

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Renewal Reminder - Fifty Firsts Wellness</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .renewal-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #2c5aa0;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .renewal-title {
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 10px;
+        }
+        .renewal-details {
+            list-style: none;
+            padding: 0;
+        }
+        .renewal-details li {
+            padding: 5px 0;
+            color: #666;
+        }
+        .renewal-details li:before {
+            content: "• ";
+            color: #2c5aa0;
+            font-weight: bold;
+        }
+        .benefits-box {
+            background-color: #e8f4fd;
+            border-left: 4px solid #28a745;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .benefits-title {
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+        .benefits-list {
+            list-style: none;
+            padding: 0;
+        }
+        .benefits-list li {
+            padding: 5px 0;
+            color: #666;
+        }
+        .benefits-list li:before {
+            content: "• ";
+            color: #28a745;
+            font-weight: bold;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #2c5aa0;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 14px;
+        }
+        .contact-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Fifty Firsts Wellness</div>
+            <div class="subtitle">Subscription Renewal Reminder</div>
+        </div>
+
+        <div class="content">
+            <h2>Dear <%= firstName || 'Valued Member' %>,</h2>
+            
+            <p>Your Fifty Firsts Wellness subscription is up for renewal!</p>
+
+            <div class="renewal-box">
+                <div class="renewal-title">Renewal Details:</div>
+                <ul class="renewal-details">
+                    <li>Current subscription: <%= subscriptionType || 'Check your account for details' %></li>
+                    <li>Renewal date: <%= renewalDate || 'Check your account for the date' %></li>
+                    <li>Benefits: Continue accessing all premium features and content</li>
+                </ul>
+            </div>
+
+            <div class="benefits-box">
+                <div class="benefits-title">Why Renew:</div>
+                <ul class="benefits-list">
+                    <li>Maintain access to all wellness programs</li>
+                    <li>Keep your progress tracking active</li>
+                    <li>Continue receiving expert guidance</li>
+                    <li>Stay connected with our community</li>
+                </ul>
+            </div>
+
+            <p>Don't let your wellness journey pause - renew today and keep moving forward!</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="<%= renewalLink || 'https://fiftyfirstswellness.com/renew' %>" class="cta-button">
+                    Renew Now
+                </a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>Best regards,</strong><br>
+            The Fifty Firsts Wellness Team</p>
+            
+            <div class="contact-info">
+                <p><strong>Questions about your subscription?</strong><br>
+                Contact us at <%= companyEmail || 'support@fiftyfirstswellness.com' %></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

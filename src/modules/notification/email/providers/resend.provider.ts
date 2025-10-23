@@ -47,6 +47,7 @@ export default class ResendProvider implements EmailSenderProvider {
         to: [renderedEmail.to],
         subject: renderedEmail.subject,
         html: renderedEmail.htmlContent,
+        text: renderedEmail.plainText,
       } as const;
 
       const response = await fetch(this.apiUrl, {

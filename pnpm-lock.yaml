@@ -125,9 +125,6 @@ importers:
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
-      maileroo-sdk:
-        specifier: ^1.0.1
-        version: 1.0.1
       nodemailer:
         specifier: ^7.0.6
         version: 7.0.6
@@ -3960,10 +3957,6 @@ packages:
 
   magic-string@0.30.17:
     resolution: {integrity: sha512-sNPKHvyjVf7gyjwS4xGTaW/mCnF8wnjtifKBEhxfZ7E/S8tQ0rssrwGNn6q8JH/ohItJfSQp9mBtQYuTlH5QnA==}
-
-  maileroo-sdk@1.0.1:
-    resolution: {integrity: sha512-8Ij/neVnbIq6Fwb4mIHBPg/Ui+S//lF/noxEOUyuM7CO4us66a8O4T0BqaVlNydLdsl6J4dQdUOz+Re6KFM9pQ==}
-    engines: {node: '>=18.0.0'}
 
   make-dir@4.0.0:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
@@ -9673,8 +9666,6 @@ snapshots:
   magic-string@0.30.17:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
-
-  maileroo-sdk@1.0.1: {}
 
   make-dir@4.0.0:
     dependencies:

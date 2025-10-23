@@ -38,8 +38,10 @@ export default class MailerooProvider implements EmailSenderProvider {
         ],
         subject: renderedEmail.subject,
         html: renderedEmail.htmlContent,
-        plain_text: renderedEmail.htmlContent,
+        plain: renderedEmail.plainText,
       };
+
+      // this.logger.log('Maileroo payload:', );
 
       // Send email via Maileroo API
       const response = await fetch(this.apiUrl, {

@@ -8,11 +8,13 @@ import { EmailSubjects } from './config/email-subjects.config';
 import { EmailTemplates } from './config/email-templates.config';
 import { EmailSenderProvider } from './providers/email-sender.interface';
 import { ConfigService } from 'src/config/config.service';
+import { PlainTextGenerator } from './utils/plain-text-generator';
 
 export interface RenderedEmail {
   to: string;
   subject: string;
   htmlContent: string;
+  plainText: string;
 }
 @Injectable()
 export class EmailService {
@@ -100,10 +102,17 @@ export class EmailService {
         emailPayload.context,
       );
 
+      // Generate plain text content
+      const plainText = PlainTextGenerator.generatePlainText(
+        emailPayload.type,
+        emailPayload.context,
+      );
+
       return {
         to: emailPayload.to,
         subject,
         htmlContent,
+        plainText,
       };
     } catch (error) {
       console.error('Error rendering email:', error);

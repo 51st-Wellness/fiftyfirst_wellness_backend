@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Our Newsletter - Fifty Firsts Wellness</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .benefits-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #2c5aa0;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .benefits-title {
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 10px;
+        }
+        .benefits-list {
+            list-style: none;
+            padding: 0;
+        }
+        .benefits-list li {
+            padding: 5px 0;
+            color: #666;
+        }
+        .benefits-list li:before {
+            content: "• ";
+            color: #2c5aa0;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 14px;
+        }
+        .contact-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .unsubscribe {
+            font-size: 12px;
+            color: #999;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Fifty Firsts Wellness</div>
+            <div class="subtitle">Newsletter Subscription Confirmation</div>
+        </div>
+
+        <div class="content">
+            <h2>Dear <%= firstName || 'Newsletter Subscriber' %>,</h2>
+            
+            <p>Thank you for subscribing to the Fifty Firsts Wellness newsletter! You'll now receive:</p>
+
+            <div class="benefits-box">
+                <div class="benefits-title">What You'll Receive:</div>
+                <ul class="benefits-list">
+                    <li>Weekly wellness tips and insights</li>
+                    <li>Exclusive content and resources</li>
+                    <li>Community updates and success stories</li>
+                    <li>Special offers and promotions</li>
+                    <li>Expert advice and guidance</li>
+                </ul>
+            </div>
+
+            <p>Your first newsletter will arrive in your inbox soon!</p>
+
+            <p>If you ever want to unsubscribe or update your preferences, you can do so at any time using the links in our emails.</p>
+
+            <p>Welcome to our community of wellness enthusiasts!</p>
+        </div>
+
+        <div class="footer">
+            <p><strong>Best regards,</strong><br>
+            The Fifty Firsts Wellness Team</p>
+            
+            <div class="contact-info">
+                <p><strong>Need assistance?</strong><br>
+                Contact us at <%= companyEmail || 'support@fiftyfirstswellness.com' %></p>
+            </div>
+
+            <div class="unsubscribe">
+                <p>Want to unsubscribe? Use the link at the bottom of this email.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
