@@ -9,6 +9,7 @@ import { EmailTemplates } from './config/email-templates.config';
 import { EmailSenderProvider } from './providers/email-sender.interface';
 import { ConfigService } from 'src/config/config.service';
 import { PlainTextGenerator } from './utils/plain-text-generator';
+import ResendProvider from './providers/resend.provider';
 
 export interface RenderedEmail {
   to: string;
@@ -22,11 +23,11 @@ export class EmailService {
   private providers: EmailSenderProvider[] = [];
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly mailerooProvider: MailerooProvider,
+    private readonly resendProvider: ResendProvider,
   ) {
     // Primary provider is Maileroo (API-based), with Resend and Gmail as fallbacks
-    this.providers = [this.mailerooProvider];
+    this.providers = [this.resendProvider, this.mailerooProvider];
   }
 
   async sendMail(emailPayload: EmailPayloadDto): Promise<boolean> {
