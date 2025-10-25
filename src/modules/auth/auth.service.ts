@@ -41,6 +41,13 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
+    // Check if email is verified (except for Google OAuth users)
+    if (!user.isEmailVerified && !user.googleId) {
+      throw new UnauthorizedException(
+        'Please verify your email before logging in',
+      );
+    }
+
     const isValid = await this.userService.verifyPassword(user, password);
     if (!isValid) {
       throw new UnauthorizedException('Invalid credentials');

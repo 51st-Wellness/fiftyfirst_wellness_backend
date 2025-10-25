@@ -51,6 +51,10 @@ export class PlainTextGenerator {
       case EmailType.SUBSCRIPTION_RENEWAL:
         return this.generateSubscriptionRenewalPlainText(baseContext);
 
+      // Contact form
+      case EmailType.CONTACT_FORM_SUBMISSION:
+        return this.generateContactFormSubmissionPlainText(baseContext);
+
       default:
         return this.generateDefaultPlainText(baseContext);
     }
@@ -348,6 +352,28 @@ The Fifty Firsts Wellness Team
 
 ---
 Contact us at ${context.companyEmail || 'support@fiftyfirstswellness.com'} for assistance.
+    `.trim();
+  }
+
+  // Contact form
+  private static generateContactFormSubmissionPlainText(context: any): string {
+    return `
+New Contact Form Submission - Fifty Firsts Wellness
+
+A new contact form has been submitted through the website.
+
+Contact Details:
+Name: ${context.fullName || `${context.firstName} ${context.lastName}`}
+Email: ${context.email}
+
+Message:
+${context.message}
+
+Submitted on: ${new Date().toLocaleString()}
+
+---
+This is an automated notification from the Fifty Firsts Wellness contact form.
+Please respond to this inquiry promptly.
     `.trim();
   }
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Account Deactivation Confirmation - FiftyFirst Wellness</title>
+    <title>New Contact Form Submission - FiftyFirst Wellness</title>
     <style>
         /* Reset and base styles */
         * {
@@ -39,7 +39,7 @@
         }
 
         .email-header {
-            background-color: #dc2626;
+            background-color: #00969b;
             color: #ffffff;
             padding: 32px 40px;
             text-align: center;
@@ -78,79 +78,98 @@
             line-height: 1.7;
         }
 
-        .status-box {
-            background-color: #fee2e2;
-            border: 1px solid #dc2626;
-            border-left: 4px solid #dc2626;
+        .contact-details {
+            background-color: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-left: 4px solid #00969b;
             border-radius: 6px;
             padding: 24px;
             margin: 24px 0;
         }
 
-        .status-title {
-            font-weight: 600;
-            color: #dc2626;
+        .detail-row {
+            display: flex;
             margin-bottom: 16px;
-            font-size: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e7eb;
         }
 
-        .status-list {
-            list-style: none;
-            padding: 0;
+        .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
         }
 
-        .status-list li {
-            padding: 8px 0;
+        .detail-label {
+            font-weight: 600;
+            color: #00969b;
+            min-width: 80px;
+            margin-right: 16px;
+        }
+
+        .detail-value {
             color: #374151;
-            position: relative;
-            padding-left: 20px;
+            flex: 1;
         }
 
-        .status-list li:before {
-            content: "•";
-            color: #dc2626;
-            font-weight: bold;
-            position: absolute;
-            left: 0;
-        }
-
-        .btn-container {
-            text-align: center;
+        .message-section {
             margin: 32px 0;
         }
 
-        .btn {
-            display: inline-block;
-            padding: 14px 28px;
-            font-size: 16px;
+        .message-label {
             font-weight: 600;
-            text-decoration: none;
-            border-radius: 6px;
-            text-align: center;
-            transition: all 0.2s ease;
-            margin: 16px 0;
-            background-color: #00969b;
-            color: #ffffff;
+            color: #00969b;
+            margin-bottom: 12px;
+            font-size: 16px;
         }
 
-        .contact-info {
-            background-color: #f0fdff;
-            border: 1px solid #00969b;
+        .message-box {
+            background-color: #ffffff;
+            border: 1px solid #d1d5db;
             border-radius: 6px;
             padding: 20px;
+            margin-top: 8px;
+        }
+
+        .message-content {
+            color: #374151;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.6;
+        }
+
+        .timestamp {
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            padding: 12px 16px;
             margin: 24px 0;
             text-align: center;
         }
 
-        .contact-title {
-            font-weight: 600;
-            color: #00969b;
-            margin-bottom: 8px;
+        .timestamp-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
         }
 
-        .contact-text {
-            color: #374151;
+        .timestamp-value {
             font-size: 14px;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .action-note {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 24px 0;
+            text-align: center;
+        }
+
+        .action-note strong {
+            color: #92400e;
         }
 
         .email-footer {
@@ -194,10 +213,13 @@
                 font-size: 20px;
             }
 
-            .btn {
-                display: block;
-                width: 100%;
-                padding: 16px;
+            .detail-row {
+                flex-direction: column;
+            }
+
+            .detail-label {
+                margin-bottom: 4px;
+                margin-right: 0;
             }
         }
 
@@ -227,59 +249,53 @@
         <div class="email-container">
             <div class="email-header">
                 <div class="logo">FiftyFirst Wellness</div>
-                <div class="tagline">Account Deactivation Confirmed</div>
+                <div class="tagline">New Contact Form Submission</div>
             </div>
 
             <div class="email-content">
-                <h1 class="content-title">Account Successfully Deactivated</h1>
+                <h1 class="content-title">📧 New Contact Form Submission</h1>
                 
                 <p class="content-text">
-                    Dear <%= firstName || 'User' %>,
+                    A new contact form has been submitted through the website. Please review the details below and respond promptly.
                 </p>
 
-                <p class="content-text">
-                    Your FiftyFirst Wellness account has been successfully deactivated as requested.
-                </p>
-
-                <div class="status-box">
-                    <div class="status-title">📋 Account Status:</div>
-                    <ul class="status-list">
-                        <li>Your account is now deactivated</li>
-                        <li>Your data has been securely stored</li>
-                        <li>You can reactivate your account at any time</li>
-                    </ul>
-                </div>
-
-                <p class="content-text">
-                    If you change your mind, you can reactivate your account by logging in with your existing credentials. We're sorry to see you go, but we understand that everyone's wellness journey is unique.
-                </p>
-
-                <p class="content-text">
-                    If you ever want to return to our community, we'll be here to welcome you back!
-                </p>
-
-                <div class="btn-container">
-                    <a href="<%= loginLink || 'https://fiftyfirstswellness.com/login' %>" class="btn">
-                        Reactivate Account
-                    </a>
-                </div>
-
-                <div class="contact-info">
-                    <div class="contact-title">📞 Need Assistance?</div>
-                    <div class="contact-text">
-                        Contact us at <%= companyEmail || 'support@fiftyfirstswellness.com' %>
+                <div class="contact-details">
+                    <div class="detail-row">
+                        <div class="detail-label">Name:</div>
+                        <div class="detail-value"><%= fullName || `${firstName} ${lastName}` %></div>
                     </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Email:</div>
+                        <div class="detail-value"><%= email %></div>
+                    </div>
+                </div>
+
+                <div class="message-section">
+                    <div class="message-label">Message:</div>
+                    <div class="message-box">
+                        <div class="message-content"><%= message %></div>
+                    </div>
+                </div>
+
+                <div class="timestamp">
+                    <div class="timestamp-label">Submitted On</div>
+                    <div class="timestamp-value"><%= new Date().toLocaleString() %></div>
+                </div>
+
+                <div class="action-note">
+                    <strong>⚡ Action Required:</strong> Please respond to this inquiry within 24 hours to maintain our excellent customer service standards.
                 </div>
             </div>
 
             <div class="email-footer">
                 <div class="footer-text">
-                    <strong>Best regards,</strong><br>
-                    The FiftyFirst Wellness Team
+                    <strong>FiftyFirst Wellness Support Team</strong><br>
+                    Internal notification system
                 </div>
 
                 <div class="footer-copyright">
-                    © <%= new Date().getFullYear() %> FiftyFirst Wellness. All rights reserved.
+                    © <%= new Date().getFullYear() %> FiftyFirst Wellness. All rights reserved.<br>
+                    This is an automated notification from the contact form system.
                 </div>
             </div>
         </div>

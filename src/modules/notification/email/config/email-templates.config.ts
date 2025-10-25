@@ -22,4 +22,7 @@ export const EmailTemplates: Record<EmailType, string> = {
 
   // Subscription emails
   [EmailType.SUBSCRIPTION_RENEWAL]: 'subscription-renewal.ejs',
+
+  // Contact form
+  [EmailType.CONTACT_FORM_SUBMISSION]: 'contact-form-submission.ejs',
 } as const;

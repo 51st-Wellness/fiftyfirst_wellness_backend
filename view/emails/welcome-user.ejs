@@ -3,8 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Welcome to Fifty Firsts Wellness</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Welcome to FiftyFirst Wellness</title>
     <style>
+      /* Reset and base styles */
       * {
         margin: 0;
         padding: 0;
@@ -12,244 +14,329 @@
       }
 
       body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family:
+          'Quicksand',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
         line-height: 1.6;
-        color: #333;
-        background-color: #f8f9fa;
+        color: #374151;
+        background-color: #f9fafb;
+        margin: 0;
+        padding: 0;
+        width: 100%;
       }
 
-      .container {
-        max-width: 600px;
+      .email-wrapper {
+        width: 100%;
+        background-color: #f9fafb;
+        padding: 20px 0;
+      }
+
+      .email-container {
+        max-width: 680px;
         margin: 0 auto;
         background-color: #ffffff;
-        border-radius: 12px;
+        border-radius: 8px;
         overflow: hidden;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
 
-      .header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 40px 30px;
+      .email-header {
+        background-color: #5f42e5;
+        color: #ffffff;
+        padding: 32px 40px;
         text-align: center;
       }
 
       .logo {
+        font-family: 'Playfair Display', serif;
         font-size: 28px;
-        font-weight: bold;
-        margin-bottom: 10px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #ffffff;
       }
 
       .tagline {
         font-size: 16px;
         opacity: 0.9;
+        font-weight: 400;
       }
 
-      .content {
-        padding: 40px 30px;
+      .email-content {
+        padding: 40px;
       }
 
-      .welcome-title {
+      .content-title {
+        font-family: 'Playfair Display', serif;
         font-size: 24px;
-        color: #2c3e50;
-        margin-bottom: 20px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 16px;
         text-align: center;
       }
 
-      .welcome-message {
+      .content-text {
         font-size: 16px;
-        color: #555;
-        margin-bottom: 25px;
+        color: #4b5563;
+        margin-bottom: 24px;
+        line-height: 1.7;
         text-align: center;
       }
 
       .highlight-box {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-        padding: 25px;
+        background-color: #f0fdff;
+        border: 1px solid #00969b;
         border-radius: 8px;
-        margin: 25px 0;
+        padding: 24px;
+        margin: 32px 0;
         text-align: center;
       }
 
       .highlight-title {
         font-size: 20px;
-        margin-bottom: 10px;
-        font-weight: bold;
+        font-weight: 600;
+        color: #00969b;
+        margin-bottom: 12px;
       }
 
-      .features {
-        margin: 30px 0;
+      .highlight-text {
+        font-size: 16px;
+        color: #374151;
+      }
+
+      .feature-list {
+        margin: 32px 0;
       }
 
       .feature-item {
         display: flex;
-        align-items: center;
-        margin-bottom: 15px;
-        padding: 15px;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        border-left: 4px solid #667eea;
+        align-items: flex-start;
+        margin-bottom: 16px;
+        padding: 16px;
+        background-color: #f8fafc;
+        border-radius: 6px;
+        border-left: 4px solid #00969b;
       }
 
       .feature-icon {
-        font-size: 24px;
-        margin-right: 15px;
-        color: #667eea;
+        margin-right: 12px;
+        font-size: 18px;
+        color: #00969b;
+        min-width: 24px;
       }
 
       .feature-text {
+        font-size: 15px;
+        color: #374151;
+      }
+
+      .btn-container {
+        text-align: center;
+        margin: 32px 0;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 14px 28px;
+        font-size: 16px;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 6px;
+        text-align: center;
+        transition: all 0.2s ease;
+        margin: 16px 0;
+        background-color: #5f42e5;
+        color: #ffffff;
+      }
+
+      .help-text {
+        text-align: center;
+        color: #6b7280;
         font-size: 14px;
-        color: #555;
+        margin-top: 24px;
       }
 
-      .cta-button {
-        display: inline-block;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 15px 30px;
-        text-decoration: none;
-        border-radius: 25px;
-        font-weight: bold;
-        margin: 20px 0;
+      .email-footer {
+        background-color: #111827;
+        color: #d1d5db;
+        padding: 32px 40px;
         text-align: center;
-        transition: transform 0.3s ease;
-      }
-
-      .cta-button:hover {
-        transform: translateY(-2px);
-      }
-
-      .footer {
-        background-color: #2c3e50;
-        color: white;
-        padding: 30px;
-        text-align: center;
-      }
-
-      .social-links {
-        margin: 20px 0;
-      }
-
-      .social-link {
-        display: inline-block;
-        margin: 0 10px;
-        color: white;
-        text-decoration: none;
-        font-size: 18px;
       }
 
       .footer-text {
-        font-size: 12px;
-        opacity: 0.8;
-        margin-top: 15px;
+        font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 16px;
       }
 
-      @media (max-width: 600px) {
-        .container {
-          margin: 10px;
-          border-radius: 8px;
+      .footer-links {
+        margin: 20px 0;
+      }
+
+      .footer-link {
+        color: #9ca3af;
+        text-decoration: none;
+        margin: 0 12px;
+        font-size: 14px;
+      }
+
+      .footer-link:hover {
+        color: #00969b;
+      }
+
+      .footer-copyright {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid #374151;
+      }
+
+      @media only screen and (max-width: 640px) {
+        .email-wrapper {
+          padding: 10px;
         }
 
-        .header,
-        .content,
-        .footer {
-          padding: 20px;
+        .email-container {
+          border-radius: 0;
+          margin: 0;
         }
 
-        .welcome-title {
+        .email-header,
+        .email-content,
+        .email-footer {
+          padding: 24px 20px;
+        }
+
+        .content-title {
           font-size: 20px;
+        }
+
+        .feature-item {
+          padding: 12px;
+        }
+
+        .btn {
+          display: block;
+          width: 100%;
+          padding: 16px;
+        }
+      }
+
+      @media only screen and (max-width: 480px) {
+        .email-header,
+        .email-content,
+        .email-footer {
+          padding: 20px 16px;
+        }
+
+        .logo {
+          font-size: 24px;
+        }
+
+        .tagline {
+          font-size: 14px;
+        }
+
+        .content-title {
+          font-size: 18px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="container">
-      <div class="header">
-        <div class="logo">Fifty Firsts Wellness</div>
-        <div class="tagline">Empowering Midlife Transformation</div>
-      </div>
+    <div class="email-wrapper">
+      <div class="email-container">
+        <div class="email-header">
+          <div class="logo">FiftyFirst Wellness</div>
+          <div class="tagline">Empowering Midlife Transformation</div>
+        </div>
 
-      <div class="content">
-        <h1 class="welcome-title">
-          Welcome to Your Wellness Journey, <%= firstName %>
-        </h1>
+        <div class="email-content">
+          <h1 class="content-title">
+            Welcome to Your Wellness Journey, <%= firstName %>! 🌟
+          </h1>
 
-        <p class="welcome-message">
-          We're thrilled to have you join our community of individuals
-          navigating midlife transitions. Your journey to growth, reinvention,
-          and wellness starts now!
-        </p>
+          <p class="content-text">
+            We're thrilled to have you join our community of individuals
+            navigating midlife transitions. Your journey to growth, reinvention,
+            and wellness starts now!
+          </p>
 
-        <div class="highlight-box">
-          <div class="highlight-title">Your Mission</div>
-          <p>
-            Transform your midlife experience through mindset coaching,
-            lifestyle wellness, and practical tools for growth.
+          <div class="highlight-box">
+            <div class="highlight-title">Your Mission</div>
+            <div class="highlight-text">
+              Transform your midlife experience through mindset coaching,
+              lifestyle wellness, and practical tools for growth.
+            </div>
+          </div>
+
+          <div class="feature-list">
+            <div class="feature-item">
+              <div class="feature-icon">🧠</div>
+              <div class="feature-text">
+                <strong>Mindset Coaching:</strong> Develop resilience and
+                positive thinking patterns
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon">💪</div>
+              <div class="feature-text">
+                <strong>Lifestyle Wellness:</strong> Practical tools for
+                physical and mental well-being
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon">📈</div>
+              <div class="feature-text">
+                <strong>Personal Growth:</strong> Resources for continuous
+                learning and development
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="feature-icon">🤝</div>
+              <div class="feature-text">
+                <strong>Community Support:</strong> Connect with like-minded
+                individuals on similar journeys
+              </div>
+            </div>
+          </div>
+
+          <div class="btn-container">
+            <a href="https://fiftyfirstswellness.uk.co" class="btn">
+              Start Your Journey
+            </a>
+          </div>
+
+          <p class="help-text">
+            Ready to explore our wellness programmes, workshops, and community?
+            Your first step towards transformation awaits!
           </p>
         </div>
 
-        <div class="features">
-          <div class="feature-item">
-            <div class="feature-text">
-              <strong>Mindset Coaching:</strong> Develop resilience and positive
-              thinking patterns
-            </div>
+        <div class="email-footer">
+          <div class="footer-text">
+            <strong>FiftyFirst Wellness</strong><br />
+            Empowering individuals through midlife transitions
           </div>
 
-          <div class="feature-item">
-            <div class="feature-text">
-              <strong>Lifestyle Wellness:</strong> Practical tools for physical
-              and mental well-being
-            </div>
+          <div class="footer-links">
+            <a href="#" class="footer-link">Privacy Policy</a>
+            <a href="#" class="footer-link">Terms of Service</a>
+            <a href="#" class="footer-link">Contact Support</a>
           </div>
 
-          <div class="feature-item">
-            <div class="feature-text">
-              <strong>Personal Growth:</strong> Resources for continuous
-              learning and development
-            </div>
-          </div>
-
-          <div class="feature-item">
-            <div class="feature-text">
-              <strong>Community Support:</strong> Connect with like-minded
-              individuals on similar journeys
-            </div>
+          <div class="footer-copyright">
+            © <%= new Date().getFullYear() %> FiftyFirst Wellness. All rights
+            reserved.
           </div>
         </div>
-
-        <div style="text-align: center">
-          <a href="<%= companyName %>/dashboard" class="cta-button">
-            Start Your Journey →
-          </a>
-        </div>
-
-        <p
-          style="
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-            margin-top: 20px;
-          "
-        >
-          Ready to explore our wellness programmes, workshops, and community?
-          Your first step towards transformation awaits!
-        </p>
-      </div>
-
-      <div class="footer">
-        <div class="social-links">
-          <a href="#" class="social-link">Facebook</a>
-          <a href="#" class="social-link">Instagram</a>
-          <a href="#" class="social-link">Twitter</a>
-          <a href="#" class="social-link">LinkedIn</a>
-        </div>
-
-        <p class="footer-text">
-          © 2024 Fifty Firsts Wellness. All rights reserved.<br />
-          Empowering individuals through midlife transitions.
-        </p>
       </div>
     </div>
   </body>

@@ -28,4 +28,8 @@ export const EmailSubjects: Record<EmailType, string> = {
     'Welcome to Our Newsletter - Stay Inspired & Informed! 📰',
   [EmailType.WAITLIST_SUBSCRIPTION]:
     'Welcome to Our Waitlist - Stay Inspired & Informed! 📰',
+
+  // Contact form
+  [EmailType.CONTACT_FORM_SUBMISSION]:
+    'New Contact Form Submission - Fifty Firsts Wellness 📧',
 } as const;

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Account Deactivation Confirmation - FiftyFirst Wellness</title>
+    <title><%= title || 'FiftyFirst Wellness' %></title>
     <style>
         /* Reset and base styles */
         * {
@@ -23,6 +23,7 @@
             width: 100%;
         }
 
+        /* Container styles */
         .email-wrapper {
             width: 100%;
             background-color: #f9fafb;
@@ -38,8 +39,9 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
+        /* Header styles */
         .email-header {
-            background-color: #dc2626;
+            background-color: #00969b;
             color: #ffffff;
             padding: 32px 40px;
             text-align: center;
@@ -59,6 +61,7 @@
             font-weight: 400;
         }
 
+        /* Content styles */
         .email-content {
             padding: 40px;
         }
@@ -69,6 +72,14 @@
             font-weight: 600;
             color: #111827;
             margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .content-subtitle {
+            font-size: 18px;
+            color: #374151;
+            margin-bottom: 24px;
+            text-align: center;
         }
 
         .content-text {
@@ -78,47 +89,7 @@
             line-height: 1.7;
         }
 
-        .status-box {
-            background-color: #fee2e2;
-            border: 1px solid #dc2626;
-            border-left: 4px solid #dc2626;
-            border-radius: 6px;
-            padding: 24px;
-            margin: 24px 0;
-        }
-
-        .status-title {
-            font-weight: 600;
-            color: #dc2626;
-            margin-bottom: 16px;
-            font-size: 16px;
-        }
-
-        .status-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        .status-list li {
-            padding: 8px 0;
-            color: #374151;
-            position: relative;
-            padding-left: 20px;
-        }
-
-        .status-list li:before {
-            content: "•";
-            color: #dc2626;
-            font-weight: bold;
-            position: absolute;
-            left: 0;
-        }
-
-        .btn-container {
-            text-align: center;
-            margin: 32px 0;
-        }
-
+        /* Button styles */
         .btn {
             display: inline-block;
             padding: 14px 28px;
@@ -129,30 +100,123 @@
             text-align: center;
             transition: all 0.2s ease;
             margin: 16px 0;
+        }
+
+        .btn-primary {
             background-color: #00969b;
             color: #ffffff;
         }
 
-        .contact-info {
+        .btn-secondary {
+            background-color: #5f42e5;
+            color: #ffffff;
+        }
+
+        .btn-container {
+            text-align: center;
+            margin: 32px 0;
+        }
+
+        /* Info boxes */
+        .info-box {
             background-color: #f0fdff;
             border: 1px solid #00969b;
             border-radius: 6px;
             padding: 20px;
             margin: 24px 0;
+        }
+
+        .info-box.warning {
+            background-color: #fef3c7;
+            border-color: #f59e0b;
+        }
+
+        .info-box.success {
+            background-color: #ecfdf5;
+            border-color: #10b981;
+        }
+
+        /* Code/OTP display */
+        .code-display {
+            background-color: #f8fafc;
+            border: 2px solid #00969b;
+            border-radius: 8px;
+            padding: 24px;
             text-align: center;
+            margin: 24px 0;
         }
 
-        .contact-title {
-            font-weight: 600;
+        .code-value {
+            font-family: 'Poppins', monospace;
+            font-size: 32px;
+            font-weight: 700;
             color: #00969b;
-            margin-bottom: 8px;
+            letter-spacing: 4px;
+            margin: 16px 0;
         }
 
-        .contact-text {
+        /* List styles */
+        .feature-list {
+            margin: 24px 0;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            padding: 16px;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            border-left: 4px solid #00969b;
+        }
+
+        .feature-icon {
+            margin-right: 12px;
+            font-size: 18px;
+            color: #00969b;
+            min-width: 24px;
+        }
+
+        .feature-text {
+            font-size: 15px;
             color: #374151;
-            font-size: 14px;
         }
 
+        /* Steps */
+        .steps-container {
+            margin: 32px 0;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            padding: 16px;
+            background-color: #f8fafc;
+            border-radius: 6px;
+        }
+
+        .step-number {
+            background-color: #00969b;
+            color: #ffffff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .step-text {
+            font-size: 15px;
+            color: #374151;
+        }
+
+        /* Footer styles */
         .email-footer {
             background-color: #111827;
             color: #d1d5db;
@@ -166,6 +230,21 @@
             margin-bottom: 16px;
         }
 
+        .footer-links {
+            margin: 20px 0;
+        }
+
+        .footer-link {
+            color: #9ca3af;
+            text-decoration: none;
+            margin: 0 12px;
+            font-size: 14px;
+        }
+
+        .footer-link:hover {
+            color: #00969b;
+        }
+
         .footer-copyright {
             font-size: 12px;
             color: #9ca3af;
@@ -174,6 +253,7 @@
             border-top: 1px solid #374151;
         }
 
+        /* Responsive styles */
         @media only screen and (max-width: 640px) {
             .email-wrapper {
                 padding: 10px;
@@ -192,6 +272,20 @@
 
             .content-title {
                 font-size: 20px;
+            }
+
+            .content-subtitle {
+                font-size: 16px;
+            }
+
+            .code-value {
+                font-size: 24px;
+                letter-spacing: 2px;
+            }
+
+            .feature-item,
+            .step-item {
+                padding: 12px;
             }
 
             .btn {
@@ -225,61 +319,35 @@
 <body>
     <div class="email-wrapper">
         <div class="email-container">
+            <!-- Header -->
             <div class="email-header">
                 <div class="logo">FiftyFirst Wellness</div>
-                <div class="tagline">Account Deactivation Confirmed</div>
+                <div class="tagline"><%= headerTagline || 'Empowering Your Wellness Journey' %></div>
             </div>
 
+            <!-- Content -->
             <div class="email-content">
-                <h1 class="content-title">Account Successfully Deactivated</h1>
-                
-                <p class="content-text">
-                    Dear <%= firstName || 'User' %>,
-                </p>
-
-                <p class="content-text">
-                    Your FiftyFirst Wellness account has been successfully deactivated as requested.
-                </p>
-
-                <div class="status-box">
-                    <div class="status-title">📋 Account Status:</div>
-                    <ul class="status-list">
-                        <li>Your account is now deactivated</li>
-                        <li>Your data has been securely stored</li>
-                        <li>You can reactivate your account at any time</li>
-                    </ul>
-                </div>
-
-                <p class="content-text">
-                    If you change your mind, you can reactivate your account by logging in with your existing credentials. We're sorry to see you go, but we understand that everyone's wellness journey is unique.
-                </p>
-
-                <p class="content-text">
-                    If you ever want to return to our community, we'll be here to welcome you back!
-                </p>
-
-                <div class="btn-container">
-                    <a href="<%= loginLink || 'https://fiftyfirstswellness.com/login' %>" class="btn">
-                        Reactivate Account
-                    </a>
-                </div>
-
-                <div class="contact-info">
-                    <div class="contact-title">📞 Need Assistance?</div>
-                    <div class="contact-text">
-                        Contact us at <%= companyEmail || 'support@fiftyfirstswellness.com' %>
-                    </div>
-                </div>
+                <%- content %>
             </div>
 
+            <!-- Footer -->
             <div class="email-footer">
                 <div class="footer-text">
-                    <strong>Best regards,</strong><br>
-                    The FiftyFirst Wellness Team
+                    <strong>FiftyFirst Wellness</strong><br>
+                    Empowering individuals through midlife transitions
+                </div>
+                
+                <div class="footer-links">
+                    <a href="#" class="footer-link">Privacy Policy</a>
+                    <a href="#" class="footer-link">Terms of Service</a>
+                    <a href="#" class="footer-link">Contact Support</a>
                 </div>
 
                 <div class="footer-copyright">
-                    © <%= new Date().getFullYear() %> FiftyFirst Wellness. All rights reserved.
+                    © <%= new Date().getFullYear() %> FiftyFirst Wellness. All rights reserved.<br>
+                    <% if (typeof unsubscribeUrl !== 'undefined') { %>
+                        <a href="<%= unsubscribeUrl %>" style="color: #9ca3af;">Unsubscribe</a>
+                    <% } %>
                 </div>
             </div>
         </div>

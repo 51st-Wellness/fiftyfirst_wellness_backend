@@ -4,6 +4,9 @@ import { EmailService } from '../notification/email/email.service';
 import { EmailType } from '../notification/email/constants/email.enum';
 import { NewsletterSubscriptionDto } from './dto/newsletter-subscription.dto';
 import { WaitlistSubscriptionDto } from './dto/waitlist-subscription.dto';
+import { ContactFormDto } from './dto/contact-form.dto';
+import { ConfigService } from 'src/config/config.service';
+import { ENV } from 'src/config/env.enum';
 
 @Injectable()
 export class SubscriptionService {
@@ -12,6 +15,7 @@ export class SubscriptionService {
   constructor(
     private readonly mailerooService: MailerooService,
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -177,6 +181,58 @@ export class SubscriptionService {
       return {
         success: false,
         message: 'Failed to remove from waitlist. Please try again later.',
+      };
+    }
+  }
+
+  /**
+   * Submit contact form and send email to support
+   */
+  async submitContactForm(
+    contactData: ContactFormDto,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const supportEmail = this.configService.get(ENV.SUPPORT_EMAIL);
+
+      if (!supportEmail) {
+        this.logger.error('Support email not configured');
+        return {
+          success: false,
+          message: 'Contact form submission failed. Please try again later.',
+        };
+      }
+
+      // Send email to support team
+      await this.emailService.sendMail({
+        to: supportEmail,
+        type: EmailType.CONTACT_FORM_SUBMISSION,
+        context: {
+          firstName: contactData.firstName,
+          lastName: contactData.lastName,
+          email: contactData.email,
+          message: contactData.message,
+          fullName: `${contactData.firstName} ${contactData.lastName}`,
+        },
+      });
+
+      this.logger.log(
+        `Contact form submission successful from: ${contactData.email}`,
+      );
+
+      return {
+        success: true,
+        message:
+          "Your message has been sent successfully! We'll get back to you soon.",
+      };
+    } catch (error) {
+      this.logger.error(
+        `Contact form submission failed from ${contactData.email}:`,
+        error.message,
+      );
+
+      return {
+        success: false,
+        message: 'Failed to send message. Please try again later.',
       };
     }
   }

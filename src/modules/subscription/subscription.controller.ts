@@ -10,6 +10,7 @@ import {
 import { SubscriptionService } from './subscription.service';
 import { NewsletterSubscriptionDto } from './dto/newsletter-subscription.dto';
 import { WaitlistSubscriptionDto } from './dto/waitlist-subscription.dto';
+import { ContactFormDto } from './dto/contact-form.dto';
 
 @Controller('subscription')
 export class SubscriptionController {
@@ -51,5 +52,14 @@ export class SubscriptionController {
   @HttpCode(HttpStatus.OK)
   async removeFromWaitlist(@Param('email') email: string) {
     return this.subscriptionService.removeFromWaitlist(email);
+  }
+
+  /**
+   * Submit contact form
+   */
+  @Post('contact')
+  @HttpCode(HttpStatus.OK)
+  async submitContactForm(@Body() contactData: ContactFormDto) {
+    return this.subscriptionService.submitContactForm(contactData);
   }
 }
