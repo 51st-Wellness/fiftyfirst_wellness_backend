@@ -3,163 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subscription Renewal Reminder - Fifty Firsts Wellness</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Subscription Renewal Reminder - FiftyFirst Wellness</title>
     <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
-            color: #333;
-            max-width: 600px;
+            color: #374151;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+        }
+
+        .email-wrapper {
+            width: 100%;
+            background-color: #f9fafb;
+            padding: 20px 0;
+        }
+
+        .email-container {
+            max-width: 680px;
             margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f9fa;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .header {
+
+        .email-header {
+            background-color: #f59e0b;
+            color: #ffffff;
+            padding: 32px 40px;
             text-align: center;
-            margin-bottom: 30px;
         }
+
         .logo {
+            font-family: 'Playfair Display', serif;
             font-size: 28px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 10px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #ffffff;
         }
-        .subtitle {
-            color: #666;
+
+        .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .email-content {
+            padding: 40px;
+        }
+
+        .content-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 16px;
+        }
+
+        .content-text {
+            font-size: 16px;
+            color: #4b5563;
+            margin-bottom: 24px;
+            line-height: 1.7;
+        }
+
+        .renewal-box {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-left: 4px solid #f59e0b;
+            border-radius: 6px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        .renewal-title {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 16px;
             font-size: 16px;
         }
-        .content {
-            margin-bottom: 30px;
-        }
-        .renewal-box {
-            background-color: #f8f9fa;
-            border-left: 4px solid #2c5aa0;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 5px;
-        }
-        .renewal-title {
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 10px;
-        }
+
         .renewal-details {
             list-style: none;
             padding: 0;
         }
+
         .renewal-details li {
-            padding: 5px 0;
-            color: #666;
+            padding: 8px 0;
+            color: #374151;
+            position: relative;
+            padding-left: 20px;
         }
+
         .renewal-details li:before {
-            content: "• ";
-            color: #2c5aa0;
-            font-weight: bold;
+            content: "📋";
+            position: absolute;
+            left: 0;
         }
+
         .benefits-box {
-            background-color: #e8f4fd;
-            border-left: 4px solid #28a745;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 5px;
+            background-color: #ecfdf5;
+            border: 1px solid #10b981;
+            border-left: 4px solid #10b981;
+            border-radius: 6px;
+            padding: 24px;
+            margin: 24px 0;
         }
+
         .benefits-title {
-            font-weight: bold;
-            color: #28a745;
-            margin-bottom: 10px;
+            font-weight: 600;
+            color: #065f46;
+            margin-bottom: 16px;
+            font-size: 16px;
         }
+
         .benefits-list {
             list-style: none;
             padding: 0;
         }
+
         .benefits-list li {
-            padding: 5px 0;
-            color: #666;
+            padding: 8px 0;
+            color: #374151;
+            position: relative;
+            padding-left: 20px;
         }
+
         .benefits-list li:before {
-            content: "• ";
-            color: #28a745;
+            content: "✓";
+            color: #10b981;
             font-weight: bold;
+            position: absolute;
+            left: 0;
         }
-        .cta-button {
-            display: inline-block;
-            background-color: #2c5aa0;
-            color: white;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-        .footer {
+
+        .btn-container {
             text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            color: #666;
+            margin: 32px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 6px;
+            text-align: center;
+            transition: all 0.2s ease;
+            margin: 16px 0;
+            background-color: #f59e0b;
+            color: #ffffff;
+        }
+
+        .contact-info {
+            background-color: #f0fdff;
+            border: 1px solid #00969b;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 24px 0;
+            text-align: center;
+        }
+
+        .contact-title {
+            font-weight: 600;
+            color: #00969b;
+            margin-bottom: 8px;
+        }
+
+        .contact-text {
+            color: #374151;
             font-size: 14px;
         }
-        .contact-info {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
+
+        .email-footer {
+            background-color: #111827;
+            color: #d1d5db;
+            padding: 32px 40px;
+            text-align: center;
+        }
+
+        .footer-text {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .footer-copyright {
+            font-size: 12px;
+            color: #9ca3af;
             margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #374151;
+        }
+
+        @media only screen and (max-width: 640px) {
+            .email-wrapper {
+                padding: 10px;
+            }
+
+            .email-container {
+                border-radius: 0;
+                margin: 0;
+            }
+
+            .email-header,
+            .email-content,
+            .email-footer {
+                padding: 24px 20px;
+            }
+
+            .content-title {
+                font-size: 20px;
+            }
+
+            .btn {
+                display: block;
+                width: 100%;
+                padding: 16px;
+            }
+        }
+
+        @media only screen and (max-width: 480px) {
+            .email-header,
+            .email-content,
+            .email-footer {
+                padding: 20px 16px;
+            }
+
+            .logo {
+                font-size: 24px;
+            }
+
+            .tagline {
+                font-size: 14px;
+            }
+
+            .content-title {
+                font-size: 18px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">Fifty Firsts Wellness</div>
-            <div class="subtitle">Subscription Renewal Reminder</div>
-        </div>
-
-        <div class="content">
-            <h2>Dear <%= firstName || 'Valued Member' %>,</h2>
-            
-            <p>Your Fifty Firsts Wellness subscription is up for renewal!</p>
-
-            <div class="renewal-box">
-                <div class="renewal-title">Renewal Details:</div>
-                <ul class="renewal-details">
-                    <li>Current subscription: <%= subscriptionType || 'Check your account for details' %></li>
-                    <li>Renewal date: <%= renewalDate || 'Check your account for the date' %></li>
-                    <li>Benefits: Continue accessing all premium features and content</li>
-                </ul>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="email-header">
+                <div class="logo">FiftyFirst Wellness</div>
+                <div class="tagline">Subscription Renewal Reminder</div>
             </div>
 
-            <div class="benefits-box">
-                <div class="benefits-title">Why Renew:</div>
-                <ul class="benefits-list">
-                    <li>Maintain access to all wellness programs</li>
-                    <li>Keep your progress tracking active</li>
-                    <li>Continue receiving expert guidance</li>
-                    <li>Stay connected with our community</li>
-                </ul>
+            <div class="email-content">
+                <h1 class="content-title">⏰ Time to Renew Your Subscription</h1>
+                
+                <p class="content-text">
+                    Dear <%= firstName || 'Valued Member' %>,
+                </p>
+
+                <p class="content-text">
+                    Your FiftyFirst Wellness subscription is up for renewal! Don't let your wellness journey pause.
+                </p>
+
+                <div class="renewal-box">
+                    <div class="renewal-title">📋 Renewal Details:</div>
+                    <ul class="renewal-details">
+                        <li>Current subscription: <%= subscriptionType || 'Check your account for details' %></li>
+                        <li>Renewal date: <%= renewalDate || 'Check your account for the date' %></li>
+                        <li>Benefits: Continue accessing all premium features and content</li>
+                    </ul>
+                </div>
+
+                <div class="benefits-box">
+                    <div class="benefits-title">💎 Why Renew:</div>
+                    <ul class="benefits-list">
+                        <li>Maintain access to all wellness programs</li>
+                        <li>Keep your progress tracking active</li>
+                        <li>Continue receiving expert guidance</li>
+                        <li>Stay connected with our community</li>
+                    </ul>
+                </div>
+
+                <p class="content-text">
+                    Don't let your wellness journey pause - renew today and keep moving forward!
+                </p>
+
+                <div class="btn-container">
+                    <a href="<%= renewalLink || frontendUrl + '/renew' %>" class="btn">
+                        Renew Now
+                    </a>
+                </div>
+
+                <div class="contact-info">
+                    <div class="contact-title">❓ Questions About Your Subscription?</div>
+                    <div class="contact-text">
+                        Contact us at <%= companyEmail || 'support@fiftyfirstswellness.com' %>
+                    </div>
+                </div>
             </div>
 
-            <p>Don't let your wellness journey pause - renew today and keep moving forward!</p>
+            <div class="email-footer">
+                <div class="footer-text">
+                    <strong>Best regards,</strong><br>
+                    The FiftyFirst Wellness Team
+                </div>
 
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="<%= renewalLink || 'https://fiftyfirstswellness.com/renew' %>" class="cta-button">
-                    Renew Now
-                </a>
-            </div>
-        </div>
-
-        <div class="footer">
-            <p><strong>Best regards,</strong><br>
-            The Fifty Firsts Wellness Team</p>
-            
-            <div class="contact-info">
-                <p><strong>Questions about your subscription?</strong><br>
-                Contact us at <%= companyEmail || 'support@fiftyfirstswellness.com' %></p>
+                <div class="footer-copyright">
+                    © <%= new Date().getFullYear() %> FiftyFirst Wellness. All rights reserved.
+                </div>
             </div>
         </div>
     </div>

@@ -3,127 +3,297 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Our Waitlist - Fifty Firsts Wellness</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Welcome to Our Waitlist - FiftyFirst Wellness</title>
     <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
-            color: #333;
-            max-width: 600px;
+            color: #374151;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+        }
+
+        .email-wrapper {
+            width: 100%;
+            background-color: #f9fafb;
+            padding: 20px 0;
+        }
+
+        .email-container {
+            max-width: 680px;
             margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f9fa;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .header {
+
+        .email-header {
+            background-color: #5f42e5;
+            color: #ffffff;
+            padding: 32px 40px;
             text-align: center;
-            margin-bottom: 30px;
         }
+
         .logo {
+            font-family: 'Playfair Display', serif;
             font-size: 28px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 10px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #ffffff;
         }
-        .subtitle {
-            color: #666;
+
+        .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        .email-content {
+            padding: 40px;
+        }
+
+        .content-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 16px;
+        }
+
+        .content-text {
+            font-size: 16px;
+            color: #4b5563;
+            margin-bottom: 24px;
+            line-height: 1.7;
+        }
+
+        .waitlist-box {
+            background-color: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-left: 4px solid #5f42e5;
+            border-radius: 6px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        .waitlist-title {
+            font-weight: 600;
+            color: #5f42e5;
+            margin-bottom: 16px;
             font-size: 16px;
         }
-        .content {
-            margin-bottom: 30px;
-        }
-        .waitlist-box {
-            background-color: #f8f9fa;
-            border-left: 4px solid #2c5aa0;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 5px;
-        }
-        .waitlist-title {
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 10px;
-        }
+
         .benefits-list {
             list-style: none;
             padding: 0;
         }
+
         .benefits-list li {
-            padding: 5px 0;
-            color: #666;
+            padding: 8px 0;
+            color: #374151;
+            position: relative;
+            padding-left: 28px;
         }
+
         .benefits-list li:before {
-            content: "• ";
-            color: #2c5aa0;
-            font-weight: bold;
+            content: "🌟";
+            position: absolute;
+            left: 0;
         }
-        .footer {
+
+        .exclusive-badge {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 20px;
+            padding: 8px 16px;
+            display: inline-block;
+            margin: 16px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #92400e;
+        }
+
+        .contact-info {
+            background-color: #f0fdff;
+            border: 1px solid #00969b;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 24px 0;
             text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            color: #666;
+        }
+
+        .contact-title {
+            font-weight: 600;
+            color: #00969b;
+            margin-bottom: 8px;
+        }
+
+        .contact-text {
+            color: #374151;
             font-size: 14px;
         }
-        .contact-info {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 20px;
+
+        .email-footer {
+            background-color: #111827;
+            color: #d1d5db;
+            padding: 32px 40px;
+            text-align: center;
         }
-        .unsubscribe {
+
+        .footer-text {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .footer-links {
+            margin: 20px 0;
+        }
+
+        .footer-link {
+            color: #9ca3af;
+            text-decoration: none;
+            margin: 0 12px;
+            font-size: 14px;
+        }
+
+        .footer-link:hover {
+            color: #00969b;
+        }
+
+        .footer-copyright {
             font-size: 12px;
-            color: #999;
+            color: #9ca3af;
             margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #374151;
+        }
+
+        @media only screen and (max-width: 640px) {
+            .email-wrapper {
+                padding: 10px;
+            }
+
+            .email-container {
+                border-radius: 0;
+                margin: 0;
+            }
+
+            .email-header,
+            .email-content,
+            .email-footer {
+                padding: 24px 20px;
+            }
+
+            .content-title {
+                font-size: 20px;
+            }
+        }
+
+        @media only screen and (max-width: 480px) {
+            .email-header,
+            .email-content,
+            .email-footer {
+                padding: 20px 16px;
+            }
+
+            .logo {
+                font-size: 24px;
+            }
+
+            .tagline {
+                font-size: 14px;
+            }
+
+            .content-title {
+                font-size: 18px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">Fifty Firsts Wellness</div>
-            <div class="subtitle">Waitlist Confirmation</div>
-        </div>
-
-        <div class="content">
-            <h2>Dear <%= firstName || 'Future Member' %>,</h2>
-            
-            <p>Thank you for joining our waitlist! You're now part of an exclusive group that will be the first to experience our upcoming wellness products and services.</p>
-
-            <div class="waitlist-box">
-                <div class="waitlist-title">What to Expect:</div>
-                <ul class="benefits-list">
-                    <li>Early access to new wellness products</li>
-                    <li>Exclusive previews and beta testing opportunities</li>
-                    <li>Special launch pricing and offers</li>
-                    <li>Priority support and personalized guidance</li>
-                    <li>Behind-the-scenes updates on our development</li>
-                </ul>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="email-header">
+                <div class="logo">FiftyFirst Wellness</div>
+                <div class="tagline">Waitlist Confirmation</div>
             </div>
 
-            <p>We're working hard to bring you innovative wellness solutions that will transform your midlife journey. You'll be among the first to know when we're ready to launch!</p>
+            <div class="email-content">
+                <h1 class="content-title">🎉 Welcome to Our Exclusive Waitlist!</h1>
+                
+                <p class="content-text">
+                    Dear <%= firstName || 'Future Member' %>,
+                </p>
 
-            <p>Thank you for your patience and trust in our mission to revolutionize wellness for people in their fifties and beyond.</p>
+                <p class="content-text">
+                    Thank you for joining our waitlist! You're now part of an exclusive group that will be the first to experience our upcoming wellness products and services.
+                </p>
 
-            <p>Welcome to the future of wellness!</p>
-        </div>
+                <div class="exclusive-badge">
+                    ⭐ VIP Early Access Member
+                </div>
 
-        <div class="footer">
-            <p><strong>Best regards,</strong><br>
-            The Fifty Firsts Wellness Team</p>
-            
-            <div class="contact-info">
-                <p><strong>Questions about the waitlist?</strong><br>
-                Contact us at <%= companyEmail || 'support@fiftyfirstswellness.com' %></p>
+                <div class="waitlist-box">
+                    <div class="waitlist-title">🎁 What to Expect:</div>
+                    <ul class="benefits-list">
+                        <li>Early access to new wellness products</li>
+                        <li>Exclusive previews and beta testing opportunities</li>
+                        <li>Special launch pricing and offers</li>
+                        <li>Priority support and personalized guidance</li>
+                        <li>Behind-the-scenes updates on our development</li>
+                    </ul>
+                </div>
+
+                <p class="content-text">
+                    We're working hard to bring you innovative wellness solutions that will transform your midlife journey. You'll be among the first to know when we're ready to launch!
+                </p>
+
+                <p class="content-text">
+                    Thank you for your patience and trust in our mission to revolutionize wellness for people in their fifties and beyond.
+                </p>
+
+                <p class="content-text">
+                    <strong>Welcome to the future of wellness!</strong>
+                </p>
+
+                <div class="contact-info">
+                    <div class="contact-title">❓ Questions About the Waitlist?</div>
+                    <div class="contact-text">
+                        Contact us at <%= companyEmail || 'support@fiftyfirstswellness.com' %>
+                    </div>
+                </div>
             </div>
 
-            <div class="unsubscribe">
-                <p>Want to leave the waitlist? Use the link at the bottom of this email.</p>
+            <div class="email-footer">
+                <div class="footer-text">
+                    <strong>Best regards,</strong><br>
+                    The FiftyFirst Wellness Team
+                </div>
+                
+                <div class="footer-links">
+                    <a href="#" class="footer-link">Privacy Policy</a>
+                    <a href="#" class="footer-link">Terms of Service</a>
+                    <a href="#" class="footer-link">Contact Support</a>
+                </div>
+
+                <div class="footer-copyright">
+                    © <%= new Date().getFullYear() %> FiftyFirst Wellness. All rights reserved.<br>
+                    <% if (typeof unsubscribeUrl !== 'undefined') { %>
+                        <a href="<%= unsubscribeUrl %>" style="color: #9ca3af;">Leave Waitlist</a>
+                    <% } %>
+                </div>
             </div>
         </div>
     </div>
