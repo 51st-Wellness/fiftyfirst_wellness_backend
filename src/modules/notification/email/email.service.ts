@@ -26,7 +26,7 @@ export class EmailService {
     private readonly resendProvider: ResendProvider,
   ) {
     // Primary provider is Maileroo (API-based), with Resend and Gmail as fallbacks
-    this.providers = [this.mailerooProvider];
+    this.providers = [this.resendProvider];
   }
 
   async sendMail(emailPayload: EmailPayloadDto): Promise<boolean> {
