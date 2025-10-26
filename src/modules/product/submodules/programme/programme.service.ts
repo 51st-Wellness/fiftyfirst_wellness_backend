@@ -517,10 +517,12 @@ export class ProgrammeService extends BaseProductService {
 
     // if (user.role === UserRole.USER) {
     // Check if user has required access
-    const hasAccess = await this.hasActiveSubscription(
-      user.id,
-      programme.requiresAccess,
-    );
+    // const hasAccess = await this.hasActiveSubscription(
+    //   user.id,
+    //   programme.requiresAccess,
+    // );
+
+    const hasAccess = true; // disabling verification for now
 
     if (!hasAccess) {
       // Get user's subscription status for better error message
