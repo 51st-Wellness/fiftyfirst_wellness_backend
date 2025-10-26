@@ -1,10 +1,10 @@
+import { Transform } from 'class-transformer/types/decorators/transform.decorator';
 import {
   IsEmail,
   IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsStrongPassword,
   MinLength,
 } from 'class-validator';
 import { UserRole } from 'src/database/schema';
@@ -12,14 +12,11 @@ import { UserRole } from 'src/database/schema';
 export class CreateUserDto {
   @IsEmail()
   @IsNotEmpty()
+  @Transform(({ value }: { value: string }) => value.toLowerCase())
   email: string;
 
   @IsString()
   @IsOptional()
-  // @IsStrongPassword(undefined, {
-  //   message:
-  //     'Password must contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 symbol',
-  // })
   @MinLength(8)
   password?: string; // Optional for Google OAuth users
 
