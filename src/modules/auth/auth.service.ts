@@ -65,18 +65,7 @@ export class AuthService {
       await this.generateEmailVerificationOTP(user.email);
     }
 
-    // Send welcome email based on user role
-    const emailType =
-      user.role === 'ADMIN' ? EmailType.WELCOME_ADMIN : EmailType.WELCOME_USER;
-
-    this.eventsEmitter.sendEmail({
-      to: user.email,
-      type: emailType,
-      context: {
-        firstName: user.firstName,
-        lastName: user.lastName,
-      },
-    });
+    // Note: Welcome email is sent after email verification, not on signup
 
     return user;
   }
@@ -224,10 +213,13 @@ export class AuthService {
     // Mark email as verified and clear OTP
     await this.userService.markEmailAsVerified(user.id);
 
-    // Send verification success email
+    // Send welcome email based on user role (only after email verification)
+    const emailType =
+      user.role === 'ADMIN' ? EmailType.WELCOME_ADMIN : EmailType.WELCOME_USER;
+
     this.eventsEmitter.sendEmail({
       to: user.email,
-      type: EmailType.EMAIL_VERIFICATION_SUCCESS,
+      type: emailType,
       context: {
         firstName: user.firstName,
         lastName: user.lastName,
