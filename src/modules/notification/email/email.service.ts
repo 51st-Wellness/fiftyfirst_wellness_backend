@@ -7,7 +7,6 @@ import { EmailBaseConfig } from './config/email-base.config';
 import { EmailSubjects } from './config/email-subjects.config';
 import { EmailTemplates } from './config/email-templates.config';
 import { EmailSenderProvider } from './providers/email-sender.interface';
-import { ConfigService } from 'src/config/config.service';
 import { PlainTextGenerator } from './utils/plain-text-generator';
 import ResendProvider from './providers/resend.provider';
 
@@ -27,7 +26,7 @@ export class EmailService {
     private readonly resendProvider: ResendProvider,
   ) {
     // Primary provider is Maileroo (API-based), with Resend and Gmail as fallbacks
-    this.providers = [this.resendProvider, this.mailerooProvider];
+    this.providers = [this.mailerooProvider];
   }
 
   async sendMail(emailPayload: EmailPayloadDto): Promise<boolean> {
