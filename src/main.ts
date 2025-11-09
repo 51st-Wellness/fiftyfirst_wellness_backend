@@ -61,7 +61,7 @@ async function bootstrap() {
       visit : ${configService.get(ENV.DEVELOPMENT_URL)}/api`);
   } else {
     console.log(`
-      visit : ${configService.get(ENV.PRODUCTION_URL)}/api`);
+      visit : ${configService.get(ENV.FRONTEND_URL)}/api`);
   }
 }
 bootstrap();
