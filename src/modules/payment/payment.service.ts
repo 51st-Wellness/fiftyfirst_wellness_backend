@@ -10,8 +10,8 @@ import {
   PaymentProvider,
   WebhookResult,
 } from './providers/payment.types';
-import { SubscriptionCheckoutDto } from './dto/checkout.dto';
-import { eq, and, gt, desc, sql, or } from 'drizzle-orm';
+import { SubscriptionCheckoutDto, CartCheckoutDto } from './dto/checkout.dto';
+import { eq, and, gt, desc, sql, or, inArray } from 'drizzle-orm';
 import {
   cartItems,
   products,
@@ -28,6 +28,37 @@ import {
 import { generateId } from 'src/database/utils';
 import { User } from 'src/database/types';
 import { SQL } from 'drizzle-orm';
+
+type StoreCheckoutMetadata = {
+  type: 'store_checkout';
+  orderId?: string;
+  paymentId?: string;
+  cartItemIds?: string[];
+  receiptUrl?: string;
+  [key: string]: any;
+};
+
+type SubscriptionMetadata = {
+  type: 'subscription';
+  subscriptionId?: string;
+  planId?: string;
+  [key: string]: any;
+};
+
+type StripeWebhookMetadata =
+  | StoreCheckoutMetadata
+  | SubscriptionMetadata
+  | (Record<string, any> & { type?: string });
+
+const isStoreCheckoutMetadata = (
+  metadata?: StripeWebhookMetadata,
+): metadata is StoreCheckoutMetadata =>
+  metadata != null && metadata.type === 'store_checkout';
+
+const isSubscriptionMetadata = (
+  metadata?: StripeWebhookMetadata,
+): metadata is SubscriptionMetadata =>
+  metadata != null && metadata.type === 'subscription';
 
 @Injectable()
 export class PaymentService {
@@ -47,16 +78,45 @@ export class PaymentService {
     return PaymentProviderEnum.STRIPE;
   }
 
-  private async findPaymentForWebhook(webhookResult: WebhookResult) {
-    // Direct payment lookup by provider reference (payment_intent ID)
-    const payment = (
-      await this.database.db
-        .select()
-        .from(payments)
-        .where(eq(payments.providerRef, webhookResult.providerRef))
-    )[0];
+  // Find payment using Stripe metadata as primary method (most reliable per Stripe docs)
+  private async findPaymentForWebhook(metadata?: StripeWebhookMetadata) {
+    // Primary: Use paymentId from metadata (set during checkout initialization)
+    const paymentId =
+      (metadata as StoreCheckoutMetadata)?.paymentId ||
+      (metadata as SubscriptionMetadata)?.paymentId;
+    if (paymentId) {
+      const payment = (
+        await this.database.db
+          .select()
+          .from(payments)
+          .where(eq(payments.id, paymentId))
+      )[0];
+      if (payment) {
+        console.log(
+          `[Webhook] Found payment via metadata.paymentId: ${paymentId}`,
+        );
+        return payment;
+      }
+    }
 
-    return payment;
+    // Fallback: Use orderId from metadata
+    const orderId =
+      (metadata as StoreCheckoutMetadata)?.orderId ||
+      (metadata as SubscriptionMetadata)?.orderId;
+    if (orderId) {
+      const paymentWithOrder = await this.database.db
+        .select({ payment: payments })
+        .from(payments)
+        .innerJoin(orders, eq(orders.paymentId, payments.id))
+        .where(eq(orders.id, orderId))
+        .limit(1);
+      if (paymentWithOrder[0]?.payment) {
+        console.log(`[Webhook] Found payment via metadata.orderId: ${orderId}`);
+        return paymentWithOrder[0].payment;
+      }
+    }
+
+    return undefined;
   }
 
   private shouldIgnoreEvent(eventType: string): boolean {
@@ -222,15 +282,6 @@ export class PaymentService {
   }
 
   private async getCartSummary(userId: string) {
-    console.log('user id - getCartSummary', userId);
-
-    const items = await this.database.db
-      .select()
-      .from(cartItems)
-      .where(eq(cartItems.userId, userId))
-      .orderBy(desc(cartItems.id));
-    console.log('items', items);
-    // return items;
     // Fetch cart items with store item details in a single optimized query
     const cartWithDetails = await this.database.db
       .select({
@@ -242,13 +293,13 @@ export class PaymentService {
         storeItemPrice: storeItems.price,
         storeItemStock: storeItems.stock,
         storeItemIsPublished: storeItems.isPublished,
+        storeItemDisplay: storeItems.display,
       })
       .from(cartItems)
       .where(eq(cartItems.userId, userId))
       .innerJoin(products, eq(cartItems.productId, products.id))
       .innerJoin(storeItems, eq(products.id, storeItems.productId));
 
-    console.log('cartWithDetails', cartWithDetails);
     if (cartWithDetails.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
@@ -293,6 +344,7 @@ export class PaymentService {
       quantity: item.quantity,
       unitPrice: item.storeItemPrice,
       lineTotal: item.quantity * item.storeItemPrice,
+      image: item.storeItemDisplay,
     }));
 
     const totalAmount = orderItemsData.reduce(
@@ -326,10 +378,29 @@ export class PaymentService {
     };
   }
 
-  async checkoutCartItems(userProfile: User) {
+  async previewCartCheckout(userProfile: User) {
+    // Build checkout preview for the current user's cart
+    const summary = await this.getCartSummary(userProfile.id);
+    const fallbackContactName =
+      `${userProfile.firstName} ${userProfile.lastName}`.trim();
+
+    return {
+      ...summary,
+      deliveryDefaults: {
+        contactName: fallbackContactName || undefined,
+        contactPhone: userProfile.phone || undefined,
+        deliveryAddress: userProfile.address || undefined,
+        deliveryCity: userProfile.city || undefined,
+      },
+    };
+  }
+
+  async checkoutCartItems(userProfile: User, cartCheckoutDto: CartCheckoutDto) {
     // Create order and initialize payment for store items
     const description = `Cart Checkout for ${userProfile.firstName}`;
     const userId = userProfile.id;
+
+    const paymentId = generateId();
 
     const {
       orderItems: orderItemsData,
@@ -337,6 +408,14 @@ export class PaymentService {
       currency,
       cartItems,
     } = await this.getCartSummary(userId);
+
+    const deliveryDetails = {
+      contactName: cartCheckoutDto?.contactName,
+      contactPhone: cartCheckoutDto?.contactPhone,
+      deliveryAddress: cartCheckoutDto?.deliveryAddress,
+      deliveryCity: cartCheckoutDto?.deliveryCity,
+      deliveryInstructions: cartCheckoutDto?.deliveryInstructions,
+    };
 
     // Create order in database
     const orderId = generateId();
@@ -364,10 +443,10 @@ export class PaymentService {
       description: description || 'Store Checkout',
       items: orderItemsData,
       userId,
+      paymentId,
     });
 
     // Create payment record
-    const paymentId = generateId();
     await this.database.db.insert(payments).values({
       id: paymentId,
       provider: this.getProviderType(),
@@ -376,7 +455,16 @@ export class PaymentService {
       currency: currency as any,
       amount: totalAmount,
       metadata: {
+        deliveryDetails,
         cartItemIds: cartItems.map((i) => i.id),
+        orderSummary: {
+          totalAmount,
+          currency,
+          itemCount: orderItemsData.length,
+        },
+        orderItems: orderItemsData,
+        orderId,
+        paymentId,
         type: 'store_checkout',
       } as any,
     });
@@ -393,6 +481,7 @@ export class PaymentService {
       approvalUrl: paymentInit.approvalUrl,
       amount: totalAmount,
       currency,
+      deliveryDetails,
     };
   }
 
@@ -441,12 +530,15 @@ export class PaymentService {
     endDate.setDate(endDate.getDate() + plan.duration);
 
     // Initialize payment first to get checkout session ID
+    const paymentId = generateId();
+
     const paymentInit = await this.provider.initializePayment({
       subscriptionId: generateId(), // Temporary ID for metadata
       amount: plan.price,
       currency: 'USD',
       description: `Subscription: ${plan.name}`,
       userId: user.id,
+      paymentId,
     });
 
     // Create subscription using checkout session ID as primary key
@@ -468,31 +560,26 @@ export class PaymentService {
     // Payment initialization already done above
 
     // Create payment record
-    const paymentId = generateId();
-    const payment = (
-      await this.database.db
-        .insert(payments)
-        .values({
-          id: paymentId,
-          provider: this.getProviderType(),
-          providerRef: paymentInit.providerRef,
-          status: PaymentStatus.PENDING,
-          currency: 'USD' as any,
-          amount: plan.price,
-          metadata: {
-            planId,
-            planName: plan.name,
-            type: 'subscription',
-            subscriptionId: subscription.id,
-          } as any,
-        })
-        .returning()
-    )[0];
+    await this.database.db.insert(payments).values({
+      id: paymentId,
+      provider: this.getProviderType(),
+      providerRef: paymentInit.providerRef,
+      status: PaymentStatus.PENDING,
+      currency: 'USD' as any,
+      amount: plan.price,
+      metadata: {
+        planId,
+        planName: plan.name,
+        type: 'subscription',
+        subscriptionId: subscription.id,
+        paymentId,
+      } as any,
+    });
 
     // Update subscription with payment reference
     await this.database.db
       .update(subscriptions)
-      .set({ paymentId: payment.id })
+      .set({ paymentId: paymentId })
       .where(eq(subscriptions.id, subscription.id));
 
     return {
@@ -641,6 +728,8 @@ export class PaymentService {
       const webhookResult: WebhookResult =
         this.provider.parseWebhook(bodyForParsing);
 
+      console.log('bodyForParsing', bodyForParsing);
+      console.log('webhookResult', webhookResult);
       // Validate webhook result
       if (!webhookResult.providerRef) {
         console.warn(
@@ -652,140 +741,416 @@ export class PaymentService {
 
       // Handle events that don't require existing payments
       if (this.shouldIgnoreEvent(webhookResult.eventType)) {
-        console.log(`Ignoring event: ${webhookResult.eventType}`);
+        console.log('Stripe webhook ignored by configuration', {
+          eventType: webhookResult.eventType,
+        });
         return { processed: true, reason: 'Event ignored' };
       }
 
-      // Ignore subscription-related payment_intent events (handled via invoice events)
-      if (this.isSubscriptionPaymentIntent(webhookResult)) {
-        console.log(
-          `Ignoring subscription payment_intent: ${webhookResult.providerRef}`,
-        );
-        return {
-          processed: true,
-          reason: 'Subscription payment_intent ignored',
-        };
-      }
+      const metadata = webhookResult.metadata as
+        | StripeWebhookMetadata
+        | undefined;
 
-      // Handle recurring subscription webhooks (create new subscription records)
-      if (webhookResult.eventType.startsWith('invoice.')) {
-        return await this.handleInvoiceWebhook(webhookResult);
-      }
-
-      // Handle regular payments (checkout sessions, one-time payments)
-      let payment = await this.findPaymentForWebhook(webhookResult);
-
-      if (!payment) {
-        console.log(
-          `Payment not found for provider ref: ${webhookResult.providerRef}`,
-          {
-            eventType: webhookResult.eventType,
-            subscriptionId: webhookResult.metadata?.subscriptionId,
-          },
-        );
-        return { processed: false, reason: 'Payment not found' };
-      }
-
-      // Update payment status if it changed
-      if (payment.status !== webhookResult.status) {
-        console.log(
-          `Updating payment ${payment.id} status from ${payment.status} to ${webhookResult.status}`,
-        );
-
-        await this.database.db.transaction(async (tx) => {
-          // Update payment status and metadata
-          await tx
-            .update(payments)
-            .set({
-              status: webhookResult.status,
-              metadata: {
-                ...(payment.metadata as any),
-                lastWebhookEvent: webhookResult.eventType,
-                lastWebhookAt: new Date().toISOString(),
-                webhookMetadata: webhookResult.metadata,
-              } as any,
-            })
-            .where(eq(payments.id, payment.id));
-
-          // Update related orders
-          await tx
-            .update(orders)
-            .set({ status: webhookResult.status })
-            .where(eq(orders.paymentId, payment.id));
-
-          // Handle subscription-related webhook events
-          if (
-            webhookResult.metadata?.type === 'subscription' ||
-            webhookResult.metadata?.subscriptionId ||
-            webhookResult.eventType.startsWith('customer.subscription') ||
-            webhookResult.eventType.startsWith('invoice.payment')
-          ) {
-            // For checkout.session.completed with subscription
-            if (
-              webhookResult.eventType === 'checkout.session.completed' &&
-              webhookResult.metadata?.subscriptionId
-            ) {
-              await tx
-                .update(subscriptions)
-                .set({
-                  status: webhookResult.status,
-                  providerSubscriptionId: webhookResult.metadata.subscriptionId,
-                  paymentId: payment.id,
-                })
-                .where(eq(subscriptions.paymentId, payment.id));
-            }
-            // For subscription lifecycle events (created, updated, deleted)
-            else if (
-              webhookResult.eventType.startsWith('customer.subscription')
-            ) {
-              const subscriptionId = webhookResult.metadata?.subscriptionId;
-              if (subscriptionId) {
-                await tx
-                  .update(subscriptions)
-                  .set({ status: webhookResult.status })
-                  .where(
-                    eq(subscriptions.providerSubscriptionId, subscriptionId),
-                  );
-              }
-            }
-            // For invoice payment events (recurring payments)
-            else if (webhookResult.eventType.startsWith('invoice.payment')) {
-              const subscriptionId = webhookResult.metadata?.subscriptionId;
-              if (subscriptionId) {
-                // For recurring payments, we might need to create new subscription records
-                // or update existing ones based on billing cycle
-                await tx
-                  .update(subscriptions)
-                  .set({ status: webhookResult.status })
-                  .where(
-                    eq(subscriptions.providerSubscriptionId, subscriptionId),
-                  );
-              }
-            }
-            // Fallback for other subscription events
-            else {
-              await tx
-                .update(subscriptions)
-                .set({ status: webhookResult.status })
-                .where(eq(subscriptions.paymentId, payment.id));
-            }
+      // For charge.succeeded, we need to fetch PaymentIntent metadata
+      // since charge doesn't inherit PaymentIntent metadata per Stripe docs
+      let resolvedMetadata = metadata;
+      if (
+        webhookResult.eventType === 'charge.succeeded' &&
+        (metadata as any)?.paymentIntentId &&
+        this.provider.fetchPaymentIntentMetadata
+      ) {
+        try {
+          const paymentIntentId = (metadata as any)?.paymentIntentId;
+          const paymentIntentMetadata =
+            await this.provider.fetchPaymentIntentMetadata(paymentIntentId);
+          if (paymentIntentMetadata) {
+            resolvedMetadata = {
+              ...metadata,
+              paymentId: paymentIntentMetadata.paymentId,
+              orderId: paymentIntentMetadata.orderId,
+              type: paymentIntentMetadata.type,
+            } as StripeWebhookMetadata;
+            console.log(
+              `[Webhook] Fetched PaymentIntent metadata for charge: ${paymentIntentId}`,
+              { paymentId: paymentIntentMetadata.paymentId },
+            );
           }
-        });
-      } else {
-        console.log(
-          `Payment ${payment.id} status unchanged: ${webhookResult.status}`,
+        } catch (error) {
+          console.error(
+            `[Webhook] Failed to fetch PaymentIntent metadata:`,
+            error,
+          );
+        }
+      }
+
+      const existingPayment =
+        await this.findPaymentForWebhook(resolvedMetadata);
+      const paymentMetadataType =
+        (existingPayment?.metadata as any)?.type ?? undefined;
+      const inferredType = (metadata?.type ?? paymentMetadataType) as
+        | 'store_checkout'
+        | 'subscription'
+        | undefined;
+
+      if (inferredType === 'store_checkout') {
+        const storeMetadata: StoreCheckoutMetadata = {
+          type: 'store_checkout',
+          orderId:
+            (metadata as StoreCheckoutMetadata | undefined)?.orderId ??
+            (existingPayment?.metadata as any)?.orderId,
+          paymentId:
+            (metadata as StoreCheckoutMetadata | undefined)?.paymentId ??
+            (existingPayment?.metadata as any)?.paymentId,
+          cartItemIds: (existingPayment?.metadata as any)?.cartItemIds,
+          receiptUrl: (existingPayment?.metadata as any)?.receiptUrl,
+        };
+        return await this.handleStoreCheckoutWebhook(
+          webhookResult,
+          storeMetadata,
+          existingPayment,
         );
       }
 
-      return {
-        processed: true,
-        paymentId: payment.id,
-        status: webhookResult.status,
-      };
+      if (
+        inferredType === 'subscription' ||
+        this.isSubscriptionEvent(webhookResult.eventType)
+      ) {
+        return await this.handleSubscriptionWebhookEvent(
+          webhookResult,
+          existingPayment,
+        );
+      }
+
+      console.log('Stripe webhook ignored (no matching handler)', {
+        eventType: webhookResult.eventType,
+        metadataType: metadata?.type,
+      });
+      return { processed: true, reason: 'Unhandled webhook type' };
     } catch (error) {
       console.error('Webhook processing error:', error);
       throw error;
     }
+  }
+
+  private async handleStoreCheckoutWebhook(
+    webhookResult: WebhookResult,
+    metadata: StoreCheckoutMetadata,
+    existingPayment?: any,
+  ) {
+    const payment =
+      existingPayment ?? (await this.findPaymentForWebhook(metadata));
+
+    if (!payment) {
+      console.log('Store checkout payment not found for webhook', {
+        eventType: webhookResult.eventType,
+        providerRef: webhookResult.providerRef,
+        metadata,
+      });
+      return { processed: false, reason: 'Payment not found' };
+    }
+
+    switch (webhookResult.eventType) {
+      case 'payment_intent.succeeded': {
+        await this.database.db.transaction(async (tx) => {
+          const updatedMetadata = {
+            ...(payment.metadata as any),
+            lastWebhookEvent: webhookResult.eventType,
+            lastWebhookAt: new Date().toISOString(),
+            webhookMetadata: webhookResult.metadata,
+            paymentIntentId: webhookResult.providerRef,
+          } as StoreCheckoutMetadata;
+
+          await tx
+            .update(payments)
+            .set({
+              status: PaymentStatus.PAID,
+              providerRef: webhookResult.providerRef,
+              metadata: updatedMetadata as any,
+            })
+            .where(eq(payments.id, payment.id));
+
+          await tx
+            .update(orders)
+            .set({ status: PaymentStatus.PAID })
+            .where(eq(orders.paymentId, payment.id));
+
+          await this.finalizeStoreCheckout(
+            tx,
+            updatedMetadata.cartItemIds ?? metadata.cartItemIds,
+          );
+        });
+
+        return {
+          processed: true,
+          paymentId: payment.id,
+          status: PaymentStatus.PAID,
+        };
+      }
+
+      case 'charge.succeeded': {
+        const receiptUrl = (webhookResult.metadata as any)?.receiptUrl;
+        const paymentIntentId = (webhookResult.metadata as any)
+          ?.paymentIntentId;
+        const updatedMetadata = {
+          ...(payment.metadata as any),
+          receiptUrl,
+          lastWebhookEvent: webhookResult.eventType,
+          lastWebhookAt: new Date().toISOString(),
+          webhookMetadata: webhookResult.metadata,
+        };
+
+        // Update payment with receipt URL and PaymentIntent ID as providerRef
+        await this.database.db
+          .update(payments)
+          .set({
+            metadata: updatedMetadata as any,
+            // Update providerRef to PaymentIntent ID if available (more reliable than session ID)
+            ...(paymentIntentId && { providerRef: paymentIntentId }),
+          })
+          .where(eq(payments.id, payment.id));
+
+        console.log(
+          `[Webhook] Updated payment ${payment.id} with receipt URL and PaymentIntent ID`,
+        );
+
+        return {
+          processed: true,
+          paymentId: payment.id,
+          status: payment.status,
+        };
+      }
+
+      case 'payment_intent.canceled': {
+        await this.database.db.transaction(async (tx) => {
+          const updatedMetadata = {
+            ...(payment.metadata as any),
+            lastWebhookEvent: webhookResult.eventType,
+            lastWebhookAt: new Date().toISOString(),
+            webhookMetadata: webhookResult.metadata,
+          };
+
+          await tx
+            .update(payments)
+            .set({
+              status: PaymentStatus.CANCELLED,
+              providerRef: webhookResult.providerRef,
+              metadata: updatedMetadata as any,
+            })
+            .where(eq(payments.id, payment.id));
+
+          await tx
+            .update(orders)
+            .set({ status: PaymentStatus.CANCELLED })
+            .where(eq(orders.paymentId, payment.id));
+        });
+
+        return {
+          processed: true,
+          paymentId: payment.id,
+          status: PaymentStatus.CANCELLED,
+        };
+      }
+
+      case 'checkout.session.expired': {
+        await this.database.db
+          .update(payments)
+          .set({
+            status: PaymentStatus.CANCELLED,
+            metadata: {
+              ...(payment.metadata as any),
+              lastWebhookEvent: webhookResult.eventType,
+              lastWebhookAt: new Date().toISOString(),
+              webhookMetadata: webhookResult.metadata,
+            } as any,
+          })
+          .where(eq(payments.id, payment.id));
+
+        await this.database.db
+          .update(orders)
+          .set({ status: PaymentStatus.CANCELLED })
+          .where(eq(orders.paymentId, payment.id));
+
+        return {
+          processed: true,
+          paymentId: payment.id,
+          status: PaymentStatus.CANCELLED,
+        };
+      }
+
+      default:
+        console.log('Store checkout webhook ignored', {
+          eventType: webhookResult.eventType,
+          providerRef: webhookResult.providerRef,
+        });
+        return { processed: true, reason: 'Store checkout event ignored' };
+    }
+  }
+
+  private async finalizeStoreCheckout(
+    tx: any,
+    cartItemIds?: string[],
+  ): Promise<void> {
+    if (!cartItemIds || cartItemIds.length === 0) {
+      return;
+    }
+
+    const cartItemsToProcess = await tx
+      .select({
+        cartItemId: cartItems.id,
+        productId: cartItems.productId,
+        quantity: cartItems.quantity,
+      })
+      .from(cartItems)
+      .where(inArray(cartItems.id, cartItemIds));
+
+    for (const cartItem of cartItemsToProcess) {
+      await tx
+        .update(storeItems)
+        .set({
+          stock: sql`${storeItems.stock} - ${cartItem.quantity}`,
+        })
+        .where(eq(storeItems.productId, cartItem.productId));
+    }
+
+    await tx.delete(cartItems).where(inArray(cartItems.id, cartItemIds));
+  }
+
+  private async handleSubscriptionWebhookEvent(
+    webhookResult: WebhookResult,
+    existingPayment?: any,
+  ) {
+    if (webhookResult.eventType.startsWith('invoice.')) {
+      return await this.handleInvoiceWebhook(webhookResult);
+    }
+
+    if (this.isSubscriptionPaymentIntent(webhookResult)) {
+      console.log(
+        `Ignoring subscription payment_intent: ${webhookResult.providerRef}`,
+      );
+      return {
+        processed: true,
+        reason: 'Subscription payment_intent ignored',
+      };
+    }
+
+    const payment =
+      existingPayment ??
+      (await this.findPaymentForWebhook(
+        webhookResult.metadata as StripeWebhookMetadata | undefined,
+      ));
+
+    if (!payment) {
+      console.log(
+        `Payment not found for provider ref: ${webhookResult.providerRef}`,
+        {
+          eventType: webhookResult.eventType,
+          metadata: webhookResult.metadata,
+        },
+      );
+      return { processed: false, reason: 'Payment not found' };
+    }
+
+    if (payment.status === webhookResult.status) {
+      console.log(
+        `Payment ${payment.id} status unchanged: ${webhookResult.status}`,
+      );
+      return {
+        processed: true,
+        paymentId: payment.id,
+        status: payment.status,
+      };
+    }
+
+    await this.database.db.transaction(async (tx) => {
+      const updatedMetadata = {
+        ...(payment.metadata as any),
+        lastWebhookEvent: webhookResult.eventType,
+        lastWebhookAt: new Date().toISOString(),
+        webhookMetadata: webhookResult.metadata,
+      };
+
+      await tx
+        .update(payments)
+        .set({
+          status: webhookResult.status,
+          providerRef: webhookResult.providerRef || payment.providerRef,
+          metadata: updatedMetadata as any,
+        })
+        .where(eq(payments.id, payment.id));
+
+      await tx
+        .update(orders)
+        .set({ status: webhookResult.status })
+        .where(eq(orders.paymentId, payment.id));
+
+      await this.updateSubscriptionStatusForWebhook(
+        tx,
+        payment.id,
+        webhookResult,
+      );
+    });
+
+    return {
+      processed: true,
+      paymentId: payment.id,
+      status: webhookResult.status,
+    };
+  }
+
+  private async updateSubscriptionStatusForWebhook(
+    tx: any,
+    paymentId: string,
+    webhookResult: WebhookResult,
+  ) {
+    if (
+      webhookResult.metadata?.type === 'subscription' ||
+      webhookResult.metadata?.subscriptionId ||
+      webhookResult.eventType.startsWith('customer.subscription') ||
+      webhookResult.eventType.startsWith('invoice.payment')
+    ) {
+      if (
+        webhookResult.eventType === 'checkout.session.completed' &&
+        webhookResult.metadata?.subscriptionId
+      ) {
+        await tx
+          .update(subscriptions)
+          .set({
+            status: webhookResult.status,
+            providerSubscriptionId: webhookResult.metadata.subscriptionId,
+            paymentId,
+          })
+          .where(eq(subscriptions.paymentId, paymentId));
+      } else if (webhookResult.eventType.startsWith('customer.subscription')) {
+        const subscriptionId = webhookResult.metadata?.subscriptionId;
+        if (subscriptionId) {
+          await tx
+            .update(subscriptions)
+            .set({ status: webhookResult.status })
+            .where(eq(subscriptions.providerSubscriptionId, subscriptionId));
+        }
+      } else if (webhookResult.eventType.startsWith('invoice.payment')) {
+        const subscriptionId = webhookResult.metadata?.subscriptionId;
+        if (subscriptionId) {
+          await tx
+            .update(subscriptions)
+            .set({ status: webhookResult.status })
+            .where(eq(subscriptions.providerSubscriptionId, subscriptionId));
+        }
+      } else {
+        await tx
+          .update(subscriptions)
+          .set({ status: webhookResult.status })
+          .where(eq(subscriptions.paymentId, paymentId));
+      }
+    }
+  }
+
+  private isSubscriptionEvent(eventType: string): boolean {
+    return (
+      eventType.startsWith('invoice.') ||
+      eventType.startsWith('customer.subscription') ||
+      eventType.startsWith('checkout.session')
+    );
   }
 
   async getPaymentStatus(paymentId: string) {
@@ -806,6 +1171,43 @@ export class PaymentService {
       .select()
       .from(orders)
       .where(eq(orders.paymentId, paymentId));
+
+    const orderIds = relatedOrders.map((order) => order.id);
+    let orderItemsWithStore: {
+      id: string;
+      orderId: string;
+      productId: string;
+      quantity: number;
+      price: number;
+      storeItemName: string | null;
+      storeItemImage: any | null;
+    }[] = [];
+
+    if (orderIds.length > 0) {
+      orderItemsWithStore = await this.database.db
+        .select({
+          id: orderItems.id,
+          orderId: orderItems.orderId,
+          productId: orderItems.productId,
+          quantity: orderItems.quantity,
+          price: orderItems.price,
+          storeItemName: storeItems.name,
+          storeItemImage: storeItems.display,
+        })
+        .from(orderItems)
+        .leftJoin(storeItems, eq(orderItems.productId, storeItems.productId))
+        .where(inArray(orderItems.orderId, orderIds));
+    }
+
+    const ordersWithItems = relatedOrders.map((order) => {
+      const items = orderItemsWithStore.filter(
+        (item) => item.orderId === order.id,
+      );
+      return {
+        ...order,
+        items,
+      };
+    });
 
     // Get related subscriptions with plan details
     const relatedSubscriptions = await this.database.db
@@ -831,7 +1233,7 @@ export class PaymentService {
     // Build enriched payment object
     const enrichedPayment = {
       ...payment,
-      orders: relatedOrders,
+      orders: ordersWithItems,
       subscriptions: relatedSubscriptions,
     };
 

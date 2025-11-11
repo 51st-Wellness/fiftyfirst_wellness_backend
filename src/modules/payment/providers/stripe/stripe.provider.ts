@@ -9,6 +9,22 @@ import {
 } from '../payment.types';
 import { PaymentStatus } from 'src/database/schema';
 
+type StoreCheckoutMetadata = {
+  type: 'store_checkout';
+  orderId?: string;
+  paymentId?: string;
+  userId?: string;
+};
+
+type SubscriptionMetadata = {
+  type: 'subscription';
+  subscriptionId?: string;
+  planId?: string;
+};
+
+type StripeMetadata = (StoreCheckoutMetadata | SubscriptionMetadata) &
+  Record<string, any>;
+
 // Stripe payment provider implementing initialize/capture/webhook
 @Injectable()
 export class StripeProvider implements PaymentProvider {
@@ -53,6 +69,14 @@ export class StripeProvider implements PaymentProvider {
             },
           ];
 
+    const baseMetadata: StripeMetadata = {
+      userId: input.userId,
+      type: isSubscription ? 'subscription' : 'store_checkout',
+      orderId: input.orderId ?? '',
+      subscriptionId: input.subscriptionId ?? '',
+      paymentId: input.paymentId ?? '',
+    };
+
     const session = await this.stripe.checkout.sessions.create({
       mode: isSubscription ? 'subscription' : 'payment',
       line_items: lineItems,
@@ -63,12 +87,17 @@ export class StripeProvider implements PaymentProvider {
       success_url: `${process.env.SERVER_URL}/payment/redirect/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.SERVER_URL}/payment/redirect/cancel`,
       client_reference_id: input.orderId || input.subscriptionId || undefined,
-      metadata: {
-        userId: input.userId,
-        type: isSubscription ? 'subscription' : 'store_checkout',
-        orderId: input.orderId ?? '',
-        subscriptionId: input.subscriptionId ?? '',
-      },
+      payment_intent_data: isSubscription
+        ? undefined
+        : {
+            metadata: baseMetadata,
+          },
+      subscription_data: isSubscription
+        ? {
+            metadata: baseMetadata,
+          }
+        : undefined,
+      metadata: baseMetadata,
     });
 
     return { providerRef: session.id, approvalUrl: session.url || undefined };
@@ -163,6 +192,22 @@ export class StripeProvider implements PaymentProvider {
     }
   }
 
+  async fetchPaymentIntentMetadata(
+    paymentIntentId: string,
+  ): Promise<Record<string, any> | null> {
+    try {
+      const paymentIntent =
+        await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      return paymentIntent.metadata as Record<string, any>;
+    } catch (error) {
+      console.error(
+        `Failed to fetch PaymentIntent metadata for ${paymentIntentId}:`,
+        error,
+      );
+      return null;
+    }
+  }
+
   parseWebhook(body: any): WebhookResult {
     // Handle both raw string/buffer and parsed JSON
     let event: Stripe.Event;
@@ -211,14 +256,21 @@ export class StripeProvider implements PaymentProvider {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         providerRef = session.id;
+        // Extract metadata from session (includes paymentId, orderId, etc.)
+        const sessionMetadata = (session.metadata as StripeMetadata) || {};
         metadata = {
           sessionId: session.id,
           customerId: session.customer,
-          subscriptionId: session.subscription,
+          sessionSubscriptionId: session.subscription, // Renamed to avoid conflict
           clientReferenceId: session.client_reference_id,
-          metadata: session.metadata,
           mode: session.mode,
           paymentStatus: session.payment_status,
+          // Include our custom metadata for reliable payment lookup
+          paymentId: sessionMetadata.paymentId,
+          orderId: sessionMetadata.orderId,
+          subscriptionId: sessionMetadata.subscriptionId,
+          type: sessionMetadata.type,
+          userId: sessionMetadata.userId,
         };
 
         if (session.mode === 'payment') {
@@ -241,7 +293,16 @@ export class StripeProvider implements PaymentProvider {
         const session = event.data.object as Stripe.Checkout.Session;
         providerRef = session.id;
         status = PaymentStatus.CANCELLED;
-        metadata = { reason: 'checkout_expired' };
+        // Extract metadata for payment lookup
+        const sessionMetadata = (session.metadata as StripeMetadata) || {};
+        metadata = {
+          reason: 'checkout_expired',
+          paymentId: sessionMetadata.paymentId,
+          orderId: sessionMetadata.orderId,
+          subscriptionId: sessionMetadata.subscriptionId,
+          type: sessionMetadata.type,
+          userId: sessionMetadata.userId,
+        };
         break;
       }
 
@@ -252,10 +313,13 @@ export class StripeProvider implements PaymentProvider {
         status = PaymentStatus.PAID;
         metadata = {
           paymentIntentId: paymentIntent.id,
-          amount: paymentIntent.amount,
+          amount: paymentIntent.amount_received ?? paymentIntent.amount,
           currency: paymentIntent.currency,
           customerId: paymentIntent.customer,
           status: paymentIntent.status,
+          type: (paymentIntent.metadata as StripeMetadata)?.type,
+          orderId: (paymentIntent.metadata as StripeMetadata)?.orderId,
+          paymentId: (paymentIntent.metadata as StripeMetadata)?.paymentId,
         };
         break;
       }
@@ -272,6 +336,9 @@ export class StripeProvider implements PaymentProvider {
           amount: paymentIntent.amount,
           currency: paymentIntent.currency,
           customerId: paymentIntent.customer,
+          type: (paymentIntent.metadata as StripeMetadata)?.type,
+          orderId: (paymentIntent.metadata as StripeMetadata)?.orderId,
+          paymentId: (paymentIntent.metadata as StripeMetadata)?.paymentId,
         };
         break;
       }
@@ -286,6 +353,34 @@ export class StripeProvider implements PaymentProvider {
           amount: paymentIntent.amount,
           currency: paymentIntent.currency,
           customerId: paymentIntent.customer,
+          type: (paymentIntent.metadata as StripeMetadata)?.type,
+          orderId: (paymentIntent.metadata as StripeMetadata)?.orderId,
+          paymentId: (paymentIntent.metadata as StripeMetadata)?.paymentId,
+        };
+        break;
+      }
+
+      case 'charge.succeeded': {
+        const charge = event.data.object as Stripe.Charge;
+        const paymentIntentId =
+          typeof charge.payment_intent === 'string'
+            ? charge.payment_intent
+            : (charge.payment_intent as Stripe.PaymentIntent | null)?.id;
+        providerRef = paymentIntentId || charge.id;
+        status = PaymentStatus.PAID;
+
+        // For charges, metadata is on the PaymentIntent, not the charge
+        // We'll need to fetch it or rely on payment_intent.succeeded event
+        // For now, store what we can and let the handler fetch PaymentIntent metadata
+        metadata = {
+          chargeId: charge.id,
+          paymentIntentId: paymentIntentId,
+          customerId: charge.customer,
+          amount: charge.amount,
+          currency: charge.currency,
+          receiptUrl: charge.receipt_url,
+          // Note: Charge metadata doesn't inherit PaymentIntent metadata
+          // We'll resolve payment via paymentIntentId lookup in the handler
         };
         break;
       }
@@ -298,6 +393,9 @@ export class StripeProvider implements PaymentProvider {
           subscription.status === 'active' || subscription.status === 'trialing'
             ? PaymentStatus.PAID
             : PaymentStatus.PENDING;
+        // Extract metadata from subscription
+        const subscriptionMetadata =
+          (subscription.metadata as StripeMetadata) || {};
         metadata = {
           subscriptionId: subscription.id,
           customerId: subscription.customer,
@@ -307,6 +405,11 @@ export class StripeProvider implements PaymentProvider {
           items: subscription.items,
           trialStart: subscription.trial_start,
           trialEnd: subscription.trial_end,
+          // Include our custom metadata for reliable payment lookup
+          paymentId: subscriptionMetadata.paymentId,
+          orderId: subscriptionMetadata.orderId,
+          type: subscriptionMetadata.type,
+          userId: subscriptionMetadata.userId,
         };
         break;
       }
@@ -320,6 +423,8 @@ export class StripeProvider implements PaymentProvider {
             : subscription.status === 'canceled'
               ? PaymentStatus.CANCELLED
               : PaymentStatus.PENDING;
+        const subscriptionMetadata =
+          (subscription.metadata as StripeMetadata) || {};
         metadata = {
           subscriptionId: subscription.id,
           customerId: subscription.customer,
@@ -329,6 +434,11 @@ export class StripeProvider implements PaymentProvider {
           currentPeriodEnd: subscription.current_period_end,
           canceledAt: subscription.canceled_at,
           items: subscription.items,
+          // Include our custom metadata for reliable payment lookup
+          paymentId: subscriptionMetadata.paymentId,
+          orderId: subscriptionMetadata.orderId,
+          type: subscriptionMetadata.type,
+          userId: subscriptionMetadata.userId,
         };
         break;
       }
@@ -337,6 +447,8 @@ export class StripeProvider implements PaymentProvider {
         const subscription = event.data.object as Stripe.Subscription;
         providerRef = subscription.id;
         status = PaymentStatus.CANCELLED;
+        const subscriptionMetadata =
+          (subscription.metadata as StripeMetadata) || {};
         metadata = {
           subscriptionId: subscription.id,
           customerId: subscription.customer,
@@ -345,6 +457,11 @@ export class StripeProvider implements PaymentProvider {
           status: subscription.status,
           currentPeriodStart: subscription.current_period_start,
           currentPeriodEnd: subscription.current_period_end,
+          // Include our custom metadata for reliable payment lookup
+          paymentId: subscriptionMetadata.paymentId,
+          orderId: subscriptionMetadata.orderId,
+          type: subscriptionMetadata.type,
+          userId: subscriptionMetadata.userId,
         };
         break;
       }
@@ -353,6 +470,8 @@ export class StripeProvider implements PaymentProvider {
         const subscription = event.data.object as Stripe.Subscription;
         providerRef = subscription.id;
         status = PaymentStatus.PENDING; // or create a PAUSED status
+        const subscriptionMetadata =
+          (subscription.metadata as StripeMetadata) || {};
         metadata = {
           subscriptionId: subscription.id,
           customerId: subscription.customer,
@@ -360,6 +479,11 @@ export class StripeProvider implements PaymentProvider {
           status: subscription.status,
           currentPeriodStart: subscription.current_period_start,
           currentPeriodEnd: subscription.current_period_end,
+          // Include our custom metadata for reliable payment lookup
+          paymentId: subscriptionMetadata.paymentId,
+          orderId: subscriptionMetadata.orderId,
+          type: subscriptionMetadata.type,
+          userId: subscriptionMetadata.userId,
         };
         break;
       }

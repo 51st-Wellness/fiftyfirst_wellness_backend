@@ -3,6 +3,7 @@ import { PaymentStatus } from 'src/database/schema';
 export type PaymentInitInput = {
   orderId?: string; // for store purchases
   subscriptionId?: string; // for subscription payments
+  paymentId?: string; // internal payment identifier
   amount: number;
   currency: string;
   description?: string;
@@ -18,6 +19,7 @@ export type PaymentInitResult = {
 export type WebhookResult = {
   providerRef: string;
   status: PaymentStatus;
+
   raw: any;
   eventType: string;
   metadata?: any;
@@ -40,6 +42,11 @@ export interface PaymentProvider {
 
   // Parse webhook payload
   parseWebhook(body: any): WebhookResult;
+
+  // Optional: Fetch PaymentIntent metadata (for Stripe charge events)
+  fetchPaymentIntentMetadata?(
+    paymentIntentId: string,
+  ): Promise<Record<string, any> | null>;
 }
 
 export const PAYMENT_PROVIDER_TOKEN = 'PAYMENT_PROVIDER_TOKEN';

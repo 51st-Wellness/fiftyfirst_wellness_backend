@@ -13,7 +13,11 @@ import {
   Res,
 } from '@nestjs/common';
 import { PaymentService } from './payment.service';
-import { SubscriptionCheckoutDto, PaymentSuccessDto } from './dto/checkout.dto';
+import {
+  SubscriptionCheckoutDto,
+  PaymentSuccessDto,
+  CartCheckoutDto,
+} from './dto/checkout.dto';
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { StrictRoles } from 'src/common/decorators/roles.decorator';
@@ -28,11 +32,29 @@ export class PaymentController {
   @Post('checkout/cart')
   @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.OK)
-  async checkoutCartItems(@CurrentUser() user: User) {
+  async checkoutCartItems(
+    @CurrentUser() user: User,
+    @Body() checkoutDto: CartCheckoutDto,
+  ) {
     // Initiate cart checkout from user's cart
-    const result = await this.paymentService.checkoutCartItems(user);
+    const result = await this.paymentService.checkoutCartItems(
+      user,
+      checkoutDto,
+    );
     return ResponseDto.createSuccessResponse(
       'Cart checkout initiated successfully',
+      result,
+    );
+  }
+
+  @Get('checkout/cart/summary')
+  @UseGuards(RolesGuard)
+  @HttpCode(HttpStatus.OK)
+  async getCartCheckoutSummary(@CurrentUser() user: User) {
+    // Provide checkout summary with default delivery info
+    const result = await this.paymentService.previewCartCheckout(user);
+    return ResponseDto.createSuccessResponse(
+      'Cart checkout summary retrieved successfully',
       result,
     );
   }
