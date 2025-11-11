@@ -29,6 +29,35 @@ import { generateId } from 'src/database/utils';
 import { User } from 'src/database/types';
 import { SQL } from 'drizzle-orm';
 
+// Payment metadata type - only store what's not available via database relationships
+export type PaymentMetadata =
+  | StoreCheckoutPaymentMetadata
+  | SubscriptionPaymentMetadata;
+
+export type StoreCheckoutPaymentMetadata = {
+  type: 'store_checkout';
+  deliveryDetails?: {
+    contactName?: string;
+    contactPhone?: string;
+    deliveryAddress?: string;
+    deliveryCity?: string;
+    deliveryInstructions?: string;
+  };
+  receiptUrl?: string;
+  paymentIntentId?: string; // Stripe PaymentIntent ID for reference
+  lastWebhookEvent?: string; // Last webhook event type received
+  lastWebhookAt?: string; // ISO timestamp of last webhook
+};
+
+export type SubscriptionPaymentMetadata = {
+  type: 'subscription';
+  planId?: string;
+  planName?: string;
+  lastWebhookEvent?: string; // Last webhook event type received
+  lastWebhookAt?: string; // ISO timestamp of last webhook
+};
+
+// Metadata types for webhook parsing (temporary, used only during webhook processing)
 type StoreCheckoutMetadata = {
   type: 'store_checkout';
   orderId?: string;
@@ -151,7 +180,7 @@ export class PaymentService {
         // Create new subscription record for this billing cycle
         await this.handleSubscriptionWebhook(tx, webhookResult);
 
-        // Create payment record for this invoice
+        // Create payment record for this invoice (recurring subscription payment)
         if (webhookResult.metadata?.invoiceId) {
           await tx.insert(payments).values({
             id: generateId(),
@@ -161,11 +190,10 @@ export class PaymentService {
             currency: webhookResult.metadata.currency || 'USD',
             amount: webhookResult.metadata.amount / 100, // Convert from cents
             metadata: {
-              invoiceId: webhookResult.metadata.invoiceId,
-              subscriptionId: webhookResult.metadata.subscriptionId,
-              billingReason: webhookResult.metadata.billingReason,
-              type: 'subscription_invoice',
-            } as any,
+              type: 'subscription',
+              // invoiceId, subscriptionId, billingReason are not stored in metadata
+              // as they can be retrieved from the payment record or related subscription
+            } as PaymentMetadata,
           });
         }
       });
@@ -455,18 +483,9 @@ export class PaymentService {
       currency: currency as any,
       amount: totalAmount,
       metadata: {
-        deliveryDetails,
-        cartItemIds: cartItems.map((i) => i.id),
-        orderSummary: {
-          totalAmount,
-          currency,
-          itemCount: orderItemsData.length,
-        },
-        orderItems: orderItemsData,
-        orderId,
-        paymentId,
         type: 'store_checkout',
-      } as any,
+        deliveryDetails,
+      } as PaymentMetadata,
     });
 
     // Update order with payment reference
@@ -568,12 +587,10 @@ export class PaymentService {
       currency: 'USD' as any,
       amount: plan.price,
       metadata: {
+        type: 'subscription',
         planId,
         planName: plan.name,
-        type: 'subscription',
-        subscriptionId: subscription.id,
-        paymentId,
-      } as any,
+      } as PaymentMetadata,
     });
 
     // Update subscription with payment reference
@@ -610,16 +627,19 @@ export class PaymentService {
 
     // Update payment and related entities in transaction
     await this.database.db.transaction(async (tx) => {
-      // Update payment status
+      // Update payment status (keep existing metadata structure)
+      const currentMetadata =
+        (payment.metadata as PaymentMetadata) ||
+        (payment.metadata &&
+        typeof payment.metadata === 'object' &&
+        'type' in payment.metadata
+          ? (payment.metadata as PaymentMetadata)
+          : ({ type: 'store_checkout' } as PaymentMetadata));
       await tx
         .update(payments)
         .set({
           status: captureResult.status,
-          metadata: {
-            ...(payment.metadata as any),
-            transactionId: captureResult.transactionId,
-            capturedAt: new Date().toISOString(),
-          } as any,
+          metadata: currentMetadata, // Don't store transactionId/capturedAt in metadata
         })
         .where(eq(payments.id, payment.id));
 
@@ -639,39 +659,8 @@ export class PaymentService {
             .where(eq(orders.paymentId, payment.id));
 
           // Clear user's cart for store purchases and decrement stock
-          const metadata = payment.metadata as any;
-          if (metadata?.cartItemIds) {
-            // Get cart items before deletion to decrement stock
-            const cartItemsToProcess = await tx
-              .select({
-                cartItemId: cartItems.id,
-                productId: cartItems.productId,
-                quantity: cartItems.quantity,
-              })
-              .from(cartItems)
-              .where(
-                or(
-                  ...metadata.cartItemIds.map((id: string) =>
-                    eq(cartItems.id, id),
-                  ),
-                ),
-              );
-
-            // Decrement stock for each cart item
-            for (const cartItem of cartItemsToProcess) {
-              await tx
-                .update(storeItems)
-                .set({
-                  stock: sql`${storeItems.stock} - ${cartItem.quantity}`,
-                })
-                .where(eq(storeItems.productId, cartItem.productId));
-            }
-
-            // Clear cart items
-            for (const cartItemId of metadata.cartItemIds) {
-              await tx.delete(cartItems).where(eq(cartItems.id, cartItemId));
-            }
-          }
+          // Use order-based approach (same as webhook handler)
+          await this.finalizeStoreCheckout(tx, payment.id);
         }
 
         // Get and update all related subscriptions
@@ -793,16 +782,18 @@ export class PaymentService {
         | undefined;
 
       if (inferredType === 'store_checkout') {
+        // StoreCheckoutMetadata is only used for webhook parsing, not stored in DB
         const storeMetadata: StoreCheckoutMetadata = {
           type: 'store_checkout',
           orderId:
             (metadata as StoreCheckoutMetadata | undefined)?.orderId ??
-            (existingPayment?.metadata as any)?.orderId,
+            undefined,
           paymentId:
             (metadata as StoreCheckoutMetadata | undefined)?.paymentId ??
-            (existingPayment?.metadata as any)?.paymentId,
-          cartItemIds: (existingPayment?.metadata as any)?.cartItemIds,
-          receiptUrl: (existingPayment?.metadata as any)?.receiptUrl,
+            undefined,
+          receiptUrl: (
+            existingPayment?.metadata as StoreCheckoutPaymentMetadata
+          )?.receiptUrl,
         };
         return await this.handleStoreCheckoutWebhook(
           webhookResult,
@@ -852,20 +843,23 @@ export class PaymentService {
     switch (webhookResult.eventType) {
       case 'payment_intent.succeeded': {
         await this.database.db.transaction(async (tx) => {
-          const updatedMetadata = {
-            ...(payment.metadata as any),
+          const currentMetadata =
+            (payment.metadata as StoreCheckoutPaymentMetadata) || {
+              type: 'store_checkout',
+            };
+          const updatedMetadata: StoreCheckoutPaymentMetadata = {
+            ...currentMetadata,
             lastWebhookEvent: webhookResult.eventType,
             lastWebhookAt: new Date().toISOString(),
-            webhookMetadata: webhookResult.metadata,
             paymentIntentId: webhookResult.providerRef,
-          } as StoreCheckoutMetadata;
+          };
 
           await tx
             .update(payments)
             .set({
               status: PaymentStatus.PAID,
               providerRef: webhookResult.providerRef,
-              metadata: updatedMetadata as any,
+              metadata: updatedMetadata as PaymentMetadata,
             })
             .where(eq(payments.id, payment.id));
 
@@ -874,10 +868,8 @@ export class PaymentService {
             .set({ status: PaymentStatus.PAID })
             .where(eq(orders.paymentId, payment.id));
 
-          await this.finalizeStoreCheckout(
-            tx,
-            updatedMetadata.cartItemIds ?? metadata.cartItemIds,
-          );
+          // Get cart items from order instead of metadata
+          await this.finalizeStoreCheckout(tx, payment.id);
         });
 
         return {
@@ -891,19 +883,23 @@ export class PaymentService {
         const receiptUrl = (webhookResult.metadata as any)?.receiptUrl;
         const paymentIntentId = (webhookResult.metadata as any)
           ?.paymentIntentId;
-        const updatedMetadata = {
-          ...(payment.metadata as any),
+        const currentMetadata =
+          (payment.metadata as StoreCheckoutPaymentMetadata) || {
+            type: 'store_checkout',
+          };
+        const updatedMetadata: StoreCheckoutPaymentMetadata = {
+          ...currentMetadata,
           receiptUrl,
           lastWebhookEvent: webhookResult.eventType,
           lastWebhookAt: new Date().toISOString(),
-          webhookMetadata: webhookResult.metadata,
+          ...(paymentIntentId && { paymentIntentId }),
         };
 
         // Update payment with receipt URL and PaymentIntent ID as providerRef
         await this.database.db
           .update(payments)
           .set({
-            metadata: updatedMetadata as any,
+            metadata: updatedMetadata as PaymentMetadata,
             // Update providerRef to PaymentIntent ID if available (more reliable than session ID)
             ...(paymentIntentId && { providerRef: paymentIntentId }),
           })
@@ -922,11 +918,14 @@ export class PaymentService {
 
       case 'payment_intent.canceled': {
         await this.database.db.transaction(async (tx) => {
-          const updatedMetadata = {
-            ...(payment.metadata as any),
+          const currentMetadata =
+            (payment.metadata as StoreCheckoutPaymentMetadata) || {
+              type: 'store_checkout',
+            };
+          const updatedMetadata: StoreCheckoutPaymentMetadata = {
+            ...currentMetadata,
             lastWebhookEvent: webhookResult.eventType,
             lastWebhookAt: new Date().toISOString(),
-            webhookMetadata: webhookResult.metadata,
           };
 
           await tx
@@ -934,7 +933,7 @@ export class PaymentService {
             .set({
               status: PaymentStatus.CANCELLED,
               providerRef: webhookResult.providerRef,
-              metadata: updatedMetadata as any,
+              metadata: updatedMetadata as PaymentMetadata,
             })
             .where(eq(payments.id, payment.id));
 
@@ -952,16 +951,24 @@ export class PaymentService {
       }
 
       case 'checkout.session.expired': {
+        const currentMetadata =
+          (payment.metadata as PaymentMetadata) ||
+          (payment.metadata &&
+          typeof payment.metadata === 'object' &&
+          'type' in payment.metadata
+            ? (payment.metadata as PaymentMetadata)
+            : ({ type: 'store_checkout' } as PaymentMetadata));
+        const updatedMetadata: PaymentMetadata = {
+          ...currentMetadata,
+          lastWebhookEvent: webhookResult.eventType,
+          lastWebhookAt: new Date().toISOString(),
+        };
+
         await this.database.db
           .update(payments)
           .set({
             status: PaymentStatus.CANCELLED,
-            metadata: {
-              ...(payment.metadata as any),
-              lastWebhookEvent: webhookResult.eventType,
-              lastWebhookAt: new Date().toISOString(),
-              webhookMetadata: webhookResult.metadata,
-            } as any,
+            metadata: updatedMetadata,
           })
           .where(eq(payments.id, payment.id));
 
@@ -986,33 +993,66 @@ export class PaymentService {
     }
   }
 
+  // Get cart items from order and finalize checkout (decrement stock, clear cart)
   private async finalizeStoreCheckout(
     tx: any,
-    cartItemIds?: string[],
+    paymentId: string,
   ): Promise<void> {
-    if (!cartItemIds || cartItemIds.length === 0) {
+    // Get order for this payment
+    const order = (
+      await tx
+        .select()
+        .from(orders)
+        .where(eq(orders.paymentId, paymentId))
+        .limit(1)
+    )[0];
+
+    if (!order) {
+      console.warn(
+        `[finalizeStoreCheckout] No order found for payment ${paymentId}`,
+      );
       return;
     }
 
-    const cartItemsToProcess = await tx
-      .select({
-        cartItemId: cartItems.id,
-        productId: cartItems.productId,
-        quantity: cartItems.quantity,
-      })
-      .from(cartItems)
-      .where(inArray(cartItems.id, cartItemIds));
+    // Get order items
+    const orderItemsList = await tx
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, order.id));
 
-    for (const cartItem of cartItemsToProcess) {
+    if (orderItemsList.length === 0) {
+      console.warn(
+        `[finalizeStoreCheckout] No order items found for order ${order.id}`,
+      );
+      return;
+    }
+
+    // Decrement stock for each product
+    for (const orderItem of orderItemsList) {
       await tx
         .update(storeItems)
         .set({
-          stock: sql`${storeItems.stock} - ${cartItem.quantity}`,
+          stock: sql`${storeItems.stock} - ${orderItem.quantity}`,
         })
-        .where(eq(storeItems.productId, cartItem.productId));
+        .where(eq(storeItems.productId, orderItem.productId));
     }
 
-    await tx.delete(cartItems).where(inArray(cartItems.id, cartItemIds));
+    // Get and delete cart items for this user matching the order items
+    const productIds = orderItemsList.map((item) => item.productId);
+    const userCartItems = await tx
+      .select()
+      .from(cartItems)
+      .where(
+        and(
+          eq(cartItems.userId, order.userId),
+          inArray(cartItems.productId, productIds),
+        ),
+      );
+
+    if (userCartItems.length > 0) {
+      const cartItemIds = userCartItems.map((item) => item.id);
+      await tx.delete(cartItems).where(inArray(cartItems.id, cartItemIds));
+    }
   }
 
   private async handleSubscriptionWebhookEvent(
@@ -1062,11 +1102,14 @@ export class PaymentService {
     }
 
     await this.database.db.transaction(async (tx) => {
-      const updatedMetadata = {
-        ...(payment.metadata as any),
+      const currentMetadata =
+        (payment.metadata as SubscriptionPaymentMetadata) || {
+          type: 'subscription',
+        };
+      const updatedMetadata: SubscriptionPaymentMetadata = {
+        ...currentMetadata,
         lastWebhookEvent: webhookResult.eventType,
         lastWebhookAt: new Date().toISOString(),
-        webhookMetadata: webhookResult.metadata,
       };
 
       await tx
@@ -1074,7 +1117,7 @@ export class PaymentService {
         .set({
           status: webhookResult.status,
           providerRef: webhookResult.providerRef || payment.providerRef,
-          metadata: updatedMetadata as any,
+          metadata: updatedMetadata as PaymentMetadata,
         })
         .where(eq(payments.id, payment.id));
 
