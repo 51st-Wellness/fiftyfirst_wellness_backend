@@ -30,10 +30,6 @@ export class CreateUserDto {
 
   @IsString()
   @IsOptional()
-  city?: string;
-
-  @IsString()
-  @IsOptional()
   phone?: string; // Optional for Google OAuth users
 
   @IsString()
@@ -43,10 +39,6 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   profilePicture?: string; // Profile picture URL
-
-  @IsString()
-  @IsOptional()
-  address?: string;
 
   @IsString()
   @IsOptional()

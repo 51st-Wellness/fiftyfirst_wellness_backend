@@ -99,8 +99,6 @@ export const users = sqliteTable('User', {
   phone: text('phone'), // Optional for Google OAuth users
   googleId: text('googleId').unique(), // Google OAuth ID
   role: text('role', { enum: userRoles }).notNull().default('USER'),
-  city: text('city'),
-  address: text('address'),
   bio: text('bio'),
   profilePicture: text('profilePicture'),
   isActive: integer('isActive', { mode: 'boolean' }).notNull().default(true),
@@ -278,6 +276,24 @@ export const podcasts = sqliteTable('Podcast', {
   podcastProductId: text('podcastProductId').notNull(),
 });
 
+export const deliveryAddresses = sqliteTable('DeliveryAddress', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull(),
+  contactName: text('contactName').notNull(),
+  contactPhone: text('contactPhone').notNull(),
+  deliveryAddress: text('deliveryAddress').notNull(),
+  deliveryCity: text('deliveryCity').notNull(),
+  deliveryInstructions: text('deliveryInstructions'),
+  isDefault: integer('isDefault', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+    .notNull()
+    .$onUpdateFn(() => new Date()),
+  deletedAt: integer('deletedAt', { mode: 'timestamp' }),
+});
+
 export const orders = sqliteTable('Order', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
@@ -286,6 +302,7 @@ export const orders = sqliteTable('Order', {
     .default('PENDING'),
   totalAmount: real('totalAmount').notNull(),
   paymentId: text('paymentId'),
+  deliveryAddressId: text('deliveryAddressId'), // Foreign key to deliveryAddresses
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -396,6 +413,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   bookmarks: many(bookmarks),
   reviews: many(reviews),
   subscriptions: many(subscriptions),
+  deliveryAddresses: many(deliveryAddresses),
 }));
 
 export const passwordResetOTPsRelations = relations(
@@ -496,6 +514,17 @@ export const podcastsRelations = relations(podcasts, ({ one }) => ({
   }),
 }));
 
+export const deliveryAddressesRelations = relations(
+  deliveryAddresses,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [deliveryAddresses.userId],
+      references: [users.id],
+    }),
+    orders: many(orders),
+  }),
+);
+
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, {
     fields: [orders.userId],
@@ -504,6 +533,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   payment: one(payments, {
     fields: [orders.paymentId],
     references: [payments.id],
+  }),
+  deliveryAddress: one(deliveryAddresses, {
+    fields: [orders.deliveryAddressId],
+    references: [deliveryAddresses.id],
   }),
   orderItems: many(orderItems),
 }));

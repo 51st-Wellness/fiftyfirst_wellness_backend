@@ -17,6 +17,7 @@ import {
   cartItems,
   bookmarks,
   aiConversations,
+  deliveryAddresses,
 } from './schema';
 
 // Infer types from Drizzle schema
@@ -74,6 +75,9 @@ export type NewBlog = typeof blogs.$inferInsert;
 
 export type AIConversation = typeof aiConversations.$inferSelect;
 export type NewAIConversation = typeof aiConversations.$inferInsert;
+
+export type DeliveryAddress = typeof deliveryAddresses.$inferSelect;
+export type NewDeliveryAddress = typeof deliveryAddresses.$inferInsert;
 
 // Complex types for relations
 export type UserWithRelations = User & {

@@ -17,19 +17,31 @@ export class PaymentSuccessDto {
 }
 
 export class CartCheckoutDto {
+  @IsOptional()
   @IsString()
-  contactName?: string; // Optional contact name override
+  deliveryAddressId?: string; // Use existing delivery address
 
+  // Custom address fields (used when creating new address)
+  @IsOptional()
   @IsString()
-  contactPhone?: string; // Optional contact phone override
-
-  @IsString()
-  deliveryAddress?: string; // Optional delivery address override
-
-  @IsString()
-  deliveryCity?: string; // Optional delivery city override
+  contactName?: string;
 
   @IsOptional()
   @IsString()
-  deliveryInstructions?: string; // Optional delivery instructions
+  contactPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  deliveryAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  deliveryCity?: string;
+
+  @IsOptional()
+  @IsString()
+  deliveryInstructions?: string;
+
+  @IsOptional()
+  saveAddress?: boolean; // Whether to save the custom address
 }

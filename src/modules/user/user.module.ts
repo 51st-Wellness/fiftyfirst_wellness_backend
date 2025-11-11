@@ -8,6 +8,8 @@ import { BookmarkService } from 'src/modules/user/submodules/bookmark/bookmark.s
 import { BookmarkController } from 'src/modules/user/submodules/bookmark/bookmark.controller';
 import { CartService } from 'src/modules/user/submodules/cart/cart.service';
 import { CartController } from 'src/modules/user/submodules/cart/cart.controller';
+import { OrderService } from 'src/modules/user/submodules/order/order.service';
+import { OrderController } from 'src/modules/user/submodules/order/order.controller';
 import { ProgrammeRepository } from 'src/modules/product/submodules/programme/programme.repository';
 import { StoreRepository } from 'src/modules/product/submodules/store/store.repository';
 
@@ -18,10 +20,16 @@ import { StoreRepository } from 'src/modules/product/submodules/store/store.repo
     UserRepository,
     BookmarkService,
     CartService,
+    OrderService,
     ProgrammeRepository,
     StoreRepository,
   ],
-  controllers: [UserController, BookmarkController, CartController],
-  exports: [UserService, BookmarkService, CartService],
+  controllers: [
+    UserController,
+    BookmarkController,
+    CartController,
+    OrderController,
+  ],
+  exports: [UserService, BookmarkService, CartService, OrderService],
 })
 export class UserModule {}

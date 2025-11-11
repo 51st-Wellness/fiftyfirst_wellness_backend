@@ -22,6 +22,7 @@ import {
   subscriptions,
   subscriptionPlans,
   users,
+  deliveryAddresses,
   PaymentStatus,
   PaymentProvider as PaymentProviderEnum,
 } from 'src/database/schema';
@@ -36,13 +37,6 @@ export type PaymentMetadata =
 
 export type StoreCheckoutPaymentMetadata = {
   type: 'store_checkout';
-  deliveryDetails?: {
-    contactName?: string;
-    contactPhone?: string;
-    deliveryAddress?: string;
-    deliveryCity?: string;
-    deliveryInstructions?: string;
-  };
   receiptUrl?: string;
   paymentIntentId?: string; // Stripe PaymentIntent ID for reference
   lastWebhookEvent?: string; // Last webhook event type received
@@ -409,17 +403,25 @@ export class PaymentService {
   async previewCartCheckout(userProfile: User) {
     // Build checkout preview for the current user's cart
     const summary = await this.getCartSummary(userProfile.id);
-    const fallbackContactName =
-      `${userProfile.firstName} ${userProfile.lastName}`.trim();
+
+    // Get user's delivery addresses (not soft deleted)
+    const addresses = await this.database.db
+      .select()
+      .from(deliveryAddresses)
+      .where(
+        and(
+          eq(deliveryAddresses.userId, userProfile.id),
+          sql`${deliveryAddresses.deletedAt} IS NULL`,
+        ),
+      )
+      .orderBy(
+        desc(deliveryAddresses.isDefault),
+        desc(deliveryAddresses.createdAt),
+      );
 
     return {
       ...summary,
-      deliveryDefaults: {
-        contactName: fallbackContactName || undefined,
-        contactPhone: userProfile.phone || undefined,
-        deliveryAddress: userProfile.address || undefined,
-        deliveryCity: userProfile.city || undefined,
-      },
+      deliveryAddresses: addresses,
     };
   }
 
@@ -437,13 +439,70 @@ export class PaymentService {
       cartItems,
     } = await this.getCartSummary(userId);
 
-    const deliveryDetails = {
-      contactName: cartCheckoutDto?.contactName,
-      contactPhone: cartCheckoutDto?.contactPhone,
-      deliveryAddress: cartCheckoutDto?.deliveryAddress,
-      deliveryCity: cartCheckoutDto?.deliveryCity,
-      deliveryInstructions: cartCheckoutDto?.deliveryInstructions,
-    };
+    // Handle delivery address
+    let deliveryAddressId: string | undefined;
+
+    if (cartCheckoutDto.deliveryAddressId) {
+      // Use existing address - verify it belongs to user and is not deleted
+      const existingAddress = (
+        await this.database.db
+          .select()
+          .from(deliveryAddresses)
+          .where(
+            and(
+              eq(deliveryAddresses.id, cartCheckoutDto.deliveryAddressId),
+              eq(deliveryAddresses.userId, userId),
+              sql`${deliveryAddresses.deletedAt} IS NULL`,
+            ),
+          )
+          .limit(1)
+      )[0];
+
+      if (!existingAddress) {
+        throw new BadRequestException('Invalid delivery address');
+      }
+
+      deliveryAddressId = existingAddress.id;
+    } else if (
+      cartCheckoutDto.contactName &&
+      cartCheckoutDto.contactPhone &&
+      cartCheckoutDto.deliveryAddress &&
+      cartCheckoutDto.deliveryCity
+    ) {
+      // Create new delivery address if saveAddress is true
+      if (cartCheckoutDto.saveAddress) {
+        const newAddressId = generateId();
+        await this.database.db.insert(deliveryAddresses).values({
+          id: newAddressId,
+          userId,
+          contactName: cartCheckoutDto.contactName,
+          contactPhone: cartCheckoutDto.contactPhone,
+          deliveryAddress: cartCheckoutDto.deliveryAddress,
+          deliveryCity: cartCheckoutDto.deliveryCity,
+          deliveryInstructions: cartCheckoutDto.deliveryInstructions,
+          isDefault: false,
+        });
+        deliveryAddressId = newAddressId;
+      } else {
+        // Create temporary address for this order only (not saved)
+        const tempAddressId = generateId();
+        await this.database.db.insert(deliveryAddresses).values({
+          id: tempAddressId,
+          userId,
+          contactName: cartCheckoutDto.contactName,
+          contactPhone: cartCheckoutDto.contactPhone,
+          deliveryAddress: cartCheckoutDto.deliveryAddress,
+          deliveryCity: cartCheckoutDto.deliveryCity,
+          deliveryInstructions: cartCheckoutDto.deliveryInstructions,
+          isDefault: false,
+        });
+        deliveryAddressId = tempAddressId;
+      }
+    } else {
+      throw new BadRequestException(
+        'Delivery address is required. Provide deliveryAddressId or custom address details.',
+      );
+    }
 
     // Create order in database
     const orderId = generateId();
@@ -452,6 +511,7 @@ export class PaymentService {
       userId,
       status: PaymentStatus.PENDING,
       totalAmount,
+      deliveryAddressId,
     });
     await this.database.db.insert(orderItems).values(
       orderItemsData.map((item) => ({
@@ -484,7 +544,6 @@ export class PaymentService {
       amount: totalAmount,
       metadata: {
         type: 'store_checkout',
-        deliveryDetails,
       } as PaymentMetadata,
     });
 
@@ -494,13 +553,24 @@ export class PaymentService {
       .set({ paymentId })
       .where(eq(orders.id, orderId));
 
+    // Get delivery address for response
+    const deliveryAddress = deliveryAddressId
+      ? (
+          await this.database.db
+            .select()
+            .from(deliveryAddresses)
+            .where(eq(deliveryAddresses.id, deliveryAddressId))
+            .limit(1)
+        )[0]
+      : null;
+
     return {
       paymentId,
       orderId,
       approvalUrl: paymentInit.approvalUrl,
       amount: totalAmount,
       currency,
-      deliveryDetails,
+      deliveryAddress,
     };
   }
 
@@ -1209,10 +1279,29 @@ export class PaymentService {
       throw new NotFoundException('Payment not found');
     }
 
-    // Get related orders and order items
+    // Get related orders with delivery addresses
     const relatedOrders = await this.database.db
-      .select()
+      .select({
+        id: orders.id,
+        userId: orders.userId,
+        status: orders.status,
+        totalAmount: orders.totalAmount,
+        paymentId: orders.paymentId,
+        deliveryAddressId: orders.deliveryAddressId,
+        createdAt: orders.createdAt,
+        updatedAt: orders.updatedAt,
+        // Delivery address fields
+        deliveryContactName: deliveryAddresses.contactName,
+        deliveryContactPhone: deliveryAddresses.contactPhone,
+        deliveryAddress: deliveryAddresses.deliveryAddress,
+        deliveryCity: deliveryAddresses.deliveryCity,
+        deliveryInstructions: deliveryAddresses.deliveryInstructions,
+      })
       .from(orders)
+      .leftJoin(
+        deliveryAddresses,
+        eq(orders.deliveryAddressId, deliveryAddresses.id),
+      )
       .where(eq(orders.paymentId, paymentId));
 
     const orderIds = relatedOrders.map((order) => order.id);
@@ -1247,8 +1336,24 @@ export class PaymentService {
         (item) => item.orderId === order.id,
       );
       return {
-        ...order,
+        id: order.id,
+        userId: order.userId,
+        status: order.status,
+        totalAmount: order.totalAmount,
+        paymentId: order.paymentId,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
         items,
+        deliveryAddress: order.deliveryAddressId
+          ? {
+              id: order.deliveryAddressId,
+              contactName: order.deliveryContactName,
+              contactPhone: order.deliveryContactPhone,
+              deliveryAddress: order.deliveryAddress,
+              deliveryCity: order.deliveryCity,
+              deliveryInstructions: order.deliveryInstructions,
+            }
+          : null,
       };
     });
 
@@ -1405,7 +1510,6 @@ export class PaymentService {
         userLastName: users.lastName,
         userEmail: users.email,
         userPhone: users.phone,
-        userCity: users.city,
         // Plan details
         planName: subscriptionPlans.name,
         planPrice: subscriptionPlans.price,

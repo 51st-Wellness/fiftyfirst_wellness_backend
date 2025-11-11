@@ -2,18 +2,25 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { UserRepository } from './user.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserQueryDto } from './dto/user-query.dto';
+import { CreateDeliveryAddressDto } from './dto/create-delivery-address.dto';
+import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
 import { User } from 'src/database/types';
 import { UserRole } from 'src/database/schema';
 import * as bcrypt from 'bcrypt';
 import { DataFormatter } from 'src/lib/helpers/data-formater.helper';
 import { ProgrammeRepository } from 'src/modules/product/submodules/programme/programme.repository';
 import { StoreRepository } from 'src/modules/product/submodules/store/store.repository';
+import { DatabaseService } from 'src/database/database.service';
+import { deliveryAddresses } from 'src/database/schema';
+import { eq, and, sql, desc, ne } from 'drizzle-orm';
+import { generateId } from 'src/database/utils';
 
 @Injectable()
 export class UserService {
@@ -21,6 +28,7 @@ export class UserService {
     private readonly userRepository: UserRepository,
     private readonly programmeRepository: ProgrammeRepository,
     private readonly storeRepository: StoreRepository,
+    private readonly database: DatabaseService,
   ) {}
 
   // Create a new user with password hashing
@@ -231,5 +239,143 @@ export class UserService {
       this.storeRepository.count(),
     ]);
     return { totalUsers, totalProgrammes, totalStoreItems };
+  }
+
+  // Delivery Address CRUD operations
+
+  // Get all delivery addresses for a user (excluding soft deleted)
+  async getDeliveryAddresses(userId: string) {
+    return await this.database.db
+      .select()
+      .from(deliveryAddresses)
+      .where(
+        and(
+          eq(deliveryAddresses.userId, userId),
+          sql`${deliveryAddresses.deletedAt} IS NULL`,
+        ),
+      )
+      .orderBy(
+        desc(deliveryAddresses.isDefault),
+        desc(deliveryAddresses.createdAt),
+      );
+  }
+
+  // Get a single delivery address by ID
+  async getDeliveryAddress(addressId: string, userId: string) {
+    const address = (
+      await this.database.db
+        .select()
+        .from(deliveryAddresses)
+        .where(
+          and(
+            eq(deliveryAddresses.id, addressId),
+            eq(deliveryAddresses.userId, userId),
+            sql`${deliveryAddresses.deletedAt} IS NULL`,
+          ),
+        )
+        .limit(1)
+    )[0];
+
+    if (!address) {
+      throw new NotFoundException('Delivery address not found');
+    }
+
+    return address;
+  }
+
+  // Create a new delivery address
+  async createDeliveryAddress(
+    userId: string,
+    createDto: CreateDeliveryAddressDto,
+  ) {
+    // If setting as default, unset other defaults
+    if (createDto.isDefault) {
+      await this.database.db
+        .update(deliveryAddresses)
+        .set({ isDefault: false })
+        .where(
+          and(
+            eq(deliveryAddresses.userId, userId),
+            sql`${deliveryAddresses.deletedAt} IS NULL`,
+          ),
+        );
+    }
+
+    const addressId = generateId();
+    const [address] = await this.database.db
+      .insert(deliveryAddresses)
+      .values({
+        id: addressId,
+        userId,
+        contactName: createDto.contactName,
+        contactPhone: createDto.contactPhone,
+        deliveryAddress: createDto.deliveryAddress,
+        deliveryCity: createDto.deliveryCity,
+        deliveryInstructions: createDto.deliveryInstructions,
+        isDefault: createDto.isDefault ?? false,
+      })
+      .returning();
+
+    return address;
+  }
+
+  // Update a delivery address
+  async updateDeliveryAddress(
+    addressId: string,
+    userId: string,
+    updateDto: UpdateDeliveryAddressDto,
+  ) {
+    // Verify address exists and belongs to user
+    const existingAddress = await this.getDeliveryAddress(addressId, userId);
+
+    // If setting as default, unset other defaults (excluding current address)
+    if (updateDto.isDefault === true) {
+      await this.database.db
+        .update(deliveryAddresses)
+        .set({ isDefault: false })
+        .where(
+          and(
+            eq(deliveryAddresses.userId, userId),
+            ne(deliveryAddresses.id, addressId),
+            sql`${deliveryAddresses.deletedAt} IS NULL`,
+          ),
+        );
+    }
+
+    const [updatedAddress] = await this.database.db
+      .update(deliveryAddresses)
+      .set({
+        ...(updateDto.contactName && { contactName: updateDto.contactName }),
+        ...(updateDto.contactPhone && { contactPhone: updateDto.contactPhone }),
+        ...(updateDto.deliveryAddress && {
+          deliveryAddress: updateDto.deliveryAddress,
+        }),
+        ...(updateDto.deliveryCity && { deliveryCity: updateDto.deliveryCity }),
+        ...(updateDto.deliveryInstructions !== undefined && {
+          deliveryInstructions: updateDto.deliveryInstructions,
+        }),
+        ...(updateDto.isDefault !== undefined && {
+          isDefault: updateDto.isDefault,
+        }),
+      })
+      .where(eq(deliveryAddresses.id, addressId))
+      .returning();
+
+    return updatedAddress;
+  }
+
+  // Soft delete a delivery address
+  async deleteDeliveryAddress(addressId: string, userId: string) {
+    // Verify address exists and belongs to user
+    await this.getDeliveryAddress(addressId, userId);
+
+    // Soft delete by setting deletedAt
+    const [deletedAddress] = await this.database.db
+      .update(deliveryAddresses)
+      .set({ deletedAt: new Date() })
+      .where(eq(deliveryAddresses.id, addressId))
+      .returning();
+
+    return deletedAddress;
   }
 }

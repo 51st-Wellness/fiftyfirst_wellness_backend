@@ -21,6 +21,8 @@ import { UserService } from './user.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 import { ToggleUserStatusDto } from './dto/toggle-user-status.dto';
+import { CreateDeliveryAddressDto } from './dto/create-delivery-address.dto';
+import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { Roles, StrictRoles } from 'src/common/decorators/roles.decorator';
 import { User } from 'src/database/types';
@@ -215,6 +217,77 @@ export class UserController {
       {
         user: deletedUser,
       },
+    );
+  }
+
+  // Delivery Address CRUD endpoints
+
+  // Get all delivery addresses for current user
+  @Get('me/delivery-addresses')
+  async getMyDeliveryAddresses(@CurrentUser() user: User) {
+    const addresses = await this.userService.getDeliveryAddresses(user.id);
+    return ResponseDto.createSuccessResponse(
+      'Delivery addresses retrieved successfully',
+      { addresses },
+    );
+  }
+
+  // Get a single delivery address
+  @Get('me/delivery-addresses/:id')
+  async getMyDeliveryAddress(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ) {
+    const address = await this.userService.getDeliveryAddress(id, user.id);
+    return ResponseDto.createSuccessResponse(
+      'Delivery address retrieved successfully',
+      { address },
+    );
+  }
+
+  // Create a new delivery address
+  @Post('me/delivery-addresses')
+  async createDeliveryAddress(
+    @Body() createDto: CreateDeliveryAddressDto,
+    @CurrentUser() user: User,
+  ) {
+    const address = await this.userService.createDeliveryAddress(
+      user.id,
+      createDto,
+    );
+    return ResponseDto.createSuccessResponse(
+      'Delivery address created successfully',
+      { address },
+    );
+  }
+
+  // Update a delivery address
+  @Put('me/delivery-addresses/:id')
+  async updateDeliveryAddress(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateDeliveryAddressDto,
+    @CurrentUser() user: User,
+  ) {
+    const address = await this.userService.updateDeliveryAddress(
+      id,
+      user.id,
+      updateDto,
+    );
+    return ResponseDto.createSuccessResponse(
+      'Delivery address updated successfully',
+      { address },
+    );
+  }
+
+  // Delete a delivery address (soft delete)
+  @Delete('me/delivery-addresses/:id')
+  async deleteDeliveryAddress(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ) {
+    await this.userService.deleteDeliveryAddress(id, user.id);
+    return ResponseDto.createSuccessResponse(
+      'Delivery address deleted successfully',
     );
   }
 }
