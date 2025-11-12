@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { OrderService } from './order.service';
-import { OrderWithRelations } from './dto/order-response.dto';
+import { OrderSummaryDto, OrderWithRelations } from './dto/order-response.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/database/types';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
@@ -21,7 +21,7 @@ export class OrderController {
   @Get('me')
   async getMyOrders(
     @CurrentUser() user: User,
-  ): Promise<ResponseDto<{ orders: OrderWithRelations[] }>> {
+  ): Promise<ResponseDto<{ orders: OrderSummaryDto[] }>> {
     const orders = await this.orderService.getUserOrders(user.id);
 
     return ResponseDto.createSuccessResponse('Orders retrieved successfully', {
