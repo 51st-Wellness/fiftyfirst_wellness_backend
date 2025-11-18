@@ -323,6 +323,92 @@ export class ReviewService {
     }, new Map());
   }
 
+  // getReviewSummaryForProduct returns summary stats for a single product
+  async getReviewSummaryForProduct(
+    productId: string,
+  ): Promise<ReviewSummaryDto> {
+    const where = and(
+      eq(reviews.productId, productId),
+      eq(reviews.status, 'APPROVED'),
+    );
+
+    const counts = await this.database.db
+      .select({
+        rating: reviews.rating,
+        count: sql<number>`COUNT(${reviews.id})`,
+      })
+      .from(reviews)
+      .where(where)
+      .groupBy(reviews.rating);
+
+    const breakdown = buildRatingBreakdown(
+      counts.reduce<Record<number, number>>((acc, current) => {
+        acc[current.rating] = Number(current.count ?? 0);
+        return acc;
+      }, {}),
+    );
+
+    return buildReviewSummary(breakdown);
+  }
+
+  // getReviewSummariesForProducts returns summaries for multiple products
+  async getReviewSummariesForProducts(
+    productIds: string[],
+  ): Promise<Record<string, ReviewSummaryDto>> {
+    if (productIds.length === 0) {
+      return {};
+    }
+
+    const where = and(
+      inArray(reviews.productId, productIds),
+      eq(reviews.status, 'APPROVED'),
+    );
+
+    const counts = await this.database.db
+      .select({
+        productId: reviews.productId,
+        rating: reviews.rating,
+        count: sql<number>`COUNT(${reviews.id})`,
+      })
+      .from(reviews)
+      .where(where)
+      .groupBy(reviews.productId, reviews.rating);
+
+    const groupedByProduct = counts.reduce<
+      Record<string, Record<number, number>>
+    >((acc, row) => {
+      if (!acc[row.productId]) {
+        acc[row.productId] = {};
+      }
+      acc[row.productId][row.rating] = Number(row.count ?? 0);
+      return acc;
+    }, {});
+
+    const result: Record<string, ReviewSummaryDto> = {};
+    for (const productId of productIds) {
+      const breakdown = buildRatingBreakdown(groupedByProduct[productId] ?? {});
+      result[productId] = buildReviewSummary(breakdown);
+    }
+
+    return result;
+  }
+
+  // checkUserReviewForOrderItem checks if a user has reviewed a specific order item
+  async checkUserReviewForOrderItem(
+    userId: string,
+    orderItemId: string,
+  ): Promise<boolean> {
+    const existing = await this.database.db
+      .select({ id: reviews.id })
+      .from(reviews)
+      .where(
+        and(eq(reviews.orderItemId, orderItemId), eq(reviews.userId, userId)),
+      )
+      .limit(1);
+
+    return existing.length > 0;
+  }
+
   // fetchOrderItem pulls the order item with related metadata
   private async fetchOrderItem(orderItemId: string) {
     const rows = await this.database.db

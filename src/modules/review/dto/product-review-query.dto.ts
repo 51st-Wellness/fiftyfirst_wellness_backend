@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 // ProductReviewQueryDto validates pagination for public review listing
 export class ProductReviewQueryDto {
@@ -15,4 +15,11 @@ export class ProductReviewQueryDto {
   @Min(1)
   @Max(50)
   limit = 6;
+}
+
+// ProductReviewSummaryQueryDto validates request for multiple product summaries
+export class ProductReviewSummaryQueryDto {
+  @IsArray()
+  @IsUUID('4', { each: true })
+  productIds: string[];
 }
