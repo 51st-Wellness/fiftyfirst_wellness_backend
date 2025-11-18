@@ -204,6 +204,9 @@ export const products = sqliteTable('Product', {
     .$onUpdateFn(() => new Date()),
 });
 
+export const discountTypes = ['NONE', 'PERCENTAGE', 'FLAT'] as const;
+export type DiscountType = (typeof discountTypes)[number];
+
 export const storeItems = sqliteTable('StoreItem', {
   productId: text('productId').primaryKey().unique(),
   name: text('name').notNull(),
@@ -219,6 +222,15 @@ export const storeItems = sqliteTable('StoreItem', {
   isPublished: integer('isPublished', { mode: 'boolean' })
     .notNull()
     .default(true),
+  discountType: text('discountType', { enum: discountTypes })
+    .notNull()
+    .default('NONE'),
+  discountValue: real('discountValue').notNull().default(0),
+  discountActive: integer('discountActive', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+  discountStart: integer('discountStart', { mode: 'timestamp' }),
+  discountEnd: integer('discountEnd', { mode: 'timestamp' }),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -279,10 +291,11 @@ export const podcasts = sqliteTable('Podcast', {
 export const deliveryAddresses = sqliteTable('DeliveryAddress', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
-  contactName: text('contactName').notNull(),
+  recipientName: text('recipientName').notNull(),
   contactPhone: text('contactPhone').notNull(),
-  deliveryAddress: text('deliveryAddress').notNull(),
-  deliveryCity: text('deliveryCity').notNull(),
+  addressLine1: text('addressLine1').notNull(),
+  postTown: text('postTown').notNull(),
+  postcode: text('postcode').notNull().default('NOT SET'),
   deliveryInstructions: text('deliveryInstructions'),
   isDefault: integer('isDefault', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('createdAt', { mode: 'timestamp' })
@@ -292,6 +305,22 @@ export const deliveryAddresses = sqliteTable('DeliveryAddress', {
     .notNull()
     .$onUpdateFn(() => new Date()),
   deletedAt: integer('deletedAt', { mode: 'timestamp' }),
+});
+
+export const settings = sqliteTable('Setting', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  description: text('description'),
+  category: text('category'),
+  isEditable: integer('isEditable', { mode: 'boolean' })
+    .notNull()
+    .default(true),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+    .notNull()
+    .$onUpdateFn(() => new Date()),
 });
 
 export const orders = sqliteTable('Order', {

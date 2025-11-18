@@ -1,5 +1,8 @@
 import { createId } from '@paralleldrive/cuid2';
 
+const now = new Date();
+const nextMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
 // Create products first (required for store items)
 export const storeProducts = [
   {
@@ -40,9 +43,14 @@ export const storeItems = [
     stock: 50,
     display: { url: 'https://example.com/essential-oils.jpg', type: 'image' },
     images: ['https://example.com/oil1.jpg', 'https://example.com/oil2.jpg'],
-    tags: ['essential oils', 'aromatherapy', 'wellness', 'relaxation'],
+    categories: ['Aromatherapy', 'Relaxation'],
     isFeatured: true,
     isPublished: true,
+    discountType: 'PERCENTAGE',
+    discountValue: 15,
+    discountActive: true,
+    discountStart: now,
+    discountEnd: nextMonth,
   },
   {
     productId: storeProducts[1].id,
@@ -59,9 +67,12 @@ export const storeItems = [
       'https://example.com/cushion1.jpg',
       'https://example.com/cushion2.jpg',
     ],
-    tags: ['meditation', 'mindfulness', 'cushion', 'comfort'],
+    categories: ['Meditation', 'Comfort'],
     isFeatured: false,
     isPublished: true,
+    discountType: 'NONE',
+    discountValue: 0,
+    discountActive: false,
   },
   {
     productId: storeProducts[2].id,
@@ -78,9 +89,13 @@ export const storeItems = [
       'https://example.com/journal1.jpg',
       'https://example.com/journal2.jpg',
     ],
-    tags: ['journal', 'wellness', 'tracking', 'mindfulness'],
+    categories: ['Mindfulness', 'Journaling'],
     isFeatured: true,
     isPublished: true,
+    discountType: 'FLAT',
+    discountValue: 5,
+    discountActive: true,
+    discountStart: now,
   },
   {
     productId: storeProducts[3].id,
@@ -91,9 +106,12 @@ export const storeItems = [
     stock: 35,
     display: { url: 'https://example.com/yoga-mat.jpg', type: 'image' },
     images: ['https://example.com/mat1.jpg', 'https://example.com/mat2.jpg'],
-    tags: ['yoga', 'fitness', 'exercise', 'mat'],
+    categories: ['Yoga', 'Fitness'],
     isFeatured: false,
     isPublished: true,
+    discountType: 'PERCENTAGE',
+    discountValue: 10,
+    discountActive: true,
   },
   {
     productId: storeProducts[4].id,
@@ -103,8 +121,11 @@ export const storeItems = [
     stock: 75,
     display: { url: 'https://example.com/herbal-tea.jpg', type: 'image' },
     images: ['https://example.com/tea1.jpg', 'https://example.com/tea2.jpg'],
-    tags: ['herbal tea', 'organic', 'wellness', 'relaxation'],
+    categories: ['Tea', 'Relaxation'],
     isFeatured: true,
     isPublished: true,
+    discountType: 'NONE',
+    discountValue: 0,
+    discountActive: false,
   },
 ];

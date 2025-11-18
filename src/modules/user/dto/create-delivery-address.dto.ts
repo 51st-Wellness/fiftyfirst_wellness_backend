@@ -3,7 +3,7 @@ import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
 export class CreateDeliveryAddressDto {
   @IsString()
   @IsNotEmpty()
-  contactName: string;
+  recipientName: string;
 
   @IsString()
   @IsNotEmpty()
@@ -11,11 +11,15 @@ export class CreateDeliveryAddressDto {
 
   @IsString()
   @IsNotEmpty()
-  deliveryAddress: string;
+  addressLine1: string;
 
   @IsString()
   @IsNotEmpty()
-  deliveryCity: string;
+  postTown: string;
+
+  @IsString()
+  @IsNotEmpty()
+  postcode: string;
 
   @IsOptional()
   @IsString()

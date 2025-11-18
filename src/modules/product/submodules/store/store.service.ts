@@ -10,7 +10,7 @@ import { StoreItemQueryDto } from './dto/store-item-query.dto';
 import { StorageService } from 'src/util/storage/storage.service';
 import { DocumentType } from 'src/util/storage/constants';
 import { StructuredLoggerService } from 'src/lib/logging';
-import { StoreItem } from 'src/database/types';
+import { DiscountType, StoreItem } from 'src/database/types';
 
 @Injectable()
 export class StoreService {
@@ -41,6 +41,26 @@ export class StoreService {
       display: {},
       images: [],
     };
+
+    const normalizedCreateDiscount = this.computeDiscountPayload(
+      {
+        discountType: createStoreItemDto.discountType,
+        discountValue: createStoreItemDto.discountValue,
+        discountActive: createStoreItemDto.discountActive,
+        discountStart: createStoreItemDto.discountStart,
+        discountEnd: createStoreItemDto.discountEnd,
+      },
+      {
+        fallbackType: 'NONE',
+        fallbackActive: false,
+      },
+    );
+
+    storeItemData.discountType = normalizedCreateDiscount.discountType;
+    storeItemData.discountValue = normalizedCreateDiscount.discountValue;
+    storeItemData.discountActive = normalizedCreateDiscount.discountActive;
+    storeItemData.discountStart = normalizedCreateDiscount.discountStart;
+    storeItemData.discountEnd = normalizedCreateDiscount.discountEnd;
 
     // Handle display file upload (can be image or video)
     const displayFile = files.display;
@@ -164,6 +184,30 @@ export class StoreService {
 
     // Prepare update data
     const updateData: any = { ...updateStoreItemDto };
+
+    const discountUpdates = this.computeDiscountPayload(
+      {
+        discountType: updateStoreItemDto.discountType,
+        discountValue: updateStoreItemDto.discountValue,
+        discountActive: updateStoreItemDto.discountActive,
+        discountStart: updateStoreItemDto.discountStart,
+        discountEnd: updateStoreItemDto.discountEnd,
+      },
+      {
+        fallbackType: existingItem.discountType as DiscountType,
+        fallbackValue: existingItem.discountValue,
+        fallbackActive: existingItem.discountActive,
+        fallbackStart: existingItem.discountStart
+          ? new Date(existingItem.discountStart)
+          : null,
+        fallbackEnd: existingItem.discountEnd
+          ? new Date(existingItem.discountEnd)
+          : null,
+        allowPartial: true,
+      },
+    );
+
+    Object.assign(updateData, discountUpdates);
 
     // Handle display file upload and deletion of old display (can be image or video)
     const displayFile = files.display;
@@ -350,5 +394,106 @@ export class StoreService {
         filesCount: deletePromises.length,
       });
     }
+  }
+
+  private computeDiscountPayload(
+    payload: {
+      discountType?: DiscountType;
+      discountValue?: number;
+      discountActive?: boolean;
+      discountStart?: string | Date | null;
+      discountEnd?: string | Date | null;
+    },
+    options?: {
+      fallbackType?: DiscountType;
+      fallbackValue?: number;
+      fallbackActive?: boolean;
+      fallbackStart?: Date | null;
+      fallbackEnd?: Date | null;
+      allowPartial?: boolean;
+    },
+  ) {
+    const allowPartial = options?.allowPartial ?? false;
+    const effectiveType =
+      payload.discountType || options?.fallbackType || ('NONE' as DiscountType);
+    const baseValue =
+      payload.discountValue ??
+      (allowPartial ? options?.fallbackValue : (options?.fallbackValue ?? 0));
+    const normalizedValue =
+      effectiveType === 'PERCENTAGE'
+        ? Math.min(Math.max(0, baseValue ?? 0), 100)
+        : Math.max(0, baseValue ?? 0);
+
+    const shouldIncludeType =
+      !allowPartial || payload.discountType !== undefined;
+    const shouldIncludeValue =
+      !allowPartial ||
+      payload.discountValue !== undefined ||
+      payload.discountType !== undefined;
+    const shouldIncludeActive =
+      !allowPartial ||
+      payload.discountActive !== undefined ||
+      payload.discountType !== undefined;
+    const shouldIncludeStart =
+      !allowPartial || payload.discountStart !== undefined;
+    const shouldIncludeEnd = !allowPartial || payload.discountEnd !== undefined;
+
+    const resolvedActive =
+      effectiveType === 'NONE'
+        ? false
+        : (payload.discountActive ?? options?.fallbackActive ?? false);
+
+    const resolvedStart =
+      payload.discountStart === undefined
+        ? allowPartial
+          ? undefined
+          : (options?.fallbackStart ?? null)
+        : this.parseDateInput(payload.discountStart);
+
+    const resolvedEnd =
+      payload.discountEnd === undefined
+        ? allowPartial
+          ? undefined
+          : (options?.fallbackEnd ?? null)
+        : this.parseDateInput(payload.discountEnd);
+
+    const update: Record<string, any> = {};
+
+    if (shouldIncludeType) {
+      update.discountType = effectiveType;
+    }
+    if (shouldIncludeValue) {
+      update.discountValue =
+        effectiveType === 'NONE' ? 0 : Math.round(normalizedValue * 100) / 100;
+    }
+    if (shouldIncludeActive) {
+      update.discountActive = effectiveType === 'NONE' ? false : resolvedActive;
+    }
+    if (shouldIncludeStart) {
+      update.discountStart =
+        resolvedStart && resolvedStart instanceof Date ? resolvedStart : null;
+    }
+    if (shouldIncludeEnd) {
+      update.discountEnd =
+        resolvedEnd && resolvedEnd instanceof Date ? resolvedEnd : null;
+    }
+
+    if (
+      update.discountStart &&
+      update.discountEnd &&
+      update.discountEnd < update.discountStart
+    ) {
+      update.discountEnd = update.discountStart;
+    }
+
+    return update;
+  }
+
+  private parseDateInput(value?: string | Date | null): Date | null {
+    if (!value) {
+      return null;
+    }
+    const parsed = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 }

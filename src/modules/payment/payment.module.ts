@@ -6,9 +6,16 @@ import { DatabaseModule } from 'src/database/database.module';
 import { ConfigModule } from 'src/config/config.module';
 import { PaymentProviderBinding } from './providers/payment.factory';
 import { UserModule } from 'src/modules/user/user.module';
+import { SettingsModule } from 'src/modules/settings/settings.module';
 
 @Module({
-  imports: [SubscriptionModule, DatabaseModule, ConfigModule, UserModule],
+  imports: [
+    SubscriptionModule,
+    DatabaseModule,
+    ConfigModule,
+    UserModule,
+    SettingsModule,
+  ],
   controllers: [PaymentController],
   providers: [PaymentService, PaymentProviderBinding],
   exports: [PaymentService, SubscriptionModule],

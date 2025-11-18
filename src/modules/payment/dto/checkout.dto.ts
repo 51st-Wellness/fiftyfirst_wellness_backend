@@ -24,7 +24,7 @@ export class CartCheckoutDto {
   // Custom address fields (used when creating new address)
   @IsOptional()
   @IsString()
-  contactName?: string;
+  recipientName?: string;
 
   @IsOptional()
   @IsString()
@@ -32,11 +32,15 @@ export class CartCheckoutDto {
 
   @IsOptional()
   @IsString()
-  deliveryAddress?: string;
+  addressLine1?: string;
 
   @IsOptional()
   @IsString()
-  deliveryCity?: string;
+  postTown?: string;
+
+  @IsOptional()
+  @IsString()
+  postcode?: string;
 
   @IsOptional()
   @IsString()

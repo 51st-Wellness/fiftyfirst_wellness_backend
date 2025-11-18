@@ -3,7 +3,7 @@ import { IsString, IsOptional, IsBoolean } from 'class-validator';
 export class UpdateDeliveryAddressDto {
   @IsOptional()
   @IsString()
-  contactName?: string;
+  recipientName?: string;
 
   @IsOptional()
   @IsString()
@@ -11,11 +11,15 @@ export class UpdateDeliveryAddressDto {
 
   @IsOptional()
   @IsString()
-  deliveryAddress?: string;
+  addressLine1?: string;
 
   @IsOptional()
   @IsString()
-  deliveryCity?: string;
+  postTown?: string;
+
+  @IsOptional()
+  @IsString()
+  postcode?: string;
 
   @IsOptional()
   @IsString()

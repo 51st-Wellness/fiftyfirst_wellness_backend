@@ -29,6 +29,12 @@ import {
 import { generateId } from 'src/database/utils';
 import { User } from 'src/database/types';
 import { SQL } from 'drizzle-orm';
+import {
+  applyDiscountValue,
+  isDiscountCurrentlyActive,
+  shouldApplyGlobalDiscount,
+} from 'src/lib/helpers/discount.helper';
+import { SettingsService } from 'src/modules/settings/settings.service';
 
 // Payment metadata type - only store what's not available via database relationships
 export type PaymentMetadata =
@@ -88,6 +94,7 @@ export class PaymentService {
   constructor(
     private readonly database: DatabaseService, // Database service
     @Inject(PAYMENT_PROVIDER_TOKEN) private readonly provider: PaymentProvider, // Payment provider
+    private readonly settingsService: SettingsService,
   ) {}
 
   private getProviderType(): PaymentProviderEnum {
@@ -304,6 +311,9 @@ export class PaymentService {
   }
 
   private async getCartSummary(userId: string) {
+    const roundCurrency = (value: number) =>
+      Math.round((value + Number.EPSILON) * 100) / 100;
+
     // Fetch cart items with store item details in a single optimized query
     const cartWithDetails = await this.database.db
       .select({
@@ -316,6 +326,11 @@ export class PaymentService {
         storeItemStock: storeItems.stock,
         storeItemIsPublished: storeItems.isPublished,
         storeItemDisplay: storeItems.display,
+        storeItemDiscountType: storeItems.discountType,
+        storeItemDiscountValue: storeItems.discountValue,
+        storeItemDiscountActive: storeItems.discountActive,
+        storeItemDiscountStart: storeItems.discountStart,
+        storeItemDiscountEnd: storeItems.discountEnd,
       })
       .from(cartItems)
       .where(eq(cartItems.userId, userId))
@@ -358,21 +373,85 @@ export class PaymentService {
       );
     }
 
+    const now = new Date();
+    const globalDiscountConfig = await this.settingsService.getGlobalDiscount();
+
+    let baseSubtotal = 0;
+    let productDiscountTotal = 0;
+    let subtotalAfterProductDiscounts = 0;
+
     // Calculate order items data and totals
     const currency = 'USD'; // Default currency
-    const orderItemsData = validItems.map((item) => ({
-      productId: item.productId,
-      name: item.storeItemName,
-      quantity: item.quantity,
-      unitPrice: item.storeItemPrice,
-      lineTotal: item.quantity * item.storeItemPrice,
-      image: item.storeItemDisplay,
-    }));
+    const orderItemsData = validItems.map((item) => {
+      const baseUnitPrice = roundCurrency(item.storeItemPrice);
+      const baseLineTotal = roundCurrency(baseUnitPrice * item.quantity);
+      baseSubtotal += baseLineTotal;
 
-    const totalAmount = orderItemsData.reduce(
-      (sum, item) => sum + item.lineTotal,
-      0,
+      const discountActive = isDiscountCurrentlyActive(
+        {
+          type: item.storeItemDiscountType,
+          value: item.storeItemDiscountValue,
+          isActive: item.storeItemDiscountActive,
+          startsAt: item.storeItemDiscountStart,
+          endsAt: item.storeItemDiscountEnd,
+        },
+        now,
+      );
+
+      const discountResult = discountActive
+        ? applyDiscountValue(baseUnitPrice, {
+            type: item.storeItemDiscountType,
+            value: item.storeItemDiscountValue,
+          })
+        : { finalAmount: baseUnitPrice, discountAmount: 0 };
+
+      const discountedUnitPrice = roundCurrency(discountResult.finalAmount);
+      const unitDiscountAmount = roundCurrency(discountResult.discountAmount);
+      const lineDiscountAmount = roundCurrency(
+        unitDiscountAmount * item.quantity,
+      );
+      const discountedLineTotal = roundCurrency(
+        discountedUnitPrice * item.quantity,
+      );
+
+      productDiscountTotal += lineDiscountAmount;
+      subtotalAfterProductDiscounts += discountedLineTotal;
+
+      return {
+        productId: item.productId,
+        name: item.storeItemName,
+        quantity: item.quantity,
+        unitPrice: discountedUnitPrice,
+        lineTotal: discountedLineTotal,
+        baseUnitPrice,
+        baseLineTotal,
+        image: item.storeItemDisplay,
+        discount: {
+          isActive: discountActive,
+          type: discountActive ? item.storeItemDiscountType : 'NONE',
+          value: discountActive ? item.storeItemDiscountValue : 0,
+          amountPerUnit: discountActive ? unitDiscountAmount : 0,
+          totalAmount: discountActive ? lineDiscountAmount : 0,
+        },
+      };
+    });
+
+    const globalDiscountApplies = shouldApplyGlobalDiscount(
+      globalDiscountConfig,
+      subtotalAfterProductDiscounts,
     );
+
+    let globalDiscountAmount = 0;
+    let totalAmount = roundCurrency(subtotalAfterProductDiscounts);
+
+    if (globalDiscountApplies) {
+      const globalPricing = applyDiscountValue(subtotalAfterProductDiscounts, {
+        type: globalDiscountConfig.type,
+        value: globalDiscountConfig.value,
+      });
+      globalDiscountAmount = roundCurrency(globalPricing.discountAmount);
+      totalAmount = roundCurrency(globalPricing.finalAmount);
+    }
 
     // Prepare cart items data for metadata
     const cartItemsData = validItems.map((item) => ({
@@ -382,6 +461,33 @@ export class PaymentService {
       userId: userId,
     }));
 
+    const totalQuantity = orderItemsData.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
+
+    const pricingSummary = {
+      currency,
+      baseSubtotal: roundCurrency(baseSubtotal),
+      subtotalAfterProductDiscounts: roundCurrency(
+        subtotalAfterProductDiscounts,
+      ),
+      productDiscountTotal: roundCurrency(productDiscountTotal),
+      globalDiscountTotal: globalDiscountAmount,
+      totalDiscount: roundCurrency(productDiscountTotal + globalDiscountAmount),
+      grandTotal: totalAmount,
+    };
+
+    const discountSummary = {
+      productDiscountTotal: roundCurrency(productDiscountTotal),
+      globalDiscount: {
+        ...globalDiscountConfig,
+        applied: globalDiscountApplies,
+        amountApplied: globalDiscountAmount,
+      },
+      totalDiscount: pricingSummary.totalDiscount,
+    };
+
     return {
       orderItems: orderItemsData,
       totalAmount,
@@ -390,13 +496,19 @@ export class PaymentService {
       itemCount: validItems.length,
       summary: {
         subtotal: totalAmount,
+        subtotalBeforeDiscounts: pricingSummary.baseSubtotal,
+        subtotalAfterProductDiscounts:
+          pricingSummary.subtotalAfterProductDiscounts,
+        productDiscountTotal: pricingSummary.productDiscountTotal,
+        globalDiscountTotal: pricingSummary.globalDiscountTotal,
+        discountTotal: pricingSummary.totalDiscount,
         currency,
         itemCount: validItems.length,
-        totalQuantity: orderItemsData.reduce(
-          (sum, item) => sum + item.quantity,
-          0,
-        ),
+        totalQuantity,
       },
+      pricing: pricingSummary,
+      discounts: discountSummary,
+      globalDiscount: discountSummary.globalDiscount,
     };
   }
 
@@ -464,10 +576,11 @@ export class PaymentService {
 
       deliveryAddressId = existingAddress.id;
     } else if (
-      cartCheckoutDto.contactName &&
+      cartCheckoutDto.recipientName &&
       cartCheckoutDto.contactPhone &&
-      cartCheckoutDto.deliveryAddress &&
-      cartCheckoutDto.deliveryCity
+      cartCheckoutDto.addressLine1 &&
+      cartCheckoutDto.postTown &&
+      cartCheckoutDto.postcode
     ) {
       // Create new delivery address if saveAddress is true
       if (cartCheckoutDto.saveAddress) {
@@ -475,10 +588,11 @@ export class PaymentService {
         await this.database.db.insert(deliveryAddresses).values({
           id: newAddressId,
           userId,
-          contactName: cartCheckoutDto.contactName,
+          recipientName: cartCheckoutDto.recipientName,
           contactPhone: cartCheckoutDto.contactPhone,
-          deliveryAddress: cartCheckoutDto.deliveryAddress,
-          deliveryCity: cartCheckoutDto.deliveryCity,
+          addressLine1: cartCheckoutDto.addressLine1,
+          postTown: cartCheckoutDto.postTown,
+          postcode: cartCheckoutDto.postcode,
           deliveryInstructions: cartCheckoutDto.deliveryInstructions,
           isDefault: false,
         });
@@ -489,10 +603,11 @@ export class PaymentService {
         await this.database.db.insert(deliveryAddresses).values({
           id: tempAddressId,
           userId,
-          contactName: cartCheckoutDto.contactName,
+          recipientName: cartCheckoutDto.recipientName,
           contactPhone: cartCheckoutDto.contactPhone,
-          deliveryAddress: cartCheckoutDto.deliveryAddress,
-          deliveryCity: cartCheckoutDto.deliveryCity,
+          addressLine1: cartCheckoutDto.addressLine1,
+          postTown: cartCheckoutDto.postTown,
+          postcode: cartCheckoutDto.postcode,
           deliveryInstructions: cartCheckoutDto.deliveryInstructions,
           isDefault: false,
         });
@@ -1291,10 +1406,11 @@ export class PaymentService {
         createdAt: orders.createdAt,
         updatedAt: orders.updatedAt,
         // Delivery address fields
-        deliveryContactName: deliveryAddresses.contactName,
+        deliveryContactName: deliveryAddresses.recipientName,
         deliveryContactPhone: deliveryAddresses.contactPhone,
-        deliveryAddress: deliveryAddresses.deliveryAddress,
-        deliveryCity: deliveryAddresses.deliveryCity,
+        deliveryAddressLine1: deliveryAddresses.addressLine1,
+        deliveryPostTown: deliveryAddresses.postTown,
+        deliveryPostcode: deliveryAddresses.postcode,
         deliveryInstructions: deliveryAddresses.deliveryInstructions,
       })
       .from(orders)
@@ -1347,10 +1463,11 @@ export class PaymentService {
         deliveryAddress: order.deliveryAddressId
           ? {
               id: order.deliveryAddressId,
-              contactName: order.deliveryContactName,
+              recipientName: order.deliveryContactName,
               contactPhone: order.deliveryContactPhone,
-              deliveryAddress: order.deliveryAddress,
-              deliveryCity: order.deliveryCity,
+              addressLine1: order.deliveryAddressLine1,
+              postTown: order.deliveryPostTown,
+              postcode: order.deliveryPostcode,
               deliveryInstructions: order.deliveryInstructions,
             }
           : null,

@@ -307,10 +307,11 @@ export class UserService {
       .values({
         id: addressId,
         userId,
-        contactName: createDto.contactName,
+        recipientName: createDto.recipientName,
         contactPhone: createDto.contactPhone,
-        deliveryAddress: createDto.deliveryAddress,
-        deliveryCity: createDto.deliveryCity,
+        addressLine1: createDto.addressLine1,
+        postTown: createDto.postTown,
+        postcode: createDto.postcode,
         deliveryInstructions: createDto.deliveryInstructions,
         isDefault: createDto.isDefault ?? false,
       })
@@ -345,12 +346,15 @@ export class UserService {
     const [updatedAddress] = await this.database.db
       .update(deliveryAddresses)
       .set({
-        ...(updateDto.contactName && { contactName: updateDto.contactName }),
-        ...(updateDto.contactPhone && { contactPhone: updateDto.contactPhone }),
-        ...(updateDto.deliveryAddress && {
-          deliveryAddress: updateDto.deliveryAddress,
+        ...(updateDto.recipientName && {
+          recipientName: updateDto.recipientName,
         }),
-        ...(updateDto.deliveryCity && { deliveryCity: updateDto.deliveryCity }),
+        ...(updateDto.contactPhone && { contactPhone: updateDto.contactPhone }),
+        ...(updateDto.addressLine1 && {
+          addressLine1: updateDto.addressLine1,
+        }),
+        ...(updateDto.postTown && { postTown: updateDto.postTown }),
+        ...(updateDto.postcode && { postcode: updateDto.postcode }),
         ...(updateDto.deliveryInstructions !== undefined && {
           deliveryInstructions: updateDto.deliveryInstructions,
         }),

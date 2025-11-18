@@ -14,6 +14,7 @@ import { AppCacheModule } from './util/cache/cache.module';
 import { PodcastModule } from './modules/podcast/podcast.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { SubscriptionModule } from './modules/subscription/subscription.module';
     PodcastModule,
     StatsModule,
     SubscriptionModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

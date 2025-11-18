@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "67dffea9-b013-4a3f-9d96-8d426ffb817d",
-  "prevId": "7003d257-8b1b-4821-84c2-f5df811e5b3c",
+  "id": "21140923-ee16-4697-96e1-e902eba83d44",
+  "prevId": "67dffea9-b013-4a3f-9d96-8d426ffb817d",
   "tables": {
     "AIConversation": {
       "name": "AIConversation",
@@ -262,8 +262,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "contactName": {
-          "name": "contactName",
+        "recipientName": {
+          "name": "recipientName",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -276,15 +276,22 @@
           "notNull": true,
           "autoincrement": false
         },
-        "deliveryAddress": {
-          "name": "deliveryAddress",
+        "addressLine1": {
+          "name": "addressLine1",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "deliveryCity": {
-          "name": "deliveryCity",
+        "postTown": {
+          "name": "postTown",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "postcode": {
+          "name": "postcode",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -375,7 +382,9 @@
       "indexes": {
         "EmailVerificationOTP_userId_unique": {
           "name": "EmailVerificationOTP_userId_unique",
-          "columns": ["userId"],
+          "columns": [
+            "userId"
+          ],
           "isUnique": true
         }
       },
@@ -538,7 +547,9 @@
       "indexes": {
         "PasswordResetOTP_userId_unique": {
           "name": "PasswordResetOTP_userId_unique",
-          "columns": ["userId"],
+          "columns": [
+            "userId"
+          ],
           "isUnique": true
         }
       },
@@ -728,17 +739,23 @@
       "indexes": {
         "Podcast_productId_unique": {
           "name": "Podcast_productId_unique",
-          "columns": ["productId"],
+          "columns": [
+            "productId"
+          ],
           "isUnique": true
         },
         "Podcast_muxAssetId_unique": {
           "name": "Podcast_muxAssetId_unique",
-          "columns": ["muxAssetId"],
+          "columns": [
+            "muxAssetId"
+          ],
           "isUnique": true
         },
         "Podcast_muxPlaybackId_unique": {
           "name": "Podcast_muxPlaybackId_unique",
-          "columns": ["muxPlaybackId"],
+          "columns": [
+            "muxPlaybackId"
+          ],
           "isUnique": true
         }
       },
@@ -892,17 +909,23 @@
       "indexes": {
         "Programme_productId_unique": {
           "name": "Programme_productId_unique",
-          "columns": ["productId"],
+          "columns": [
+            "productId"
+          ],
           "isUnique": true
         },
         "Programme_muxAssetId_unique": {
           "name": "Programme_muxAssetId_unique",
-          "columns": ["muxAssetId"],
+          "columns": [
+            "muxAssetId"
+          ],
           "isUnique": true
         },
         "Programme_muxPlaybackId_unique": {
           "name": "Programme_muxPlaybackId_unique",
-          "columns": ["muxPlaybackId"],
+          "columns": [
+            "muxPlaybackId"
+          ],
           "isUnique": true
         }
       },
@@ -948,6 +971,66 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "Setting": {
+      "name": "Setting",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isEditable": {
+          "name": "isEditable",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
         },
         "createdAt": {
           "name": "createdAt",
@@ -1046,6 +1129,44 @@
           "autoincrement": false,
           "default": true
         },
+        "discountType": {
+          "name": "discountType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'NONE'"
+        },
+        "discountValue": {
+          "name": "discountValue",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "discountActive": {
+          "name": "discountActive",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "discountStart": {
+          "name": "discountStart",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "discountEnd": {
+          "name": "discountEnd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "createdAt": {
           "name": "createdAt",
           "type": "integer",
@@ -1064,7 +1185,9 @@
       "indexes": {
         "StoreItem_productId_unique": {
           "name": "StoreItem_productId_unique",
-          "columns": ["productId"],
+          "columns": [
+            "productId"
+          ],
           "isUnique": true
         }
       },
@@ -1383,12 +1506,16 @@
       "indexes": {
         "User_email_unique": {
           "name": "User_email_unique",
-          "columns": ["email"],
+          "columns": [
+            "email"
+          ],
           "isUnique": true
         },
         "User_googleId_unique": {
           "name": "User_googleId_unique",
-          "columns": ["googleId"],
+          "columns": [
+            "googleId"
+          ],
           "isUnique": true
         }
       },
@@ -1403,7 +1530,11 @@
   "_meta": {
     "schemas": {},
     "tables": {},
-    "columns": {}
+    "columns": {
+      "\"DeliveryAddress\".\"contactName\"": "\"DeliveryAddress\".\"recipientName\"",
+      "\"DeliveryAddress\".\"deliveryAddress\"": "\"DeliveryAddress\".\"addressLine1\"",
+      "\"DeliveryAddress\".\"deliveryCity\"": "\"DeliveryAddress\".\"postTown\""
+    }
   },
   "internal": {
     "indexes": {}

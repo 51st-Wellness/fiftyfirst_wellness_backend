@@ -17,6 +17,7 @@ import { seedStoreItems } from 'src/database/seeders/store-items.seeder';
 import { seedProgrammes } from 'src/database/seeders/programmes.seeder';
 import { seedPodcasts } from 'src/database/seeders/podcasts.seeder';
 import { seedBlogs } from 'src/database/seeders/blogs.seeder';
+import { seedSettings } from 'src/database/seeders/settings.seeder';
 
 // Available seeders map
 const SEEDERS = {
@@ -27,6 +28,7 @@ const SEEDERS = {
   programmes: seedProgrammes,
   podcasts: seedPodcasts,
   blogs: seedBlogs,
+  settings: seedSettings,
   all: async (db: Database) => {
     console.log('🌱 Seeding all entities...');
     await seedUsers(db);
@@ -36,6 +38,7 @@ const SEEDERS = {
     await seedProgrammes(db);
     await seedPodcasts(db);
     await seedBlogs(db);
+    await seedSettings(db);
     console.log('✅ All entities seeded successfully!');
   },
 } as const;

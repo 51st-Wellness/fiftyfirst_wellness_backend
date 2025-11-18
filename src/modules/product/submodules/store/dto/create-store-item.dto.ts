@@ -5,9 +5,11 @@ import {
   IsBoolean,
   IsArray,
   Min,
-  Max,
+  IsEnum,
+  IsISO8601,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { DiscountType } from 'src/database/schema';
 
 export class CreateStoreItemDto {
   @IsString()
@@ -38,4 +40,27 @@ export class CreateStoreItemDto {
   @IsString({ each: true })
   @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   categories?: string[];
+
+  @IsOptional()
+  @IsEnum(['NONE', 'PERCENTAGE', 'FLAT'])
+  discountType?: DiscountType;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discountValue?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  discountActive?: boolean;
+
+  @IsOptional()
+  @IsISO8601()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  discountStart?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  discountEnd?: string;
 }
