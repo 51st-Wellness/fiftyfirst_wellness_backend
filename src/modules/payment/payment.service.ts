@@ -549,6 +549,7 @@ export class PaymentService {
       totalAmount,
       currency,
       cartItems,
+      pricing,
     } = await this.getCartSummary(userId);
 
     // Handle delivery address
@@ -639,12 +640,15 @@ export class PaymentService {
     );
 
     // Initialize payment with provider
+    const providerLineItems =
+      (pricing?.globalDiscountTotal ?? 0) > 0 ? undefined : orderItemsData;
+
     const paymentInit = await this.provider.initializePayment({
       orderId: orderId,
       amount: totalAmount,
       currency,
       description: description || 'Store Checkout',
-      items: orderItemsData,
+      items: providerLineItems,
       userId,
       paymentId,
     });
