@@ -15,8 +15,16 @@ import { CategoryExistsConstraint } from 'src/modules/product/submodules/categor
 import { StoreRepository } from 'src/modules/product/submodules/store/store.repository';
 import { ProgrammeRepository } from 'src/modules/product/submodules/programme/programme.repository';
 import { PodcastRepository } from 'src/modules/product/submodules/podcast/podcast.repository';
+import { ReviewModule } from '../review/review.module';
+
 @Module({
-  imports: [DatabaseModule, ConfigModule, UserModule, StorageModule],
+  imports: [
+    DatabaseModule,
+    ConfigModule,
+    UserModule,
+    StorageModule,
+    ReviewModule,
+  ],
   controllers: [
     ProgrammeController,
     PodcastController,

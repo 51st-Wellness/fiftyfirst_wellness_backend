@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Payment Status Update - Fifty Firsts Wellness</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #374151;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+        }
+
+        .email-wrapper {
+            width: 100%;
+            background-color: #f9fafb;
+            padding: 20px 0;
+        }
+
+        .email-container {
+            max-width: 720px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(15, 23, 42, 0.1);
+        }
+
+        <% 
+          const variantColors = {
+            success: '#10b981',
+            warning: '#f59e0b',
+            danger: '#ef4444',
+            info: '#0ea5e9'
+          };
+          let headerColor = variantColors[statusVariant];
+          if (!headerColor) {
+            headerColor = '#00969b';
+          }
+        %>
+
+        .email-header {
+            background-color: <%= headerColor %>;
+            color: #ffffff;
+            padding: 36px 42px;
+            text-align: center;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .tagline {
+            font-size: 15px;
+            opacity: 0.92;
+        }
+
+        .email-content {
+            padding: 42px;
+        }
+
+        .content-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 10px;
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 16px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            background-color: rgba(0, 0, 0, 0.04);
+            margin-bottom: 24px;
+            color: #111827;
+        }
+
+        .content-text {
+            font-size: 16px;
+            color: #4b5563;
+            margin-bottom: 20px;
+            line-height: 1.7;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px;
+            margin: 28px 0;
+        }
+
+        .summary-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 16px;
+            background-color: #f9fafb;
+        }
+
+        .summary-label {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .summary-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .info-box {
+            border-radius: 10px;
+            padding: 22px;
+            margin: 24px 0;
+            background-color: #ecfdf5;
+            border: 1px solid #d1fae5;
+            color: #065f46;
+        }
+
+        .info-box.warning {
+            background-color: #fff7ed;
+            border-color: #fed7aa;
+            color: #92400e;
+        }
+
+        .info-box.danger {
+            background-color: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0 32px;
+        }
+
+        .items-table th,
+        .items-table td {
+            padding: 12px 14px;
+            text-align: left;
+        }
+
+        .items-table th {
+            background-color: #f3f4f6;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+        }
+
+        .items-table tr:nth-child(even) {
+            background-color: #fff;
+        }
+
+        .items-table tr + tr {
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .btn-container {
+            text-align: center;
+            margin: 36px 0 12px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 15px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 999px;
+            color: #ffffff;
+            background-color: <%= headerColor %>;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .support-box {
+            background-color: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .support-title {
+            font-weight: 600;
+            color: #075985;
+        }
+
+        .email-footer {
+            background-color: #111827;
+            color: #d1d5db;
+            padding: 32px 40px;
+            text-align: center;
+        }
+
+        .footer-text {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .footer-link {
+            color: #9ca3af;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 13px;
+        }
+
+        @media only screen and (max-width: 640px) {
+            .email-wrapper {
+                padding: 10px;
+            }
+
+            .email-content {
+                padding: 24px;
+            }
+
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="email-header">
+                <div class="logo">Fifty Firsts Wellness</div>
+                <div class="tagline"><%= statusTitle %></div>
+            </div>
+
+            <div class="email-content">
+                <div class="content-title">
+                    <%= statusDescription %>
+                </div>
+
+                <div class="status-chip">
+                    Status: <span style="margin-left: 6px;"><%= status %></span>
+                </div>
+
+                <p class="content-text">
+                    Hi <strong><%= firstName %></strong>,<br/>
+                    <%= reason %>
+                </p>
+
+                <% if (nextSteps) { %>
+                    <% 
+                      let infoBoxClass = 'info-box';
+                      if (statusVariant === 'danger') {
+                        infoBoxClass += ' danger';
+                      } else if (statusVariant === 'warning') {
+                        infoBoxClass += ' warning';
+                      }
+                    %>
+                    <div class="<%= infoBoxClass %>">
+                        <strong>Next steps</strong><br/>
+                        <%= nextSteps %>
+                    </div>
+                <% } %>
+
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-label">Amount</div>
+                        <div class="summary-value"><%= currency %> <%= Number(amount).toFixed(2) %></div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Payment Type</div>
+                        <div class="summary-value"><%= paymentType %></div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Reference</div>
+                        <div class="summary-value"><%= paymentId %></div>
+                    </div>
+                    <% if (orderId) { %>
+                        <div class="summary-card">
+                            <div class="summary-label">Order ID</div>
+                            <div class="summary-value"><%= orderId %></div>
+                        </div>
+                    <% } %>
+                    <% if (subscriptionName) { %>
+                        <div class="summary-card">
+                            <div class="summary-label">Subscription</div>
+                            <div class="summary-value"><%= subscriptionName %></div>
+                        </div>
+                    <% } %>
+                </div>
+
+                <% if (items && items.length) { %>
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Qty</th>
+                                <th align="right">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% items.forEach(function(item) { %>
+                                <tr>
+                                    <td><%= item.name %></td>
+                                    <td><%= item.quantity %></td>
+                                    <td align="right"><%= currency %> <%= Number(item.price).toFixed(2) %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                <% } %>
+
+                <div class="btn-container">
+                    <a href="<%= ctaUrl %>" class="btn">
+                        <%= ctaLabel %>
+                    </a>
+                </div>
+
+                <div class="support-box">
+                    <div class="support-title">Need a hand?</div>
+                    <p>
+                        Our team is here for you. Reach us at 
+                        <a href="mailto:<%= supportEmail %>">
+                            <%= supportEmail %>
+                        </a>
+                    </p>
+                </div>
+            </div>
+
+            <div class="email-footer">
+                <div class="footer-text">
+                    You're receiving this email because you have a Fifty Firsts Wellness account.
+                </div>
+                <div>
+                    <a href="<%= frontendUrl %>" class="footer-link">Visit Dashboard</a>
+                    <a href="<%= frontendUrl %>/support" class="footer-link">Support Center</a>
+                </div>
+                <div style="font-size: 12px; color: #9ca3af; margin-top: 18px;">
+                    © <%= new Date().getFullYear() %> Fifty Firsts Wellness. All rights reserved.
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

@@ -43,6 +43,9 @@ export type CategoryService = (typeof categoryServices)[number];
 export const pricingModels = ['ONE_TIME', 'SUBSCRIPTION', 'FREE'] as const;
 export type PricingModel = (typeof pricingModels)[number];
 
+export const reviewStatuses = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+export type ReviewStatus = (typeof reviewStatuses)[number];
+
 // Enum objects for backwards compatibility with Prisma code
 export const UserRole = {
   USER: 'USER' as const,
@@ -87,6 +90,12 @@ export const PricingModel = {
   ONE_TIME: 'ONE_TIME' as const,
   SUBSCRIPTION: 'SUBSCRIPTION' as const,
   FREE: 'FREE' as const,
+};
+
+export const ReviewStatus = {
+  PENDING: 'PENDING' as const,
+  APPROVED: 'APPROVED' as const,
+  REJECTED: 'REJECTED' as const,
 };
 
 // Core tables
@@ -352,7 +361,10 @@ export const reviews = sqliteTable('Review', {
   id: text('id').primaryKey(),
   productId: text('productId').notNull(),
   userId: text('userId').notNull(),
-  rating: integer('rating').notNull(), // 1-10
+  orderId: text('orderId').notNull().default('LEGACY_ORDER_LINK'),
+  orderItemId: text('orderItemId').notNull().default('LEGACY_ORDER_ITEM_LINK'),
+  status: text('status', { enum: reviewStatuses }).notNull().default('PENDING'),
+  rating: integer('rating').notNull(), // 1-5 scale
   comment: text('comment'),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()

@@ -6,12 +6,22 @@ import {
   DeliveryAddress,
   Payment,
 } from 'src/database/types';
+import { ReviewStatus } from 'src/database/schema';
 
 // Order item with product details
 export interface OrderItemWithProduct extends OrderItem {
   product: Product & {
     storeItem?: StoreItem | null;
   };
+  review?: OrderItemReviewDto | null;
+}
+
+export interface OrderItemReviewDto {
+  id: string;
+  rating: number;
+  status: ReviewStatus;
+  comment: string | null;
+  createdAt: Date;
 }
 
 // Order with all relations

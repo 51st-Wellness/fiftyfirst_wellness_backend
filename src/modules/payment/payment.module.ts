@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SubscriptionModule } from './submodules/subscriptions/subscription.module';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
@@ -13,7 +13,7 @@ import { SettingsModule } from 'src/modules/settings/settings.module';
     SubscriptionModule,
     DatabaseModule,
     ConfigModule,
-    UserModule,
+    forwardRef(() => UserModule),
     SettingsModule,
   ],
   controllers: [PaymentController],

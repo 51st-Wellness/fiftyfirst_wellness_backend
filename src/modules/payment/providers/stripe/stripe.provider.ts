@@ -208,6 +208,85 @@ export class StripeProvider implements PaymentProvider {
     }
   }
 
+  // Verify payment status directly from Stripe API using Checkout Session ID
+  async verifyPaymentStatus(
+    providerRef: string,
+  ): Promise<PaymentCaptureResult> {
+    try {
+      // Retrieve checkout session with expanded payment_intent and subscription
+      const session = await this.stripe.checkout.sessions.retrieve(
+        providerRef,
+        {
+          expand: ['payment_intent', 'subscription', 'line_items'],
+        },
+      );
+
+      // For one-time payments
+      if (session.mode === 'payment') {
+        const paymentIntent =
+          session.payment_intent as Stripe.PaymentIntent | null;
+
+        if (!paymentIntent) {
+          return { status: 'PENDING' };
+        }
+
+        // Check both session payment_status and payment_intent status
+        const sessionPaid = session.payment_status === 'paid';
+        const intentSucceeded = paymentIntent.status === 'succeeded';
+
+        if (sessionPaid && intentSucceeded) {
+          return {
+            status: 'PAID',
+            transactionId: paymentIntent.id,
+          };
+        }
+
+        // Check for failed/cancelled states
+        if (paymentIntent.status === 'canceled') {
+          return { status: 'PENDING' }; // Will be handled as CANCELLED by caller
+        }
+
+        if (paymentIntent.status === 'payment_failed') {
+          return { status: 'FAILED' };
+        }
+
+        return { status: 'PENDING' };
+      }
+
+      // For subscription payments
+      if (session.mode === 'subscription') {
+        const subscription = session.subscription as Stripe.Subscription | null;
+
+        if (!subscription) {
+          return { status: 'PENDING' };
+        }
+
+        const isActive =
+          subscription.status === 'active' ||
+          subscription.status === 'trialing';
+
+        if (isActive) {
+          return {
+            status: 'PAID',
+            transactionId: subscription.id,
+          };
+        }
+
+        if (subscription.status === 'canceled') {
+          return { status: 'PENDING' }; // Will be handled as CANCELLED by caller
+        }
+
+        return { status: 'PENDING' };
+      }
+
+      return { status: 'PENDING' };
+    } catch (error) {
+      console.error('Error verifying payment status from Stripe:', error);
+      // If session not found or other error, return PENDING to avoid false positives
+      return { status: 'PENDING' };
+    }
+  }
+
   parseWebhook(body: any): WebhookResult {
     // Handle both raw string/buffer and parsed JSON
     let event: Stripe.Event;

@@ -51,6 +51,10 @@ export class PlainTextGenerator {
       case EmailType.SUBSCRIPTION_RENEWAL:
         return this.generateSubscriptionRenewalPlainText(baseContext);
 
+      // Payments
+      case EmailType.PAYMENT_STATUS_UPDATE:
+        return this.generatePaymentStatusUpdatePlainText(baseContext);
+
       // Contact form
       case EmailType.CONTACT_FORM_SUBMISSION:
         return this.generateContactFormSubmissionPlainText(baseContext);
@@ -352,6 +356,48 @@ The Fifty Firsts Wellness Team
 
 ---
 Contact us at ${context.companyEmail || 'support@fiftyfirstswellness.com'} for assistance.
+    `.trim();
+  }
+
+  // Payment status update email
+  private static generatePaymentStatusUpdatePlainText(context: any): string {
+    const items =
+      Array.isArray(context.items) && context.items.length
+        ? context.items
+            .map(
+              (item: any) =>
+                `- ${item.name || 'Item'} x${item.quantity || 1} (${context.currency || 'USD'} ${Number(item.price || 0).toFixed(2)})`,
+            )
+            .join('\n')
+        : '';
+
+    return `
+Payment Status Update - ${context.paymentType || 'Order'}
+
+Hello ${context.firstName || 'there'},
+
+${context.statusTitle || 'Here is the latest on your payment.'}
+
+Status: ${context.status || 'PENDING'}
+Amount: ${context.currency || 'USD'} ${Number(context.amount || 0).toFixed(2)}
+Reference: ${context.paymentId || context.providerRef || 'N/A'}
+${context.orderId ? `Order ID: ${context.orderId}` : ''}
+${context.subscriptionName ? `Subscription: ${context.subscriptionName}` : ''}
+
+${context.reason || ''}
+
+${context.nextSteps || ''}
+
+${items ? `Items:\n${items}\n` : ''}
+
+Track or manage this payment here: ${
+      context.ctaUrl ||
+      context.dashboardUrl ||
+      context.frontendUrl ||
+      'https://fiftyfirstswellness.com'
+    }
+
+Need help? Contact us at ${context.supportEmail || context.companyEmail || 'support@fiftyfirstswellness.com'}.
     `.trim();
   }
 

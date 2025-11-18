@@ -29,6 +29,10 @@ export const EmailSubjects: Record<EmailType, string> = {
   [EmailType.WAITLIST_SUBSCRIPTION]:
     'Welcome to Our Waitlist - Stay Inspired & Informed!',
 
+  // Payments
+  [EmailType.PAYMENT_STATUS_UPDATE]:
+    'Payment Status Update - Fifty Firsts Wellness',
+
   // Contact form
   [EmailType.CONTACT_FORM_SUBMISSION]:
     'New Contact Form Submission - Fifty Firsts Wellness',

@@ -15,6 +15,7 @@ import { PodcastModule } from './modules/podcast/podcast.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { ReviewModule } from './modules/review/review.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     StatsModule,
     SubscriptionModule,
     SettingsModule,
+    ReviewModule,
   ],
   controllers: [AppController],
   providers: [AppService],

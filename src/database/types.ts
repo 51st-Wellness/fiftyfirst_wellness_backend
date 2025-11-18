@@ -20,6 +20,7 @@ import {
   deliveryAddresses,
   settings,
   DiscountType,
+  ReviewStatus,
 } from './schema';
 
 // Infer types from Drizzle schema
@@ -84,7 +85,7 @@ export type NewDeliveryAddress = typeof deliveryAddresses.$inferInsert;
 export type Setting = typeof settings.$inferSelect;
 export type NewSetting = typeof settings.$inferInsert;
 
-export { DiscountType };
+export { DiscountType, ReviewStatus };
 
 // Complex types for relations
 export type UserWithRelations = User & {

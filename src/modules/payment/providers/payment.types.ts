@@ -47,6 +47,9 @@ export interface PaymentProvider {
   fetchPaymentIntentMetadata?(
     paymentIntentId: string,
   ): Promise<Record<string, any> | null>;
+
+  // Verify payment status directly from provider API (fallback for missed webhooks)
+  verifyPaymentStatus?(providerRef: string): Promise<PaymentCaptureResult>;
 }
 
 export const PAYMENT_PROVIDER_TOKEN = 'PAYMENT_PROVIDER_TOKEN';

@@ -23,6 +23,9 @@ export const EmailTemplates: Record<EmailType, string> = {
   // Subscription emails
   [EmailType.SUBSCRIPTION_RENEWAL]: 'subscription-renewal.ejs',
 
+  // Payments
+  [EmailType.PAYMENT_STATUS_UPDATE]: 'payment-status-update.ejs',
+
   // Contact form
   [EmailType.CONTACT_FORM_SUBMISSION]: 'contact-form-submission.ejs',
 } as const;

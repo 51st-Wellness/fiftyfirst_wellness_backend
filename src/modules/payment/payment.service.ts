@@ -35,6 +35,8 @@ import {
   shouldApplyGlobalDiscount,
 } from 'src/lib/helpers/discount.helper';
 import { SettingsService } from 'src/modules/settings/settings.service';
+import { EmailType } from 'src/modules/notification/email/constants/email.enum';
+import { EventsEmitter } from 'src/util/events/events.emitter';
 
 // Payment metadata type - only store what's not available via database relationships
 export type PaymentMetadata =
@@ -95,7 +97,16 @@ export class PaymentService {
     private readonly database: DatabaseService, // Database service
     @Inject(PAYMENT_PROVIDER_TOKEN) private readonly provider: PaymentProvider, // Payment provider
     private readonly settingsService: SettingsService,
+    private readonly eventsEmitter: EventsEmitter,
   ) {}
+
+  // Payment statuses that should trigger outbound email notifications
+  private readonly notifiablePaymentStatuses = new Set<string>([
+    PaymentStatus.PAID,
+    PaymentStatus.FAILED,
+    PaymentStatus.CANCELLED,
+    PaymentStatus.REFUNDED,
+  ]);
 
   private getProviderType(): PaymentProviderEnum {
     // Determine provider type based on the injected provider instance
@@ -177,14 +188,17 @@ export class PaymentService {
 
   private async handleInvoiceWebhook(webhookResult: WebhookResult) {
     try {
+      let invoicePaymentId: string | null = null;
+
       await this.database.db.transaction(async (tx) => {
         // Create new subscription record for this billing cycle
         await this.handleSubscriptionWebhook(tx, webhookResult);
 
         // Create payment record for this invoice (recurring subscription payment)
         if (webhookResult.metadata?.invoiceId) {
+          const generatedPaymentId = generateId();
           await tx.insert(payments).values({
-            id: generateId(),
+            id: generatedPaymentId,
             provider: this.getProviderType(),
             providerRef: webhookResult.providerRef,
             status: webhookResult.status,
@@ -196,8 +210,23 @@ export class PaymentService {
               // as they can be retrieved from the payment record or related subscription
             } as PaymentMetadata,
           });
+          invoicePaymentId = generatedPaymentId;
         }
       });
+
+      if (invoicePaymentId) {
+        await this.sendPaymentStatusEmail({
+          paymentId: invoicePaymentId,
+          status: webhookResult.status,
+          trigger: webhookResult.eventType,
+          reason: this.getPaymentReasonFromEvent({
+            eventType: webhookResult.eventType,
+            status: webhookResult.status,
+            contextType: 'subscription',
+          }),
+          contextType: 'subscription',
+        });
+      }
 
       return {
         processed: true,
@@ -798,6 +827,149 @@ export class PaymentService {
     };
   }
 
+  // Verify payment status directly from provider API (fallback for missed webhooks)
+  async verifyPaymentStatus(paymentId: string) {
+    const payment = (
+      await this.database.db
+        .select()
+        .from(payments)
+        .where(eq(payments.id, paymentId))
+    )[0];
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    // Only verify if payment is still PENDING
+    if (payment.status !== PaymentStatus.PENDING) {
+      return {
+        status: payment.status,
+        paymentId: payment.id,
+        updated: false,
+        message: 'Payment status is already finalized',
+      };
+    }
+
+    // Check if provider supports verification
+    if (!this.provider.verifyPaymentStatus) {
+      return {
+        status: payment.status,
+        paymentId: payment.id,
+        updated: false,
+        message: 'Payment provider does not support verification',
+      };
+    }
+
+    // Check if providerRef exists
+    if (!payment.providerRef) {
+      return {
+        status: payment.status,
+        paymentId: payment.id,
+        updated: false,
+        message: 'Payment does not have a provider reference',
+      };
+    }
+
+    // Verify with provider using the stored providerRef (Checkout Session ID)
+    const verificationResult = await this.provider.verifyPaymentStatus(
+      payment.providerRef,
+    );
+
+    // Map provider status to our PaymentStatus enum
+    let newStatus: PaymentStatus = PaymentStatus.PENDING;
+    if (verificationResult.status === 'PAID') {
+      newStatus = PaymentStatus.PAID;
+    } else if (verificationResult.status === 'FAILED') {
+      newStatus = PaymentStatus.FAILED;
+    }
+
+    // Only update if status changed
+    if (newStatus !== payment.status) {
+      await this.database.db.transaction(async (tx) => {
+        const currentMetadata =
+          (payment.metadata as PaymentMetadata) ||
+          (payment.metadata &&
+          typeof payment.metadata === 'object' &&
+          'type' in payment.metadata
+            ? (payment.metadata as PaymentMetadata)
+            : ({ type: 'store_checkout' } as PaymentMetadata));
+
+        await tx
+          .update(payments)
+          .set({
+            status: newStatus,
+            metadata: currentMetadata,
+          })
+          .where(eq(payments.id, payment.id));
+
+        // Handle successful payment
+        if (newStatus === PaymentStatus.PAID) {
+          // Get related orders
+          const relatedOrders = await tx
+            .select()
+            .from(orders)
+            .where(eq(orders.paymentId, payment.id));
+
+          // Update all related orders
+          if (relatedOrders.length > 0) {
+            await tx
+              .update(orders)
+              .set({ status: PaymentStatus.PAID })
+              .where(eq(orders.paymentId, payment.id));
+
+            // Finalize store checkout (decrement stock, clear cart)
+            await this.finalizeStoreCheckout(tx, payment.id);
+          }
+
+          // Get and update all related subscriptions
+          const relatedSubscriptions = await tx
+            .select()
+            .from(subscriptions)
+            .where(eq(subscriptions.paymentId, payment.id));
+
+          if (relatedSubscriptions.length > 0) {
+            await tx
+              .update(subscriptions)
+              .set({ status: PaymentStatus.PAID })
+              .where(eq(subscriptions.paymentId, payment.id));
+          }
+        }
+      });
+
+      // Determine context type for email
+      const paymentMetadata = payment.metadata as PaymentMetadata;
+      const contextType: 'store' | 'subscription' =
+        paymentMetadata?.type === 'subscription' ? 'subscription' : 'store';
+
+      // Send payment status email
+      await this.sendPaymentStatusEmail({
+        paymentId: payment.id,
+        status: newStatus,
+        trigger: 'payment.verification',
+        reason: this.getPaymentReasonFromEvent({
+          eventType: 'payment.verification',
+          status: newStatus,
+          contextType,
+        }),
+        contextType,
+      });
+
+      return {
+        status: newStatus,
+        paymentId: payment.id,
+        updated: true,
+        message: `Payment status updated from ${payment.status} to ${newStatus}`,
+      };
+    }
+
+    return {
+      status: payment.status,
+      paymentId: payment.id,
+      updated: false,
+      message: 'Payment status unchanged',
+    };
+  }
+
   async capturePayment(providerRef: string) {
     // Capture payment after user approval
     const payment = (
@@ -865,6 +1037,24 @@ export class PaymentService {
             .where(eq(subscriptions.paymentId, payment.id));
         }
       }
+    });
+
+    // Determine context type for email
+    const paymentMetadata = payment.metadata as PaymentMetadata;
+    const contextType: 'store' | 'subscription' =
+      paymentMetadata?.type === 'subscription' ? 'subscription' : 'store';
+
+    // Send payment status email
+    await this.sendPaymentStatusEmail({
+      paymentId: payment.id,
+      status: captureResult.status,
+      trigger: 'payment.capture',
+      reason: this.getPaymentReasonFromEvent({
+        eventType: 'payment.capture',
+        status: captureResult.status,
+        contextType,
+      }),
+      contextType,
     });
 
     // Get related entities for response
@@ -1061,6 +1251,18 @@ export class PaymentService {
           await this.finalizeStoreCheckout(tx, payment.id);
         });
 
+        await this.sendPaymentStatusEmail({
+          paymentId: payment.id,
+          status: PaymentStatus.PAID,
+          trigger: webhookResult.eventType,
+          reason: this.getPaymentReasonFromEvent({
+            eventType: webhookResult.eventType,
+            status: PaymentStatus.PAID,
+            contextType: 'store',
+          }),
+          contextType: 'store',
+        });
+
         return {
           processed: true,
           paymentId: payment.id,
@@ -1132,10 +1334,68 @@ export class PaymentService {
             .where(eq(orders.paymentId, payment.id));
         });
 
+        await this.sendPaymentStatusEmail({
+          paymentId: payment.id,
+          status: PaymentStatus.CANCELLED,
+          trigger: webhookResult.eventType,
+          reason: this.getPaymentReasonFromEvent({
+            eventType: webhookResult.eventType,
+            status: PaymentStatus.CANCELLED,
+            contextType: 'store',
+          }),
+          contextType: 'store',
+        });
+
         return {
           processed: true,
           paymentId: payment.id,
           status: PaymentStatus.CANCELLED,
+        };
+      }
+
+      case 'payment_intent.payment_failed': {
+        await this.database.db.transaction(async (tx) => {
+          const currentMetadata =
+            (payment.metadata as StoreCheckoutPaymentMetadata) || {
+              type: 'store_checkout',
+            };
+          const updatedMetadata: StoreCheckoutPaymentMetadata = {
+            ...currentMetadata,
+            lastWebhookEvent: webhookResult.eventType,
+            lastWebhookAt: new Date().toISOString(),
+          };
+
+          await tx
+            .update(payments)
+            .set({
+              status: PaymentStatus.FAILED,
+              providerRef: webhookResult.providerRef,
+              metadata: updatedMetadata as PaymentMetadata,
+            })
+            .where(eq(payments.id, payment.id));
+
+          await tx
+            .update(orders)
+            .set({ status: PaymentStatus.FAILED })
+            .where(eq(orders.paymentId, payment.id));
+        });
+
+        await this.sendPaymentStatusEmail({
+          paymentId: payment.id,
+          status: PaymentStatus.FAILED,
+          trigger: webhookResult.eventType,
+          reason: this.getPaymentReasonFromEvent({
+            eventType: webhookResult.eventType,
+            status: PaymentStatus.FAILED,
+            contextType: 'store',
+          }),
+          contextType: 'store',
+        });
+
+        return {
+          processed: true,
+          paymentId: payment.id,
+          status: PaymentStatus.FAILED,
         };
       }
 
@@ -1165,6 +1425,18 @@ export class PaymentService {
           .update(orders)
           .set({ status: PaymentStatus.CANCELLED })
           .where(eq(orders.paymentId, payment.id));
+
+        await this.sendPaymentStatusEmail({
+          paymentId: payment.id,
+          status: PaymentStatus.CANCELLED,
+          trigger: webhookResult.eventType,
+          reason: this.getPaymentReasonFromEvent({
+            eventType: webhookResult.eventType,
+            status: PaymentStatus.CANCELLED,
+            contextType: 'store',
+          }),
+          contextType: 'store',
+        });
 
         return {
           processed: true,
@@ -1244,6 +1516,320 @@ export class PaymentService {
     }
   }
 
+  // Send payment status update email via notification pipeline
+  private async sendPaymentStatusEmail({
+    paymentId,
+    status,
+    reason,
+    trigger,
+    contextType,
+  }: {
+    paymentId: string;
+    status: string;
+    reason?: string;
+    trigger?: string;
+    contextType: 'store' | 'subscription';
+  }) {
+    if (!this.notifiablePaymentStatuses.has(status)) {
+      return;
+    }
+
+    try {
+      const paymentRecord = (
+        await this.database.db
+          .select()
+          .from(payments)
+          .where(eq(payments.id, paymentId))
+          .limit(1)
+      )[0];
+
+      if (!paymentRecord) {
+        console.warn(`[PaymentEmail] Payment ${paymentId} not found for email`);
+        return;
+      }
+
+      const [orderDetails] = await this.database.db
+        .select({
+          orderId: orders.id,
+          totalAmount: orders.totalAmount,
+          userId: orders.userId,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        })
+        .from(orders)
+        .innerJoin(users, eq(orders.userId, users.id))
+        .where(eq(orders.paymentId, paymentRecord.id))
+        .limit(1);
+
+      const [subscriptionDetails] = await this.database.db
+        .select({
+          subscriptionId: subscriptions.id,
+          planName: subscriptionPlans.name,
+          userId: subscriptions.userId,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        })
+        .from(subscriptions)
+        .innerJoin(users, eq(subscriptions.userId, users.id))
+        .leftJoin(
+          subscriptionPlans,
+          eq(subscriptions.planId, subscriptionPlans.id),
+        )
+        .where(eq(subscriptions.paymentId, paymentRecord.id))
+        .orderBy(desc(subscriptions.createdAt))
+        .limit(1);
+
+      const userDetails = orderDetails || subscriptionDetails;
+      if (!userDetails) {
+        console.warn(
+          `[PaymentEmail] No user context found for payment ${paymentId}`,
+        );
+        return;
+      }
+
+      let items:
+        | {
+            name: string | null;
+            quantity: number;
+            price: number;
+          }[]
+        | undefined;
+
+      if (orderDetails) {
+        // Include line items for store purchases
+        const orderLineItems = await this.database.db
+          .select({
+            name: storeItems.name,
+            quantity: orderItems.quantity,
+            price: orderItems.price,
+          })
+          .from(orderItems)
+          .leftJoin(storeItems, eq(orderItems.productId, storeItems.productId))
+          .where(eq(orderItems.orderId, orderDetails.orderId));
+
+        items = orderLineItems.map((item) => ({
+          name: item.name || '',
+          quantity: item.quantity || 0,
+          price: item.price || 0,
+        }));
+      } else if (subscriptionDetails?.planName) {
+        // Provide at least the subscribed plan as a single line item
+        items = [
+          {
+            name: subscriptionDetails.planName || '',
+            quantity: 1,
+            price: paymentRecord.amount || 0,
+          },
+        ];
+      }
+
+      const frontendUrl =
+        process.env.FRONTEND_URL || 'https://fiftyfirstswellness.com';
+      const supportEmail =
+        process.env.COMPANY_EMAIL || 'support@fiftyfirstswellness.com';
+      const isStoreOrder = Boolean(orderDetails);
+      const copy = this.getPaymentStatusCopy(status, {
+        isStoreOrder,
+        frontendUrl,
+      });
+
+      const dashboardPath = isStoreOrder
+        ? '/dashboard/orders'
+        : '/dashboard/subscriptions';
+      const baseCtaUrl = `${frontendUrl}${dashboardPath}`;
+
+      const emailContext = {
+        firstName: userDetails.firstName || '',
+        lastName: userDetails.lastName || '',
+        status: status || 'PENDING',
+        statusTitle: copy.title || 'Payment Status Update',
+        statusDescription:
+          copy.description || 'Here is the latest on your payment.',
+        statusVariant: copy.variant || 'info',
+        reason:
+          reason ||
+          copy.reason ||
+          'We wanted to keep you updated on your recent transaction.',
+        nextSteps: copy.nextSteps || '',
+        paymentType: isStoreOrder ? 'Store Order' : 'Subscription',
+        paymentId: paymentRecord.id,
+        providerRef: paymentRecord.providerRef || '',
+        orderId: orderDetails?.orderId || '',
+        subscriptionId: subscriptionDetails?.subscriptionId || '',
+        subscriptionName: subscriptionDetails?.planName || '',
+        amount: paymentRecord.amount || 0,
+        currency: paymentRecord.currency || 'USD',
+        items: items || [],
+        ctaLabel: copy.ctaLabel || 'Review your payment',
+        ctaUrl: copy.ctaUrl || baseCtaUrl,
+        dashboardUrl: baseCtaUrl,
+        supportEmail,
+        frontendUrl,
+        trigger: trigger || '',
+      };
+
+      this.eventsEmitter.sendEmail({
+        to: userDetails.email,
+        type: EmailType.PAYMENT_STATUS_UPDATE,
+        context: emailContext,
+      });
+    } catch (error) {
+      console.error(
+        `[PaymentEmail] Failed to send payment status email for ${paymentId}`,
+        error,
+      );
+    }
+  }
+
+  // Build friendly copy used by the payment status email template
+  private getPaymentStatusCopy(
+    status: string,
+    options: { isStoreOrder: boolean; frontendUrl: string },
+  ) {
+    const { isStoreOrder, frontendUrl } = options;
+    const defaults = {
+      title: 'Payment Update',
+      description: 'Here is the latest on your recent payment.',
+      reason: isStoreOrder
+        ? 'We wanted to keep you posted on the status of your order.'
+        : 'We wanted to share the latest status of your subscription.',
+      nextSteps: isStoreOrder
+        ? 'You can review your order details from your dashboard.'
+        : 'Manage your subscription anytime from your dashboard.',
+      ctaLabel: isStoreOrder ? 'Review order' : 'Manage subscription',
+      ctaUrl: isStoreOrder
+        ? `${frontendUrl}/marketplace`
+        : `${frontendUrl}/dashboard/subscriptions`,
+      variant: 'info',
+    };
+
+    switch (status) {
+      case PaymentStatus.PAID:
+        return {
+          title: 'Payment Confirmed',
+          description: isStoreOrder
+            ? 'We received your payment successfully and began preparing your items.'
+            : 'Your subscription payment cleared and your access is active.',
+          reason: isStoreOrder
+            ? 'Thanks for completing your purchase.'
+            : 'Your membership remains active with uninterrupted benefits.',
+          nextSteps: isStoreOrder
+            ? 'We will send a shipping update as soon as your order leaves the warehouse.'
+            : 'Feel free to dive into the latest programmes and classes.',
+          ctaLabel: isStoreOrder ? 'View order' : 'View subscription',
+          ctaUrl: isStoreOrder
+            ? `${frontendUrl}/dashboard/orders`
+            : `${frontendUrl}/dashboard/subscriptions`,
+          variant: 'success',
+        };
+      case PaymentStatus.FAILED:
+        return {
+          title: 'Payment Failed',
+          description: 'Unfortunately the payment attempt did not complete.',
+          reason: isStoreOrder
+            ? 'The selected payment method was declined or interrupted.'
+            : 'We could not renew your subscription with the current billing method.',
+          nextSteps: isStoreOrder
+            ? 'Please try checking out again with a different payment method.'
+            : 'Please update your billing details to keep your access uninterrupted.',
+          ctaLabel: isStoreOrder ? 'Try checkout again' : 'Update billing',
+          ctaUrl: isStoreOrder
+            ? `${frontendUrl}/cart`
+            : `${frontendUrl}/dashboard/billing`,
+          variant: 'danger',
+        };
+      case PaymentStatus.CANCELLED:
+        return {
+          title: 'Payment Cancelled',
+          description: 'This payment was cancelled before completion.',
+          reason: isStoreOrder
+            ? 'The checkout session ended before payment was captured.'
+            : 'The subscription charge was cancelled at the provider.',
+          nextSteps: isStoreOrder
+            ? 'You can return to your cart anytime to complete the purchase.'
+            : 'Manage your plan from the dashboard if you would like to retry.',
+          ctaLabel: isStoreOrder ? 'Resume checkout' : 'Manage subscription',
+          ctaUrl: isStoreOrder
+            ? `${frontendUrl}/cart`
+            : `${frontendUrl}/dashboard/subscriptions`,
+          variant: 'warning',
+        };
+      case PaymentStatus.REFUNDED:
+        return {
+          title: 'Payment Refunded',
+          description: 'A refund was issued for this payment.',
+          reason: isStoreOrder
+            ? 'Your order was refunded successfully.'
+            : 'The subscription charge was refunded to your original payment method.',
+          nextSteps:
+            'Funds should reflect in your account within 5-10 business days.',
+          ctaLabel: isStoreOrder ? 'Browse store' : 'View subscription',
+          ctaUrl: isStoreOrder
+            ? `${frontendUrl}/marketplace`
+            : `${frontendUrl}/dashboard/subscriptions`,
+          variant: 'info',
+        };
+      default:
+        return defaults;
+    }
+  }
+
+  // Translate webhook events into user friendly explanations
+  private getPaymentReasonFromEvent({
+    eventType,
+    status,
+    contextType,
+  }: {
+    eventType?: string;
+    status: string;
+    contextType: 'store' | 'subscription';
+  }) {
+    const defaults: Record<string, string> = {
+      [PaymentStatus.PAID]:
+        contextType === 'store'
+          ? 'We received your payment and started preparing your order.'
+          : 'Your subscription payment is confirmed.',
+      [PaymentStatus.FAILED]:
+        contextType === 'store'
+          ? 'The payment attempt did not go through.'
+          : 'We could not renew your subscription with the current billing method.',
+      [PaymentStatus.CANCELLED]:
+        contextType === 'store'
+          ? 'The checkout session was cancelled before completion.'
+          : 'The payment was cancelled with your provider.',
+      [PaymentStatus.REFUNDED]: 'A refund has been initiated for this payment.',
+    };
+
+    const dictionary: Record<string, string> = {
+      'payment_intent.succeeded':
+        contextType === 'store'
+          ? 'Stripe confirmed your payment and we will start fulfilling your order.'
+          : 'Stripe confirmed your subscription payment.',
+      'payment_intent.canceled':
+        contextType === 'store'
+          ? 'Your payment intent was cancelled before authorization.'
+          : 'The subscription payment intent was cancelled.',
+      'checkout.session.expired':
+        contextType === 'store'
+          ? 'The checkout session expired before you could complete payment.'
+          : 'The checkout session expired before activation.',
+      'invoice.payment_succeeded':
+        'Your subscription invoice for this billing cycle has been paid.',
+      'invoice.payment_failed':
+        'The latest attempt to renew your subscription failed.',
+      'customer.subscription.deleted':
+        'Your subscription was cancelled with the payment provider.',
+    };
+
+    return (
+      (eventType && dictionary[eventType]) ||
+      defaults[status] ||
+      defaults[PaymentStatus.PAID]
+    );
+  }
+
   private async handleSubscriptionWebhookEvent(
     webhookResult: WebhookResult,
     existingPayment?: any,
@@ -1320,6 +1906,18 @@ export class PaymentService {
         payment.id,
         webhookResult,
       );
+    });
+
+    await this.sendPaymentStatusEmail({
+      paymentId: payment.id,
+      status: webhookResult.status,
+      trigger: webhookResult.eventType,
+      reason: this.getPaymentReasonFromEvent({
+        eventType: webhookResult.eventType,
+        status: webhookResult.status,
+        contextType: 'subscription',
+      }),
+      contextType: 'subscription',
     });
 
     return {

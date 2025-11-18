@@ -12,9 +12,17 @@ import { OrderService } from 'src/modules/user/submodules/order/order.service';
 import { OrderController } from 'src/modules/user/submodules/order/order.controller';
 import { ProgrammeRepository } from 'src/modules/product/submodules/programme/programme.repository';
 import { StoreRepository } from 'src/modules/product/submodules/store/store.repository';
+import { PaymentModule } from 'src/modules/payment/payment.module';
+import { forwardRef } from '@nestjs/common';
+import { ReviewModule } from '../review/review.module';
 
 @Module({
-  imports: [DatabaseModule, StorageModule],
+  imports: [
+    DatabaseModule,
+    StorageModule,
+    forwardRef(() => PaymentModule),
+    forwardRef(() => ReviewModule),
+  ],
   providers: [
     UserService,
     UserRepository,
