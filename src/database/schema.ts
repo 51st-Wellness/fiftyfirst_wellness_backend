@@ -21,6 +21,15 @@ export const paymentStatuses = [
 ] as const;
 export type PaymentStatus = (typeof paymentStatuses)[number];
 
+export const orderStatuses = [
+  'PENDING',
+  'PROCESSING',
+  'PACKAGING',
+  'IN_TRANSIT',
+  'FULFILLED',
+] as const;
+export type OrderStatus = (typeof orderStatuses)[number];
+
 export const paymentProviders = ['PAYPAL', 'STRIPE', 'FLUTTERWAVE'] as const;
 export type PaymentProvider = (typeof paymentProviders)[number];
 
@@ -59,6 +68,14 @@ export const PaymentStatus = {
   FAILED: 'FAILED' as const,
   CANCELLED: 'CANCELLED' as const,
   REFUNDED: 'REFUNDED' as const,
+};
+
+export const OrderStatus = {
+  PENDING: 'PENDING' as const,
+  PROCESSING: 'PROCESSING' as const,
+  PACKAGING: 'PACKAGING' as const,
+  IN_TRANSIT: 'IN_TRANSIT' as const,
+  FULFILLED: 'FULFILLED' as const,
 };
 
 export const PaymentProvider = {
@@ -335,9 +352,7 @@ export const settings = sqliteTable('Setting', {
 export const orders = sqliteTable('Order', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
-  status: text('status', { enum: paymentStatuses })
-    .notNull()
-    .default('PENDING'),
+  status: text('status', { enum: orderStatuses }).notNull().default('PENDING'),
   totalAmount: real('totalAmount').notNull(),
   paymentId: text('paymentId'),
   deliveryAddressId: text('deliveryAddressId'), // Foreign key to deliveryAddresses

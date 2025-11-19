@@ -2,16 +2,26 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Param,
+  Query,
+  Body,
   UseGuards,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { OrderService } from './order.service';
-import { OrderSummaryDto, OrderWithRelations } from './dto/order-response.dto';
+import {
+  OrderSummaryDto,
+  OrderWithRelations,
+  AdminOrderListItem,
+  AdminOrderDetail,
+} from './dto/order-response.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/database/types';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { UserRole, OrderStatus } from 'src/database/schema';
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { PaymentService } from 'src/modules/payment/payment.service';
 
@@ -85,6 +95,91 @@ export class OrderController {
         status: verificationResult.status,
         message: verificationResult.message,
       },
+    );
+  }
+
+  // Admin endpoints
+  @Get('admin')
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
+  async getAdminOrders(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: OrderStatus,
+    @Query('search') search?: string,
+  ): Promise<
+    ResponseDto<{
+      orders: AdminOrderListItem[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    }>
+  > {
+    const result = await this.orderService.getAdminOrders({
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      status,
+      search,
+    });
+
+    return ResponseDto.createSuccessResponse('Orders retrieved successfully', {
+      orders: result.orders,
+      pagination: result.pagination,
+    });
+  }
+
+  @Get('admin/:id')
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
+  async getAdminOrder(
+    @Param('id') orderId: string,
+  ): Promise<ResponseDto<{ order: AdminOrderDetail }>> {
+    const order = await this.orderService.getAdminOrder(orderId);
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return ResponseDto.createSuccessResponse('Order retrieved successfully', {
+      order,
+    });
+  }
+
+  @Put('admin/:id/status')
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
+  async updateOrderStatus(
+    @Param('id') orderId: string,
+    @Body('status') status: OrderStatus,
+  ): Promise<ResponseDto<{ order: AdminOrderDetail }>> {
+    if (!status) {
+      throw new BadRequestException('Status is required');
+    }
+
+    const validStatuses: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.PROCESSING,
+      OrderStatus.PACKAGING,
+      OrderStatus.IN_TRANSIT,
+      OrderStatus.FULFILLED,
+    ];
+
+    if (!validStatuses.includes(status)) {
+      throw new BadRequestException('Invalid order status');
+    }
+
+    const order = await this.orderService.updateAdminOrderStatus(
+      orderId,
+      status,
+    );
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return ResponseDto.createSuccessResponse(
+      'Order status updated successfully',
+      { order },
     );
   }
 }

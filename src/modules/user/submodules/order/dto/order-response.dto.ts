@@ -39,3 +39,25 @@ export interface OrderSummaryDto extends Order {
   paymentProvider?: Payment['provider'] | null;
   paymentCurrency?: Payment['currency'] | null;
 }
+
+export interface OrderCustomerDto {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  phone?: string | null;
+}
+
+export interface AdminOrderListItem extends OrderSummaryDto {
+  customer: OrderCustomerDto;
+  paymentAmount?: number | null;
+  items: {
+    productId: string;
+    name: string | null;
+    quantity: number;
+  }[];
+}
+
+export interface AdminOrderDetail extends OrderWithRelations {
+  customer: OrderCustomerDto;
+}

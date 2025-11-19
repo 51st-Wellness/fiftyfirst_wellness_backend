@@ -4,8 +4,11 @@ import {
   OrderWithRelations,
   OrderSummaryDto,
   OrderItemReviewDto,
+  AdminOrderListItem,
+  AdminOrderDetail,
+  OrderCustomerDto,
 } from './dto/order-response.dto';
-import { eq, desc, inArray, sql } from 'drizzle-orm';
+import { eq, desc, inArray, sql, and, or, SQL } from 'drizzle-orm';
 import {
   orders,
   orderItems,
@@ -13,8 +16,9 @@ import {
   storeItems,
   deliveryAddresses,
   payments,
+  users,
   ProductType,
-  PaymentStatus,
+  OrderStatus,
 } from 'src/database/schema';
 import {
   StoreItem,
@@ -49,7 +53,7 @@ export class OrderService {
 
     // Automatically verify the last PENDING order if it exists
     const lastOrder = userOrders[0];
-    if (lastOrder.status === PaymentStatus.PENDING && lastOrder.paymentId) {
+    if (lastOrder.status === OrderStatus.PENDING && lastOrder.paymentId) {
       try {
         // Verify payment status asynchronously (don't block the response)
         // This will check Stripe API and update if payment was successful
@@ -270,5 +274,203 @@ export class OrderService {
       comment: review.comment,
       createdAt: review.createdAt,
     };
+  }
+
+  async getAdminOrders(params: {
+    page?: number;
+    limit?: number;
+    status?: OrderStatus;
+    search?: string;
+  }): Promise<{
+    orders: AdminOrderListItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const limit = params.limit && params.limit > 0 ? params.limit : 10;
+    const offset = (page - 1) * limit;
+
+    const filters: SQL<unknown>[] = [];
+    if (params.status) {
+      filters.push(eq(orders.status, params.status));
+    }
+    if (params.search) {
+      const likeQuery = `%${params.search}%`;
+      filters.push(
+        or(
+          sql`${orders.id} LIKE ${likeQuery}`,
+          sql`LOWER(${users.firstName} || ' ' || ${users.lastName}) LIKE LOWER(${likeQuery})`,
+          sql`${users.email} LIKE ${likeQuery}`,
+        ) as SQL<unknown>,
+      );
+    }
+    const whereClause = filters.length > 0 ? and(...filters) : undefined;
+
+    const [countResult, orderRows] = await Promise.all([
+      this.database.db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.id))
+        .where(whereClause as any),
+      this.database.db
+        .select({
+          order: orders,
+          userId: users.id,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          userEmail: users.email,
+          userPhone: users.phone,
+          paymentStatus: payments.status,
+          paymentProvider: payments.provider,
+          paymentCurrency: payments.currency,
+          paymentAmount: payments.amount,
+        })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.id))
+        .leftJoin(payments, eq(orders.paymentId, payments.id))
+        .where(whereClause as any)
+        .orderBy(desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset),
+    ]);
+
+    const orderIds = orderRows.map((row) => row.order.id);
+    const itemsMap = new Map<
+      string,
+      { productId: string; name: string | null; quantity: number }[]
+    >();
+
+    if (orderIds.length > 0) {
+      const orderItemsResult = await this.database.db
+        .select({
+          orderId: orderItems.orderId,
+          productId: orderItems.productId,
+          quantity: orderItems.quantity,
+          name: storeItems.name,
+        })
+        .from(orderItems)
+        .leftJoin(storeItems, eq(orderItems.productId, storeItems.productId))
+        .where(inArray(orderItems.orderId, orderIds));
+
+      for (const item of orderItemsResult) {
+        const list = itemsMap.get(item.orderId) ?? [];
+        list.push({
+          productId: item.productId,
+          name: item.name ?? null,
+          quantity: item.quantity ?? 0,
+        });
+        itemsMap.set(item.orderId, list);
+      }
+    }
+
+    const toCustomer = (row: {
+      userId: string | null;
+      userFirstName: string | null;
+      userLastName: string | null;
+      userEmail: string | null;
+      userPhone: string | null;
+    }): OrderCustomerDto => ({
+      id: row.userId ?? '',
+      firstName: row.userFirstName ?? null,
+      lastName: row.userLastName ?? null,
+      email: row.userEmail ?? '',
+      phone: row.userPhone ?? null,
+    });
+
+    const formattedOrders: AdminOrderListItem[] = orderRows.map((row) => {
+      const items = itemsMap.get(row.order.id) ?? [];
+      const totalQuantity = items.reduce(
+        (sum, item) => sum + (item.quantity ?? 0),
+        0,
+      );
+      return {
+        ...row.order,
+        itemCount: items.length,
+        totalQuantity,
+        paymentStatus: row.paymentStatus ?? null,
+        paymentProvider: row.paymentProvider ?? null,
+        paymentCurrency: row.paymentCurrency ?? null,
+        paymentAmount: row.paymentAmount ?? null,
+        customer: toCustomer({
+          userId: row.userId ?? row.order.userId,
+          userFirstName: row.userFirstName,
+          userLastName: row.userLastName,
+          userEmail: row.userEmail,
+          userPhone: row.userPhone,
+        }),
+        items,
+      };
+    });
+
+    const total = countResult[0]?.count || 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return {
+      orders: formattedOrders,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  async getAdminOrder(orderId: string): Promise<AdminOrderDetail | null> {
+    const record = (
+      await this.database.db
+        .select({
+          order: orders,
+          userId: users.id,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          userEmail: users.email,
+          userPhone: users.phone,
+        })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.id))
+        .where(eq(orders.id, orderId))
+        .limit(1)
+    )[0];
+
+    if (!record) {
+      return null;
+    }
+
+    const detailedOrder = await this.getUserOrder(
+      record.order.userId,
+      record.order.id,
+    );
+
+    if (!detailedOrder) {
+      return null;
+    }
+
+    return {
+      ...detailedOrder,
+      customer: {
+        id: record.userId ?? record.order.userId,
+        firstName: record.userFirstName ?? null,
+        lastName: record.userLastName ?? null,
+        email: record.userEmail ?? '',
+        phone: record.userPhone ?? null,
+      },
+    };
+  }
+
+  async updateAdminOrderStatus(
+    orderId: string,
+    status: OrderStatus,
+  ): Promise<AdminOrderDetail | null> {
+    await this.database.db
+      .update(orders)
+      .set({ status })
+      .where(eq(orders.id, orderId));
+
+    return this.getAdminOrder(orderId);
   }
 }

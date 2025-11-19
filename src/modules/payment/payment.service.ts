@@ -24,6 +24,7 @@ import {
   users,
   deliveryAddresses,
   PaymentStatus,
+  OrderStatus,
   PaymentProvider as PaymentProviderEnum,
 } from 'src/database/schema';
 import { generateId } from 'src/database/utils';
@@ -654,7 +655,7 @@ export class PaymentService {
     await this.database.db.insert(orders).values({
       id: orderId,
       userId,
-      status: PaymentStatus.PENDING,
+      status: OrderStatus.PENDING,
       totalAmount,
       deliveryAddressId,
     });
@@ -912,10 +913,11 @@ export class PaymentService {
 
           // Update all related orders
           if (relatedOrders.length > 0) {
-            await tx
-              .update(orders)
-              .set({ status: PaymentStatus.PAID })
-              .where(eq(orders.paymentId, payment.id));
+            await this.updateOrderStatusForPayment(
+              tx,
+              payment.id,
+              OrderStatus.PROCESSING,
+            );
 
             // Finalize store checkout (decrement stock, clear cart)
             await this.finalizeStoreCheckout(tx, payment.id);
@@ -1014,11 +1016,11 @@ export class PaymentService {
 
         // Update all related orders
         if (relatedOrders.length > 0) {
-          await tx
-            .update(orders)
-            .set({ status: PaymentStatus.PAID })
-            .where(eq(orders.paymentId, payment.id));
-
+          await this.updateOrderStatusForPayment(
+            tx,
+            payment.id,
+            OrderStatus.PROCESSING,
+          );
           // Clear user's cart for store purchases and decrement stock
           // Use order-based approach (same as webhook handler)
           await this.finalizeStoreCheckout(tx, payment.id);
@@ -1242,10 +1244,11 @@ export class PaymentService {
             })
             .where(eq(payments.id, payment.id));
 
-          await tx
-            .update(orders)
-            .set({ status: PaymentStatus.PAID })
-            .where(eq(orders.paymentId, payment.id));
+          await this.updateOrderStatusForPayment(
+            tx,
+            payment.id,
+            OrderStatus.PROCESSING,
+          );
 
           // Get cart items from order instead of metadata
           await this.finalizeStoreCheckout(tx, payment.id);
@@ -1328,10 +1331,12 @@ export class PaymentService {
             })
             .where(eq(payments.id, payment.id));
 
-          await tx
-            .update(orders)
-            .set({ status: PaymentStatus.CANCELLED })
-            .where(eq(orders.paymentId, payment.id));
+          await this.updateOrderStatusForPayment(
+            tx,
+            payment.id,
+            OrderStatus.PENDING,
+            [OrderStatus.PENDING, OrderStatus.PROCESSING],
+          );
         });
 
         await this.sendPaymentStatusEmail({
@@ -1374,10 +1379,12 @@ export class PaymentService {
             })
             .where(eq(payments.id, payment.id));
 
-          await tx
-            .update(orders)
-            .set({ status: PaymentStatus.FAILED })
-            .where(eq(orders.paymentId, payment.id));
+          await this.updateOrderStatusForPayment(
+            tx,
+            payment.id,
+            OrderStatus.PENDING,
+            [OrderStatus.PENDING, OrderStatus.PROCESSING],
+          );
         });
 
         await this.sendPaymentStatusEmail({
@@ -1421,10 +1428,12 @@ export class PaymentService {
           })
           .where(eq(payments.id, payment.id));
 
-        await this.database.db
-          .update(orders)
-          .set({ status: PaymentStatus.CANCELLED })
-          .where(eq(orders.paymentId, payment.id));
+        await this.updateOrderStatusForPayment(
+          this.database.db,
+          payment.id,
+          OrderStatus.PENDING,
+          [OrderStatus.PENDING, OrderStatus.PROCESSING],
+        );
 
         await this.sendPaymentStatusEmail({
           paymentId: payment.id,
@@ -1514,6 +1523,33 @@ export class PaymentService {
       const cartItemIds = userCartItems.map((item) => item.id);
       await tx.delete(cartItems).where(inArray(cartItems.id, cartItemIds));
     }
+  }
+
+  private async updateOrderStatusForPayment(
+    tx: any,
+    paymentId: string,
+    nextStatus: OrderStatus,
+    allowedCurrentStatuses: OrderStatus[] = [OrderStatus.PENDING],
+  ) {
+    if (!paymentId) {
+      return;
+    }
+
+    const whereCondition =
+      allowedCurrentStatuses.length > 0
+        ? and(
+            eq(orders.paymentId, paymentId),
+            inArray(orders.status, allowedCurrentStatuses),
+          )
+        : eq(orders.paymentId, paymentId);
+
+    await tx.update(orders).set({ status: nextStatus }).where(whereCondition);
+  }
+
+  private mapPaymentStatusToOrderStatus(status: PaymentStatus): OrderStatus {
+    return status === PaymentStatus.PAID
+      ? OrderStatus.PROCESSING
+      : OrderStatus.PENDING;
   }
 
   // Send payment status update email via notification pipeline
@@ -1626,7 +1662,7 @@ export class PaymentService {
       }
 
       const frontendUrl =
-        process.env.FRONTEND_URL || 'https://fiftyfirstswellness.com';
+        process.env.FRONTEND_URL || 'https://fiftyfirstswellness.co.uk';
       const supportEmail =
         process.env.COMPANY_EMAIL || 'support@fiftyfirstswellness.com';
       const isStoreOrder = Boolean(orderDetails);
@@ -1896,10 +1932,16 @@ export class PaymentService {
         })
         .where(eq(payments.id, payment.id));
 
-      await tx
-        .update(orders)
-        .set({ status: webhookResult.status })
-        .where(eq(orders.paymentId, payment.id));
+      const allowedStatuses =
+        webhookResult.status === PaymentStatus.PAID
+          ? [OrderStatus.PENDING]
+          : [OrderStatus.PENDING, OrderStatus.PROCESSING];
+      await this.updateOrderStatusForPayment(
+        tx,
+        payment.id,
+        this.mapPaymentStatusToOrderStatus(webhookResult.status),
+        allowedStatuses,
+      );
 
       await this.updateSubscriptionStatusForWebhook(
         tx,

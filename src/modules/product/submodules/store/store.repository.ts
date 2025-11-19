@@ -39,7 +39,8 @@ export class StoreRepository {
     const result = await this.database.db
       .select()
       .from(storeItems)
-      .where(eq(storeItems.productId, id));
+      .where(eq(storeItems.productId, id))
+      .limit(1);
     return result[0] || null;
   }
 
