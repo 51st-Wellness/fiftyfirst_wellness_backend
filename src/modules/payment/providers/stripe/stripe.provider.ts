@@ -77,6 +77,9 @@ export class StripeProvider implements PaymentProvider {
       paymentId: input.paymentId ?? '',
     };
 
+    const captureMethod = input.captureMethod || 'automatic';
+    const isPreOrder = input.isPreOrder || false;
+
     const session = await this.stripe.checkout.sessions.create({
       mode: isSubscription ? 'subscription' : 'payment',
       line_items: lineItems,
@@ -90,14 +93,23 @@ export class StripeProvider implements PaymentProvider {
       payment_intent_data: isSubscription
         ? undefined
         : {
-            metadata: baseMetadata,
+            metadata: {
+              ...baseMetadata,
+              isPreOrder: isPreOrder.toString(),
+              captureMethod,
+            },
+            capture_method: captureMethod === 'manual' ? 'manual' : 'automatic',
           },
       subscription_data: isSubscription
         ? {
             metadata: baseMetadata,
           }
         : undefined,
-      metadata: baseMetadata,
+      metadata: {
+        ...baseMetadata,
+        isPreOrder: isPreOrder.toString(),
+        captureMethod,
+      },
     });
 
     return { providerRef: session.id, approvalUrl: session.url || undefined };

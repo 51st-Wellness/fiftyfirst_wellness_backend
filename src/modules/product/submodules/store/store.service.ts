@@ -35,6 +35,9 @@ export class StoreService {
     const storeItemData: any = {
       name: createStoreItemDto.name,
       description: createStoreItemDto.description,
+      productUsage: createStoreItemDto.productUsage,
+      productBenefits: createStoreItemDto.productBenefits,
+      productIngredients: createStoreItemDto.productIngredients || [],
       price: createStoreItemDto.price,
       stock: createStoreItemDto.stock,
       isFeatured: createStoreItemDto.isFeatured || false,
@@ -63,6 +66,24 @@ export class StoreService {
     storeItemData.discountActive = normalizedCreateDiscount.discountActive;
     storeItemData.discountStart = normalizedCreateDiscount.discountStart;
     storeItemData.discountEnd = normalizedCreateDiscount.discountEnd;
+
+    // Handle pre-order fields
+    storeItemData.preOrderEnabled = createStoreItemDto.preOrderEnabled ?? false;
+    storeItemData.preOrderStart = createStoreItemDto.preOrderStart
+      ? new Date(createStoreItemDto.preOrderStart)
+      : null;
+    storeItemData.preOrderEnd = createStoreItemDto.preOrderEnd
+      ? new Date(createStoreItemDto.preOrderEnd)
+      : null;
+    storeItemData.preOrderFulfillmentDate =
+      createStoreItemDto.preOrderFulfillmentDate
+        ? new Date(createStoreItemDto.preOrderFulfillmentDate)
+        : null;
+    storeItemData.preOrderDepositRequired =
+      createStoreItemDto.preOrderDepositRequired ?? false;
+    storeItemData.preOrderDepositAmount =
+      createStoreItemDto.preOrderDepositAmount ?? 0;
+    storeItemData.reservedPreOrderQuantity = 0;
 
     // Handle display file upload (can be image or video)
     const displayFile = files.display;
@@ -228,6 +249,46 @@ export class StoreService {
 
     Object.assign(updateData, discountUpdates);
 
+    // Handle product usage, benefits, and ingredients
+    if (updateStoreItemDto.productUsage !== undefined) {
+      updateData.productUsage = updateStoreItemDto.productUsage;
+    }
+    if (updateStoreItemDto.productBenefits !== undefined) {
+      updateData.productBenefits = updateStoreItemDto.productBenefits;
+    }
+    if (updateStoreItemDto.productIngredients !== undefined) {
+      updateData.productIngredients = updateStoreItemDto.productIngredients;
+    }
+
+    // Handle pre-order fields
+    if (updateStoreItemDto.preOrderEnabled !== undefined) {
+      updateData.preOrderEnabled = updateStoreItemDto.preOrderEnabled;
+    }
+    if (updateStoreItemDto.preOrderStart !== undefined) {
+      updateData.preOrderStart = updateStoreItemDto.preOrderStart
+        ? new Date(updateStoreItemDto.preOrderStart)
+        : null;
+    }
+    if (updateStoreItemDto.preOrderEnd !== undefined) {
+      updateData.preOrderEnd = updateStoreItemDto.preOrderEnd
+        ? new Date(updateStoreItemDto.preOrderEnd)
+        : null;
+    }
+    if (updateStoreItemDto.preOrderFulfillmentDate !== undefined) {
+      updateData.preOrderFulfillmentDate =
+        updateStoreItemDto.preOrderFulfillmentDate
+          ? new Date(updateStoreItemDto.preOrderFulfillmentDate)
+          : null;
+    }
+    if (updateStoreItemDto.preOrderDepositRequired !== undefined) {
+      updateData.preOrderDepositRequired =
+        updateStoreItemDto.preOrderDepositRequired;
+    }
+    if (updateStoreItemDto.preOrderDepositAmount !== undefined) {
+      updateData.preOrderDepositAmount =
+        updateStoreItemDto.preOrderDepositAmount;
+    }
+
     // Handle display file upload and deletion of old display (can be image or video)
     const displayFile = files.display;
 
@@ -267,19 +328,31 @@ export class StoreService {
     }
 
     // Handle additional images upload and deletion of old images (limited to 5 images)
-    if (files?.images && files.images.length > 0) {
-      // Delete all existing images if we're replacing them
-      const existingImages = (existingItem.images as string[]) || [];
-      if (existingImages.length > 0) {
-        await this.deleteMultipleFilesFromStorage(existingImages);
-        this.logger.log('Old images deleted from storage', {
-          count: existingImages.length,
-        });
-      }
+    const existingImages = (existingItem.images as string[]) || [];
+    const imagesToKeep = updateStoreItemDto.existingImages || [];
 
-      // Ensure we don't exceed 5 additional images
-      const imagesToProcess = files.images.slice(0, 5);
-      const imageUrls: string[] = [];
+    // Determine which existing images to delete (ones not in the keep list)
+    const imagesToDelete = existingImages.filter(
+      (url) => !imagesToKeep.includes(url),
+    );
+
+    // Delete removed images from storage
+    if (imagesToDelete.length > 0) {
+      await this.deleteMultipleFilesFromStorage(imagesToDelete);
+      this.logger.log('Removed images deleted from storage', {
+        count: imagesToDelete.length,
+      });
+    }
+
+    // Handle new image uploads
+    if (files?.images && files.images.length > 0) {
+      // Calculate remaining slots (max 5 total images)
+      const currentTotal = imagesToKeep.length;
+      const remainingSlots = Math.max(0, 5 - currentTotal);
+
+      // Ensure we don't exceed the limit
+      const imagesToProcess = files.images.slice(0, remainingSlots);
+      const newImageUrls: string[] = [];
 
       for (const imageFile of imagesToProcess) {
         const imageUpload = await this.storageService.uploadFileWithMetadata(
@@ -290,18 +363,23 @@ export class StoreService {
             folder: 'store/images',
           },
         );
-        imageUrls.push(imageUpload.url);
+        newImageUrls.push(imageUpload.url);
       }
 
-      updateData.images = imageUrls;
+      // Combine kept existing images with new images
+      updateData.images = [...imagesToKeep, ...newImageUrls];
 
       // Log if we had to truncate images
-      if (files.images.length > 5) {
-        this.logger.warn('Truncated additional images to 5 during update', {
+      if (files.images.length > remainingSlots) {
+        this.logger.warn('Truncated additional images during update', {
           providedCount: files.images.length,
           processedCount: imagesToProcess.length,
+          remainingSlots,
         });
       }
+    } else if (updateStoreItemDto.existingImages !== undefined) {
+      // If no new images but existingImages is provided, update to only kept images
+      updateData.images = imagesToKeep;
     }
 
     // Update the store item

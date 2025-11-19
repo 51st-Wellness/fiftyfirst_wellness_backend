@@ -182,4 +182,17 @@ export class OrderController {
       { order },
     );
   }
+
+  @Post('admin/:id/fulfill-preorder')
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
+  async fulfillPreOrder(
+    @Param('id') orderId: string,
+  ): Promise<ResponseDto<{ message: string }>> {
+    await this.paymentService.fulfillPreOrder(orderId);
+
+    return ResponseDto.createSuccessResponse(
+      'Pre-order fulfilled successfully. Remaining payment captured and order status updated.',
+      { message: 'Pre-order fulfilled' },
+    );
+  }
 }

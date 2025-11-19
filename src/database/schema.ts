@@ -55,6 +55,14 @@ export type PricingModel = (typeof pricingModels)[number];
 export const reviewStatuses = ['PENDING', 'APPROVED', 'REJECTED'] as const;
 export type ReviewStatus = (typeof reviewStatuses)[number];
 
+export const preOrderStatuses = [
+  'PLACED',
+  'CONFIRMED',
+  'FULFILLED',
+  'CANCELLED',
+] as const;
+export type PreOrderStatus = (typeof preOrderStatuses)[number];
+
 // Enum objects for backwards compatibility with Prisma code
 export const UserRole = {
   USER: 'USER' as const,
@@ -113,6 +121,13 @@ export const ReviewStatus = {
   PENDING: 'PENDING' as const,
   APPROVED: 'APPROVED' as const,
   REJECTED: 'REJECTED' as const,
+};
+
+export const PreOrderStatus = {
+  PLACED: 'PLACED' as const,
+  CONFIRMED: 'CONFIRMED' as const,
+  FULFILLED: 'FULFILLED' as const,
+  CANCELLED: 'CANCELLED' as const,
 };
 
 // Core tables
@@ -203,12 +218,18 @@ export const subscriptions = sqliteTable('Subscription', {
 export const payments = sqliteTable('Payment', {
   id: text('id').primaryKey(),
   provider: text('provider', { enum: paymentProviders }).notNull(),
-  providerRef: text('providerRef'), // PayPal order/transaction id
+  providerRef: text('providerRef'), // Stripe payment intent/charge id
   status: text('status', { enum: paymentStatuses })
     .notNull()
     .default('PENDING'),
   currency: text('currency', { enum: currencies }).notNull(),
   amount: real('amount').notNull(),
+  capturedAmount: real('capturedAmount').notNull().default(0), // For pre-orders: amount actually captured
+  authorizedAmount: real('authorizedAmount').notNull().default(0), // For pre-orders: amount authorized but not captured
+  isPreOrderPayment: integer('isPreOrderPayment', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+  finalPaymentId: text('finalPaymentId'), // Link to final payment if this is a deposit
   metadata: text('metadata', { mode: 'json' }), // JSON field
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
@@ -237,6 +258,9 @@ export const storeItems = sqliteTable('StoreItem', {
   productId: text('productId').primaryKey().unique(),
   name: text('name').notNull(),
   description: text('description'),
+  productUsage: text('productUsage'),
+  productBenefits: text('productBenefits'),
+  productIngredients: text('productIngredients', { mode: 'json' }), // [string] -> serialized as JSON
   price: real('price').notNull(),
   stock: integer('stock').notNull().default(0),
   display: text('display', { mode: 'json' }).notNull(), // {url: string, type: image/video}
@@ -257,6 +281,23 @@ export const storeItems = sqliteTable('StoreItem', {
     .default(false),
   discountStart: integer('discountStart', { mode: 'timestamp' }),
   discountEnd: integer('discountEnd', { mode: 'timestamp' }),
+  preOrderEnabled: integer('preOrderEnabled', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+  preOrderStart: integer('preOrderStart', { mode: 'timestamp' }),
+  preOrderEnd: integer('preOrderEnd', { mode: 'timestamp' }),
+  preOrderFulfillmentDate: integer('preOrderFulfillmentDate', {
+    mode: 'timestamp',
+  }),
+  preOrderDepositRequired: integer('preOrderDepositRequired', {
+    mode: 'boolean',
+  })
+    .notNull()
+    .default(false),
+  preOrderDepositAmount: real('preOrderDepositAmount').notNull().default(0),
+  reservedPreOrderQuantity: integer('reservedPreOrderQuantity')
+    .notNull()
+    .default(0),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -356,6 +397,15 @@ export const orders = sqliteTable('Order', {
   totalAmount: real('totalAmount').notNull(),
   paymentId: text('paymentId'),
   deliveryAddressId: text('deliveryAddressId'), // Foreign key to deliveryAddresses
+  isPreOrder: integer('isPreOrder', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+  preOrderStatus: text('preOrderStatus', { enum: preOrderStatuses }),
+  expectedFulfillmentDate: integer('expectedFulfillmentDate', {
+    mode: 'timestamp',
+  }),
+  fulfillmentNotes: text('fulfillmentNotes'),
+  preOrderDepositAmount: real('preOrderDepositAmount').notNull().default(0),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -370,6 +420,7 @@ export const orderItems = sqliteTable('OrderItem', {
   productId: text('productId').notNull(),
   quantity: integer('quantity').notNull(),
   price: real('price').notNull(),
+  preOrderReleaseDate: integer('preOrderReleaseDate', { mode: 'timestamp' }),
 });
 
 export const reviews = sqliteTable('Review', {

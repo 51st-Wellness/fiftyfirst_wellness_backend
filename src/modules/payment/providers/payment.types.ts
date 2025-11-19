@@ -9,6 +9,8 @@ export type PaymentInitInput = {
   description?: string;
   items?: { name: string; quantity: number; unitPrice: number }[];
   userId: string;
+  isPreOrder?: boolean; // Whether this is a pre-order payment
+  captureMethod?: 'automatic' | 'manual'; // Capture method for Stripe
 };
 
 export type PaymentInitResult = {

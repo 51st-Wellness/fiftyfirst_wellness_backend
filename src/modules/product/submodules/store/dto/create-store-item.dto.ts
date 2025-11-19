@@ -63,4 +63,46 @@ export class CreateStoreItemDto {
   @IsISO8601()
   @Transform(({ value }) => (value === '' ? undefined : value))
   discountEnd?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  preOrderEnabled?: boolean;
+
+  @IsOptional()
+  @IsISO8601()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  preOrderStart?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  preOrderEnd?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  preOrderFulfillmentDate?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  preOrderDepositRequired?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  preOrderDepositAmount?: number;
+
+  @IsOptional()
+  @IsString()
+  productUsage?: string;
+
+  @IsOptional()
+  @IsString()
+  productBenefits?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
+  productIngredients?: string[];
 }
