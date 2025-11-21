@@ -258,7 +258,7 @@ export class StripeProvider implements PaymentProvider {
           return { status: 'PENDING' }; // Will be handled as CANCELLED by caller
         }
 
-        if (paymentIntent.status === 'payment_failed') {
+        if ((paymentIntent as any).status === 'payment_failed') {
           return { status: 'FAILED' };
         }
 
