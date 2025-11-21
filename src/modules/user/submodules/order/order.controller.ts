@@ -21,7 +21,7 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/database/types';
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { UserRole, OrderStatus } from 'src/database/schema';
+import { UserRole, OrderStatus, PreOrderStatus } from 'src/database/schema';
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { PaymentService } from 'src/modules/payment/payment.service';
 import { PreOrderBulkEmailDto } from './dto/pre-order-bulk-email.dto';
@@ -96,6 +96,56 @@ export class OrderController {
         status: verificationResult.status,
         message: verificationResult.message,
       },
+    );
+  }
+
+  @Get('admin/pre-orders')
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
+  async getPreOrders(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('preOrderStatus') preOrderStatus?: PreOrderStatus,
+    @Query('search') search?: string,
+  ): Promise<
+    ResponseDto<{
+      orders: AdminOrderListItem[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    }>
+  > {
+    const result = await this.orderService.getPreOrders({
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      preOrderStatus,
+      search,
+    });
+
+    return ResponseDto.createSuccessResponse(
+      'Pre-orders retrieved successfully',
+      {
+        orders: result.orders,
+        pagination: result.pagination,
+      },
+    );
+  }
+
+  @Post('admin/pre-orders/bulk-email')
+  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
+  async sendBulkEmailToPreOrders(@Body() dto: PreOrderBulkEmailDto): Promise<
+    ResponseDto<{
+      totalSent: number;
+      totalPreOrders: number;
+      productName: string;
+    }>
+  > {
+    const result = await this.orderService.sendBulkEmailToPreOrders(dto);
+    return ResponseDto.createSuccessResponse(
+      'Bulk email sent to pre-order customers successfully',
+      result,
     );
   }
 
@@ -194,56 +244,6 @@ export class OrderController {
     return ResponseDto.createSuccessResponse(
       'Pre-order fulfilled successfully. Remaining payment captured and order status updated.',
       { message: 'Pre-order fulfilled' },
-    );
-  }
-
-  @Get('admin/pre-orders')
-  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  async getPreOrders(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('preOrderStatus') preOrderStatus?: string,
-    @Query('search') search?: string,
-  ): Promise<
-    ResponseDto<{
-      orders: AdminOrderListItem[];
-      pagination: {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
-      };
-    }>
-  > {
-    const result = await this.orderService.getPreOrders({
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      preOrderStatus,
-      search,
-    });
-
-    return ResponseDto.createSuccessResponse(
-      'Pre-orders retrieved successfully',
-      {
-        orders: result.orders,
-        pagination: result.pagination,
-      },
-    );
-  }
-
-  @Post('admin/pre-orders/bulk-email')
-  @Roles(UserRole.ADMIN, UserRole.MODERATOR)
-  async sendBulkEmailToPreOrders(@Body() dto: PreOrderBulkEmailDto): Promise<
-    ResponseDto<{
-      totalSent: number;
-      totalPreOrders: number;
-      productName: string;
-    }>
-  > {
-    const result = await this.orderService.sendBulkEmailToPreOrders(dto);
-    return ResponseDto.createSuccessResponse(
-      'Bulk email sent to pre-order customers successfully',
-      result,
     );
   }
 }

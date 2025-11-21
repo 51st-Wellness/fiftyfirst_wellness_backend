@@ -23,6 +23,7 @@ import {
   users,
   ProductType,
   OrderStatus,
+  PreOrderStatus,
 } from 'src/database/schema';
 import {
   StoreItem,
@@ -499,7 +500,7 @@ export class OrderService {
   async getPreOrders(params: {
     page?: number;
     limit?: number;
-    preOrderStatus?: string;
+    preOrderStatus?: PreOrderStatus;
     search?: string;
   }): Promise<{
     orders: AdminOrderListItem[];
@@ -679,7 +680,9 @@ export class OrderService {
     ];
 
     if (dto.preOrderStatus) {
-      filters.push(eq(orders.preOrderStatus, dto.preOrderStatus));
+      filters.push(
+        eq(orders.preOrderStatus, dto.preOrderStatus as PreOrderStatus),
+      );
     }
 
     const whereClause = and(...filters);

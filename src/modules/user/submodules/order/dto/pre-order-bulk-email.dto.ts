@@ -1,4 +1,5 @@
 import { IsString, IsOptional } from 'class-validator';
+import { PreOrderStatus } from 'src/database/schema';
 
 export class PreOrderBulkEmailDto {
   @IsString()
@@ -12,5 +13,5 @@ export class PreOrderBulkEmailDto {
 
   @IsOptional()
   @IsString()
-  preOrderStatus?: string;
+  preOrderStatus?: PreOrderStatus;
 }
