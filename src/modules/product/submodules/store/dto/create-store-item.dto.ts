@@ -8,8 +8,35 @@ import {
   IsEnum,
   IsISO8601,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, TransformFnParams } from 'class-transformer';
 import { DiscountType } from 'src/database/schema';
+
+const transformToBoolean = ({ value }: TransformFnParams) => {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  const normalized = String(value).toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['false', '0', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+  return Boolean(value);
+};
+
+const transformToIsoString = ({ value }: TransformFnParams) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (value === '') {
+    return null;
+  }
+  return value;
+};
 
 export class CreateStoreItemDto {
   @IsString()
@@ -29,10 +56,12 @@ export class CreateStoreItemDto {
 
   @IsOptional()
   @IsBoolean()
+  @Transform(transformToBoolean)
   isFeatured?: boolean;
 
   @IsOptional()
   @IsBoolean()
+  @Transform(transformToBoolean)
   isPublished?: boolean;
 
   @IsOptional()
@@ -52,39 +81,42 @@ export class CreateStoreItemDto {
 
   @IsOptional()
   @IsBoolean()
+  @Transform(transformToBoolean)
   discountActive?: boolean;
 
   @IsOptional()
   @IsISO8601()
-  @Transform(({ value }) => (value === '' ? undefined : value))
-  discountStart?: string;
+  @Transform(transformToIsoString)
+  discountStart?: string | null;
 
   @IsOptional()
   @IsISO8601()
-  @Transform(({ value }) => (value === '' ? undefined : value))
-  discountEnd?: string;
+  @Transform(transformToIsoString)
+  discountEnd?: string | null;
 
   @IsOptional()
   @IsBoolean()
+  @Transform(transformToBoolean)
   preOrderEnabled?: boolean;
 
   @IsOptional()
   @IsISO8601()
-  @Transform(({ value }) => (value === '' ? undefined : value))
-  preOrderStart?: string;
+  @Transform(transformToIsoString)
+  preOrderStart?: string | null;
 
   @IsOptional()
   @IsISO8601()
-  @Transform(({ value }) => (value === '' ? undefined : value))
-  preOrderEnd?: string;
+  @Transform(transformToIsoString)
+  preOrderEnd?: string | null;
 
   @IsOptional()
   @IsISO8601()
-  @Transform(({ value }) => (value === '' ? undefined : value))
-  preOrderFulfillmentDate?: string;
+  @Transform(transformToIsoString)
+  preOrderFulfillmentDate?: string | null;
 
   @IsOptional()
   @IsBoolean()
+  @Transform(transformToBoolean)
   preOrderDepositRequired?: boolean;
 
   @IsOptional()

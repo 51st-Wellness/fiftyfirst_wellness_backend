@@ -38,7 +38,13 @@ export class StoreController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @UsePipes(new ValidationPipe({ forbidNonWhitelisted: false })) // Allow file fields for this route
+  @UsePipes(
+    new ValidationPipe({
+      forbidNonWhitelisted: false,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  ) // Allow file fields for this route
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'display', maxCount: 1 }, // Required display file (image or video)
@@ -127,6 +133,13 @@ export class StoreController {
   @Put(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
+  @UsePipes(
+    new ValidationPipe({
+      forbidNonWhitelisted: false,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  )
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'display', maxCount: 1 }, // Optional display file (image or video)
