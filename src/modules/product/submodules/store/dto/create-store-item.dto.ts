@@ -115,11 +115,6 @@ export class CreateStoreItemDto {
   preOrderFulfillmentDate?: string | null;
 
   @IsOptional()
-  @IsBoolean()
-  @Transform(transformToBoolean)
-  preOrderDepositRequired?: boolean;
-
-  @IsOptional()
   @IsNumber()
   @Min(0)
   preOrderDepositAmount?: number;

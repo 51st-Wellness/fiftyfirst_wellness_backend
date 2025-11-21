@@ -366,7 +366,6 @@ export class PaymentService {
         storeItemPreOrderStart: storeItems.preOrderStart,
         storeItemPreOrderEnd: storeItems.preOrderEnd,
         storeItemPreOrderFulfillmentDate: storeItems.preOrderFulfillmentDate,
-        storeItemPreOrderDepositRequired: storeItems.preOrderDepositRequired,
         storeItemPreOrderDepositAmount: storeItems.preOrderDepositAmount,
         storeItemReservedPreOrderQuantity: storeItems.reservedPreOrderQuantity,
       })
@@ -506,7 +505,6 @@ export class PaymentService {
         image: item.storeItemDisplay,
         isPreOrder,
         preOrderFulfillmentDate,
-        preOrderDepositRequired: item.storeItemPreOrderDepositRequired || false,
         preOrderDepositAmount: item.storeItemPreOrderDepositAmount || 0,
       };
     });
@@ -591,7 +589,6 @@ export class PaymentService {
         },
         isPreOrder: item.isPreOrder,
         preOrderFulfillmentDate: item.preOrderFulfillmentDate,
-        preOrderDepositRequired: item.preOrderDepositRequired,
         preOrderDepositAmount: item.preOrderDepositAmount,
       };
     };
@@ -744,14 +741,14 @@ export class PaymentService {
     let preOrderDepositAmount = 0;
     if (hasPreOrders) {
       for (const item of preOrderItems) {
-        if (item.preOrderDepositRequired) {
-          // Calculate deposit per item
-          const depositPerUnit = item.preOrderDepositAmount || 0;
-          preOrderDepositAmount += depositPerUnit * item.quantity;
-        } else {
-          // If no deposit required, use full amount
-          preOrderDepositAmount += item.lineTotal;
-        }
+        const baseUnitPrice = item.unitPrice ?? item.preOrderDepositAmount ?? 0;
+        const depositPerUnitRaw =
+          item.preOrderDepositAmount ?? baseUnitPrice ?? 0;
+        const depositPerUnit = Math.max(
+          0,
+          Math.min(depositPerUnitRaw, baseUnitPrice || depositPerUnitRaw),
+        );
+        preOrderDepositAmount += depositPerUnit * item.quantity;
       }
     }
 

@@ -79,8 +79,6 @@ export class StoreService {
       createStoreItemDto.preOrderFulfillmentDate
         ? new Date(createStoreItemDto.preOrderFulfillmentDate)
         : null;
-    storeItemData.preOrderDepositRequired =
-      createStoreItemDto.preOrderDepositRequired ?? false;
     storeItemData.preOrderDepositAmount =
       createStoreItemDto.preOrderDepositAmount ?? 0;
     storeItemData.reservedPreOrderQuantity = 0;
@@ -279,10 +277,6 @@ export class StoreService {
         updateStoreItemDto.preOrderFulfillmentDate
           ? new Date(updateStoreItemDto.preOrderFulfillmentDate)
           : null;
-    }
-    if (updateStoreItemDto.preOrderDepositRequired !== undefined) {
-      updateData.preOrderDepositRequired =
-        updateStoreItemDto.preOrderDepositRequired;
     }
     if (updateStoreItemDto.preOrderDepositAmount !== undefined) {
       updateData.preOrderDepositAmount =

@@ -298,11 +298,6 @@ export const storeItems = sqliteTable('StoreItem', {
   preOrderFulfillmentDate: integer('preOrderFulfillmentDate', {
     mode: 'timestamp',
   }),
-  preOrderDepositRequired: integer('preOrderDepositRequired', {
-    mode: 'boolean',
-  })
-    .notNull()
-    .default(false),
   preOrderDepositAmount: real('preOrderDepositAmount').notNull().default(0),
   reservedPreOrderQuantity: integer('reservedPreOrderQuantity')
     .notNull()
