@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Product Update - Fifty Firsts Wellness</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          Roboto, sans-serif;
+        line-height: 1.6;
+        color: #374151;
+        background-color: #f9fafb;
+        margin: 0;
+        padding: 24px 0;
+      }
+
+      .email-container {
+        max-width: 680px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15);
+      }
+
+      .email-header {
+        background: linear-gradient(135deg, #00969b 0%, #5f42e5 100%);
+        color: #ffffff;
+        padding: 36px;
+        text-align: center;
+      }
+
+      .tagline {
+        font-size: 15px;
+        opacity: 0.9;
+        letter-spacing: 0.4px;
+      }
+
+      .email-content {
+        padding: 40px;
+      }
+
+      .content-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 26px;
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 12px;
+        text-align: center;
+      }
+
+      .content-subtitle {
+        font-size: 17px;
+        color: #475569;
+        text-align: center;
+        margin-bottom: 28px;
+      }
+
+      .hero-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 32px;
+        background-color: #f8fafc;
+      }
+
+      .hero-image {
+        width: 100%;
+        display: block;
+        max-height: 280px;
+        object-fit: cover;
+      }
+
+      .hero-content {
+        padding: 24px;
+      }
+
+      .product-name {
+        font-size: 20px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 12px;
+      }
+
+      .product-description {
+        color: #475569;
+        font-size: 15px;
+        line-height: 1.7;
+        margin-bottom: 16px;
+      }
+
+      .message-box {
+        background-color: #ecfeff;
+        border: 1px solid #22d3ee;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 28px;
+        color: #0f172a;
+      }
+
+      .message-box strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #0891b2;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 14px 28px;
+        border-radius: 999px;
+        font-size: 16px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        border: none;
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        background-color: #00969b;
+        color: #ffffff !important;
+        box-shadow: 0 10px 20px rgba(0, 150, 155, 0.25);
+      }
+
+      .btn-primary:hover {
+        opacity: 0.92;
+      }
+
+      .cta-container {
+        text-align: center;
+        margin-bottom: 36px;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .info-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 18px;
+        background-color: #fefce8;
+      }
+
+      .info-card h4 {
+        font-size: 15px;
+        color: #b45309;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+
+      .info-card p {
+        color: #78350f;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .email-footer {
+        background-color: #0f172a;
+        color: #cbd5f5;
+        text-align: center;
+        padding: 30px;
+        font-size: 13px;
+      }
+
+      .email-footer a {
+        color: #a5b4fc;
+        text-decoration: none;
+      }
+
+      @media only screen and (max-width: 640px) {
+        body {
+          padding: 0;
+        }
+
+        .email-content {
+          padding: 28px 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="email-header">
+        <h1>Fifty Firsts Wellness</h1>
+        <p class="tagline">Thoughtfully curated wellness, right on time</p>
+      </div>
+
+      <div class="email-content">
+        <h2 class="content-title">Hi <%= firstName || 'Wellness Friend' %>,</h2>
+        <p class="content-subtitle">
+          The product you asked about is ready whenever you are.
+        </p>
+
+        <div class="hero-card">
+          <% if (productImage) { %>
+          <img
+            src="<%= productImage %>"
+            alt="<%= productName %>"
+            class="hero-image"
+          />
+          <% } %>
+          <div class="hero-content">
+            <div class="product-name"><%= productName %></div>
+            <% if (productDescription) { %>
+            <p class="product-description"><%= productDescription %></p>
+            <% } %>
+          </div>
+        </div>
+
+        <% if (message) { %>
+        <div class="message-box">
+          <strong>Why we're excited:</strong>
+          <p><%= message %></p>
+        </div>
+        <% } %>
+
+        <div class="cta-container">
+          <a href="<%= productUrl %>" class="btn btn-primary">
+            <%= ctaText || 'View Product' %>
+          </a>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-card">
+            <h4>What to know</h4>
+            <p>
+              Supplies are limited so we recommend placing your order as soon as
+              you can.
+            </p>
+          </div>
+          <div class="info-card">
+            <h4>Questions?</h4>
+            <p>
+              We're here to help. Reply to this email or reach us at
+              <%= supportEmail || companyEmail || 'support@fiftyfirstswellness.com' %>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="email-footer">
+        © <%= new Date().getFullYear() %> Fifty Firsts Wellness.<br />
+        You received this email because you asked us to notify you when this
+        product became available.
+        <% if (unsubscribeUrl) { %>
+        <br />
+        <a href="<%= unsubscribeUrl %>">Unsubscribe</a>
+        <% } %>
+      </div>
+    </div>
+  </body>
+</html>
+

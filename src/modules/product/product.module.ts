@@ -16,6 +16,10 @@ import { StoreRepository } from 'src/modules/product/submodules/store/store.repo
 import { ProgrammeRepository } from 'src/modules/product/submodules/programme/programme.repository';
 import { PodcastRepository } from 'src/modules/product/submodules/podcast/podcast.repository';
 import { ReviewModule } from '../review/review.module';
+import { ProductSubscriberService } from 'src/modules/product/submodules/store/product-subscriber.service';
+import { ProductSubscriberRepository } from 'src/modules/product/submodules/store/product-subscriber.repository';
+import { MailerooModule } from '../maileroo/maileroo.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -24,6 +28,8 @@ import { ReviewModule } from '../review/review.module';
     UserModule,
     StorageModule,
     ReviewModule,
+    MailerooModule,
+    NotificationModule,
   ],
   controllers: [
     ProgrammeController,
@@ -40,6 +46,8 @@ import { ReviewModule } from '../review/review.module';
     StoreRepository,
     ProgrammeRepository,
     PodcastRepository,
+    ProductSubscriberService,
+    ProductSubscriberRepository,
   ],
   exports: [
     ProgrammeService,
@@ -47,6 +55,7 @@ import { ReviewModule } from '../review/review.module';
     StoreService,
     CategoryServiceProvider,
     CategoryExistsConstraint,
+    ProductSubscriberService,
   ],
 })
 export class ProductModule {}

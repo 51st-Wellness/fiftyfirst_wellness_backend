@@ -59,6 +59,10 @@ export class PlainTextGenerator {
       case EmailType.CONTACT_FORM_SUBMISSION:
         return this.generateContactFormSubmissionPlainText(baseContext);
 
+      // Marketplace
+      case EmailType.PRODUCT_AVAILABILITY_NOTIFICATION:
+        return this.generateProductAvailabilityPlainText(baseContext);
+
       default:
         return this.generateDefaultPlainText(baseContext);
     }
@@ -441,6 +445,34 @@ The Fifty Firsts Wellness Team
 
 ---
 Contact us at ${context.companyEmail || 'support@fiftyfirstswellness.com'} for assistance.
+    `.trim();
+  }
+
+  private static generateProductAvailabilityPlainText(context: any): string {
+    return `
+Product Update from Fifty Firsts Wellness
+
+Hi ${context.firstName || 'there'},
+
+${
+  context.message ||
+  'The product you subscribed to is now available. Visit the marketplace to learn more.'
+}
+
+Product: ${context.productName || 'Featured Wellness Product'}
+Link: ${context.productUrl || context.frontendUrl}
+
+We’ll keep you posted on future updates. Thank you for being part of the Fifty Firsts Wellness community!
+
+Warmly,
+The Fifty Firsts Wellness Team
+
+---
+Need help? Contact us at ${
+      context.supportEmail ||
+      context.companyEmail ||
+      'support@fiftyfirstswellness.com'
+    }.
     `.trim();
   }
 }

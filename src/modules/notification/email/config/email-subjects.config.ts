@@ -36,4 +36,8 @@ export const EmailSubjects: Record<EmailType, string> = {
   // Contact form
   [EmailType.CONTACT_FORM_SUBMISSION]:
     'New Contact Form Submission - Fifty Firsts Wellness',
+
+  // Marketplace
+  [EmailType.PRODUCT_AVAILABILITY_NOTIFICATION]:
+    'Product Update from Fifty Firsts Wellness',
 } as const;

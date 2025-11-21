@@ -454,16 +454,9 @@ export class PaymentService {
     const now = new Date();
     const globalDiscountConfig = await this.settingsService.getGlobalDiscount();
 
-    let baseSubtotal = 0;
-    let productDiscountTotal = 0;
-    let subtotalAfterProductDiscounts = 0;
-
-    // Calculate order items data and totals
-    const currency = 'USD'; // Default currency
-    const orderItemsData = validItems.map((item) => {
+    const computedItems = validItems.map((item) => {
       const baseUnitPrice = roundCurrency(item.storeItemPrice);
       const baseLineTotal = roundCurrency(baseUnitPrice * item.quantity);
-      baseSubtotal += baseLineTotal;
 
       const discountActive = isDiscountCurrentlyActive(
         {
@@ -492,9 +485,6 @@ export class PaymentService {
         discountedUnitPrice * item.quantity,
       );
 
-      productDiscountTotal += lineDiscountAmount;
-      subtotalAfterProductDiscounts += discountedLineTotal;
-
       const isPreOrder = item.storeItemPreOrderEnabled === true;
       const preOrderFulfillmentDate = item.storeItemPreOrderFulfillmentDate
         ? new Date(item.storeItemPreOrderFulfillmentDate)
@@ -504,18 +494,16 @@ export class PaymentService {
         productId: item.productId,
         name: item.storeItemName,
         quantity: item.quantity,
-        unitPrice: discountedUnitPrice,
-        lineTotal: discountedLineTotal,
         baseUnitPrice,
         baseLineTotal,
+        discountedUnitPrice,
+        discountedLineTotal,
+        unitDiscountAmount,
+        lineDiscountAmount,
+        discountActive,
+        discountType: item.storeItemDiscountType,
+        discountValue: item.storeItemDiscountValue,
         image: item.storeItemDisplay,
-        discount: {
-          isActive: discountActive,
-          type: discountActive ? item.storeItemDiscountType : 'NONE',
-          value: discountActive ? item.storeItemDiscountValue : 0,
-          amountPerUnit: discountActive ? unitDiscountAmount : 0,
-          totalAmount: discountActive ? lineDiscountAmount : 0,
-        },
         isPreOrder,
         preOrderFulfillmentDate,
         preOrderDepositRequired: item.storeItemPreOrderDepositRequired || false,
@@ -523,21 +511,129 @@ export class PaymentService {
       };
     });
 
+    const baseSubtotal = roundCurrency(
+      computedItems.reduce((sum, item) => sum + item.baseLineTotal, 0),
+    );
+    let subtotalAfterProductDiscounts = roundCurrency(
+      computedItems.reduce((sum, item) => sum + item.discountedLineTotal, 0),
+    );
+    let productDiscountTotal = roundCurrency(
+      computedItems.reduce((sum, item) => sum + item.lineDiscountAmount, 0),
+    );
+
+    const totalQuantity = computedItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
+
     const globalDiscountApplies = shouldApplyGlobalDiscount(
       globalDiscountConfig,
-      subtotalAfterProductDiscounts,
+      baseSubtotal,
     );
+
+    if (globalDiscountApplies) {
+      subtotalAfterProductDiscounts = baseSubtotal;
+      productDiscountTotal = 0;
+    }
 
     let globalDiscountAmount = 0;
     let totalAmount = roundCurrency(subtotalAfterProductDiscounts);
+    const currency = 'USD';
 
-    if (globalDiscountApplies) {
-      const globalPricing = applyDiscountValue(subtotalAfterProductDiscounts, {
-        type: globalDiscountConfig.type,
-        value: globalDiscountConfig.value,
-      });
+    const toOrderItem = (
+      item: (typeof computedItems)[number],
+      override?: {
+        unitPrice: number;
+        lineTotal: number;
+        discountAmount: number;
+      },
+    ) => {
+      const isGlobalOverride = Boolean(override);
+      const unitPrice = override
+        ? roundCurrency(override.unitPrice)
+        : item.discountedUnitPrice;
+      const lineTotal = override
+        ? roundCurrency(override.lineTotal)
+        : item.discountedLineTotal;
+      const discountAmount = override
+        ? roundCurrency(override.discountAmount)
+        : item.lineDiscountAmount;
+      const amountPerUnit = override
+        ? roundCurrency(override.discountAmount / item.quantity)
+        : item.unitDiscountAmount;
+
+      return {
+        productId: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice,
+        lineTotal,
+        baseUnitPrice: item.baseUnitPrice,
+        baseLineTotal: item.baseLineTotal,
+        image: item.image,
+        discount: {
+          isActive:
+            isGlobalOverride ||
+            (item.discountActive && item.discountType !== 'NONE'),
+          type: isGlobalOverride
+            ? globalDiscountConfig?.type || 'NONE'
+            : item.discountActive
+              ? item.discountType
+              : 'NONE',
+          value: isGlobalOverride
+            ? globalDiscountConfig?.value || 0
+            : item.discountActive
+              ? item.discountValue
+              : 0,
+          amountPerUnit,
+          totalAmount: discountAmount,
+          source: isGlobalOverride ? 'GLOBAL' : 'PRODUCT',
+        },
+        isPreOrder: item.isPreOrder,
+        preOrderFulfillmentDate: item.preOrderFulfillmentDate,
+        preOrderDepositRequired: item.preOrderDepositRequired,
+        preOrderDepositAmount: item.preOrderDepositAmount,
+      };
+    };
+
+    let orderItemsData = computedItems.map((item) => toOrderItem(item));
+
+    if (globalDiscountApplies && globalDiscountConfig) {
+      const globalPricing = applyDiscountValue(
+        baseSubtotal,
+        globalDiscountConfig,
+      );
       globalDiscountAmount = roundCurrency(globalPricing.discountAmount);
       totalAmount = roundCurrency(globalPricing.finalAmount);
+
+      if (globalDiscountAmount > 0 && baseSubtotal > 0) {
+        let remainingDiscount = globalDiscountAmount;
+        orderItemsData = computedItems.map((item, index) => {
+          let itemDiscount = roundCurrency(
+            (item.baseLineTotal / baseSubtotal) * globalDiscountAmount,
+          );
+          if (itemDiscount > remainingDiscount) {
+            itemDiscount = remainingDiscount;
+          }
+          if (index === computedItems.length - 1) {
+            itemDiscount = roundCurrency(remainingDiscount);
+          }
+          remainingDiscount = roundCurrency(
+            Math.max(remainingDiscount - itemDiscount, 0),
+          );
+
+          const lineTotal = roundCurrency(item.baseLineTotal - itemDiscount);
+          const unitPrice = roundCurrency(lineTotal / item.quantity);
+          return toOrderItem(item, {
+            unitPrice,
+            lineTotal,
+            discountAmount: itemDiscount,
+          });
+        });
+      }
+    } else {
+      totalAmount = roundCurrency(subtotalAfterProductDiscounts);
+      globalDiscountAmount = 0;
     }
 
     // Prepare cart items data for metadata
@@ -547,11 +643,6 @@ export class PaymentService {
       quantity: item.quantity,
       userId: userId,
     }));
-
-    const totalQuantity = orderItemsData.reduce(
-      (sum, item) => sum + item.quantity,
-      0,
-    );
 
     const pricingSummary = {
       currency,
@@ -566,11 +657,16 @@ export class PaymentService {
     };
 
     const discountSummary = {
-      productDiscountTotal: roundCurrency(productDiscountTotal),
+      productDiscountTotal: pricingSummary.productDiscountTotal,
       globalDiscount: {
-        ...globalDiscountConfig,
+        ...(globalDiscountConfig || {
+          isActive: false,
+          type: 'NONE',
+          value: 0,
+        }),
         applied: globalDiscountApplies,
         amountApplied: globalDiscountAmount,
+        overridesProductDiscounts: globalDiscountApplies,
       },
       totalDiscount: pricingSummary.totalDiscount,
     };

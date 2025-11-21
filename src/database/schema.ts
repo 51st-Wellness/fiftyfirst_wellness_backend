@@ -63,6 +63,10 @@ export const preOrderStatuses = [
 ] as const;
 export type PreOrderStatus = (typeof preOrderStatuses)[number];
 
+export const productSubscriberStatuses = ['PENDING', 'NOTIFIED'] as const;
+export type ProductSubscriberStatus =
+  (typeof productSubscriberStatuses)[number];
+
 // Enum objects for backwards compatibility with Prisma code
 export const UserRole = {
   USER: 'USER' as const,
@@ -128,6 +132,11 @@ export const PreOrderStatus = {
   CONFIRMED: 'CONFIRMED' as const,
   FULFILLED: 'FULFILLED' as const,
   CANCELLED: 'CANCELLED' as const,
+};
+
+export const ProductSubscriberStatus = {
+  PENDING: 'PENDING' as const,
+  NOTIFIED: 'NOTIFIED' as const,
 };
 
 // Core tables
@@ -497,6 +506,21 @@ export const categories = sqliteTable('Category', {
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
+
+export const productSubscribers = sqliteTable('ProductSubscriber', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull(),
+  productId: text('productId').notNull(),
+  status: text('status', { enum: productSubscriberStatuses })
+    .notNull()
+    .default('PENDING'),
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+    .notNull()
+    .$onUpdateFn(() => new Date()),
+});
 // export const blogs = sqliteTable('Blogs', {
 //   id: text('id').primaryKey(),
 //   title: text('title').notNull(),
@@ -521,6 +545,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   reviews: many(reviews),
   subscriptions: many(subscriptions),
   deliveryAddresses: many(deliveryAddresses),
+  productSubscribers: many(productSubscribers),
 }));
 
 export const passwordResetOTPsRelations = relations(
@@ -598,6 +623,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   cartItems: many(cartItems),
   bookmarks: many(bookmarks),
   reviews: many(reviews),
+  productSubscribers: many(productSubscribers),
 }));
 
 export const storeItemsRelations = relations(storeItems, ({ one }) => ({
@@ -703,3 +729,17 @@ export const aiConversationsRelations = relations(
 );
 
 export const categoriesRelations = relations(categories, ({ many }) => ({}));
+
+export const productSubscribersRelations = relations(
+  productSubscribers,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [productSubscribers.userId],
+      references: [users.id],
+    }),
+    product: one(products, {
+      fields: [productSubscribers.productId],
+      references: [products.id],
+    }),
+  }),
+);

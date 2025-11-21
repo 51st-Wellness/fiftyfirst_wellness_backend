@@ -28,4 +28,8 @@ export const EmailTemplates: Record<EmailType, string> = {
 
   // Contact form
   [EmailType.CONTACT_FORM_SUBMISSION]: 'contact-form-submission.ejs',
+
+  // Marketplace
+  [EmailType.PRODUCT_AVAILABILITY_NOTIFICATION]:
+    'product-availability-notification.ejs',
 } as const;

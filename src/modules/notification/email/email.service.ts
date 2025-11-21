@@ -74,8 +74,9 @@ export class EmailService {
     emailPayload: EmailPayloadDto,
   ): Promise<RenderedEmail> {
     try {
-      // Get subject from configuration
-      const subject = EmailSubjects[emailPayload.type];
+      // Get subject from configuration (allow overrides)
+      const subject =
+        emailPayload.subjectOverride || EmailSubjects[emailPayload.type];
       emailPayload.context = {
         ...emailPayload.context,
         ...EmailBaseConfig,

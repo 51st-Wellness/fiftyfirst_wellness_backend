@@ -593,4 +593,9 @@ export class StoreService {
     const parsed = value instanceof Date ? value : new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
+
+  // Search store items with minimal data for select dropdown
+  async searchMinimal(query: string, limit: number = 10) {
+    return await this.storeRepository.searchMinimal(query, limit);
+  }
 }

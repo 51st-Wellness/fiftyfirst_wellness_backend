@@ -355,4 +355,33 @@ export class StoreRepository {
       .orderBy(desc(storeItems.createdAt));
     return results.map((item) => this.sanitizeStoreItem(item));
   }
+
+  // Search store items with minimal data for select dropdown
+  async searchMinimal(query: string, limit: number = 10) {
+    const results = await this.database.db
+      .select({
+        productId: storeItems.productId,
+        name: storeItems.name,
+        display: storeItems.display,
+        stock: storeItems.stock,
+        preOrderEnabled: storeItems.preOrderEnabled,
+      })
+      .from(storeItems)
+      .where(
+        and(
+          like(storeItems.name, `%${query}%`),
+          eq(storeItems.isPublished, true),
+        ),
+      )
+      .orderBy(desc(storeItems.createdAt))
+      .limit(limit);
+
+    return results.map((item) => ({
+      value: item.productId,
+      label: item.name,
+      display: item.display,
+      stock: item.stock,
+      preOrderEnabled: item.preOrderEnabled,
+    }));
+  }
 }

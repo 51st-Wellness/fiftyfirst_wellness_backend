@@ -26,12 +26,22 @@ import { UserRole } from 'src/database/schema';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { CategoryExistsConstraint } from '../category/validators/category-exists.validator';
+import { ProductSubscriberService } from './product-subscriber.service';
+import {
+  CreateProductSubscriberDto,
+  UpdateProductSubscriberDto,
+  ProductSubscriberQueryDto,
+  BulkEmailDto,
+  SingleEmailDto,
+} from './dto/product-subscriber.dto';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @Controller('product/store')
 export class StoreController {
   constructor(
     private readonly storeService: StoreService,
     private readonly categoryValidator: CategoryExistsConstraint,
+    private readonly productSubscriberService: ProductSubscriberService,
   ) {}
 
   // Create store item (Admin only)
@@ -209,5 +219,140 @@ export class StoreController {
       'Store item deleted successfully',
       deletedItem,
     );
+  }
+
+  // Search store items (minimal data for select dropdown)
+  @Get('search/minimal')
+  async searchMinimal(
+    @Query('q') query: string,
+    @Query('limit') limit?: number,
+  ): Promise<ResponseDto<any>> {
+    const results = await this.storeService.searchMinimal(
+      query,
+      limit ? Number(limit) : 10,
+    );
+    return ResponseDto.createSuccessResponse('Store items found', results);
+  }
+
+  // Subscribe to product notifications (authenticated users)
+  @Post('subscribe')
+  @Auth()
+  async subscribe(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateProductSubscriberDto,
+  ): Promise<ResponseDto<any>> {
+    const subscription = await this.productSubscriberService.subscribe(
+      userId,
+      dto,
+    );
+    return ResponseDto.createSuccessResponse(
+      'Successfully subscribed to product notifications',
+      subscription,
+    );
+  }
+
+  // Unsubscribe from product notifications (authenticated users)
+  @Delete('subscribe/:productId')
+  @Auth()
+  async unsubscribe(
+    @CurrentUser('id') userId: string,
+    @Param('productId') productId: string,
+  ): Promise<ResponseDto<any>> {
+    await this.productSubscriberService.unsubscribe(userId, productId);
+    return ResponseDto.createSuccessResponse(
+      'Successfully unsubscribed from product notifications',
+      null,
+    );
+  }
+
+  // Check subscription status (authenticated users)
+  @Get('subscribe/check/:productId')
+  @Auth()
+  async checkSubscription(
+    @CurrentUser('id') userId: string,
+    @Param('productId') productId: string,
+  ): Promise<ResponseDto<any>> {
+    const result = await this.productSubscriberService.checkSubscription(
+      userId,
+      productId,
+    );
+    return ResponseDto.createSuccessResponse('Subscription status', result);
+  }
+
+  // Get all product subscribers (Admin only)
+  @Get('subscribers/all')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAllSubscribers(
+    @Query() query: ProductSubscriberQueryDto,
+  ): Promise<ResponseDto<any>> {
+    const result = await this.productSubscriberService.findAll(query);
+    return ResponseDto.createPaginatedResponse(
+      'Product subscribers retrieved successfully',
+      result.items,
+      result.pagination,
+    );
+  }
+
+  // Get single subscriber (Admin only)
+  @Get('subscribers/:id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getSubscriber(@Param('id') id: string): Promise<ResponseDto<any>> {
+    const subscriber = await this.productSubscriberService.findOne(id);
+    return ResponseDto.createSuccessResponse(
+      'Subscriber retrieved successfully',
+      subscriber,
+    );
+  }
+
+  // Update subscriber (Admin only)
+  @Put('subscribers/:id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateSubscriber(
+    @Param('id') id: string,
+    @Body() dto: UpdateProductSubscriberDto,
+  ): Promise<ResponseDto<any>> {
+    const updated = await this.productSubscriberService.update(id, dto);
+    return ResponseDto.createSuccessResponse(
+      'Subscriber updated successfully',
+      updated,
+    );
+  }
+
+  // Delete subscriber (Admin only)
+  @Delete('subscribers/:id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async deleteSubscriber(@Param('id') id: string): Promise<ResponseDto<any>> {
+    await this.productSubscriberService.delete(id);
+    return ResponseDto.createSuccessResponse(
+      'Subscriber deleted successfully',
+      null,
+    );
+  }
+
+  // Send bulk email to product subscribers (Admin only)
+  @Post('subscribers/bulk-email')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async sendBulkEmail(@Body() dto: BulkEmailDto): Promise<ResponseDto<any>> {
+    const result = await this.productSubscriberService.sendBulkEmail(dto);
+    return ResponseDto.createSuccessResponse(
+      'Bulk email sent successfully',
+      result,
+    );
+  }
+
+  // Send email to single subscriber (Admin only)
+  @Post('subscribers/single-email')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async sendSingleEmail(
+    @Body() dto: SingleEmailDto,
+  ): Promise<ResponseDto<any>> {
+    const result = await this.productSubscriberService.sendSingleEmail(dto);
+    return ResponseDto.createSuccessResponse('Email sent successfully', result);
   }
 }
