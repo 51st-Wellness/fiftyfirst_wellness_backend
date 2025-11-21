@@ -363,11 +363,6 @@ export class PaymentService {
         storeItemDiscountStart: storeItems.discountStart,
         storeItemDiscountEnd: storeItems.discountEnd,
         storeItemPreOrderEnabled: storeItems.preOrderEnabled,
-        storeItemPreOrderStart: storeItems.preOrderStart,
-        storeItemPreOrderEnd: storeItems.preOrderEnd,
-        storeItemPreOrderFulfillmentDate: storeItems.preOrderFulfillmentDate,
-        storeItemPreOrderDepositAmount: storeItems.preOrderDepositAmount,
-        storeItemReservedPreOrderQuantity: storeItems.reservedPreOrderQuantity,
       })
       .from(cartItems)
       .where(eq(cartItems.userId, userId))
@@ -391,50 +386,13 @@ export class PaymentService {
         continue;
       }
 
-      const isPreOrder = item.storeItemPreOrderEnabled === true;
-      const now = new Date();
+      const stock = item.storeItemStock ?? 0;
+      const canPreOrder = item.storeItemPreOrderEnabled === true && stock <= 0;
 
-      // Validate pre-order window if item is a pre-order
-      if (isPreOrder) {
-        const preOrderStart = item.storeItemPreOrderStart
-          ? new Date(item.storeItemPreOrderStart)
-          : null;
-        const preOrderEnd = item.storeItemPreOrderEnd
-          ? new Date(item.storeItemPreOrderEnd)
-          : null;
-
-        if (preOrderStart && now < preOrderStart) {
+      if (!canPreOrder) {
+        if (stock < item.quantity) {
           invalidItems.push(
-            `Pre-order for ${item.storeItemName} has not started yet`,
-          );
-          continue;
-        }
-
-        if (preOrderEnd && now > preOrderEnd) {
-          invalidItems.push(
-            `Pre-order window for ${item.storeItemName} has ended`,
-          );
-          continue;
-        }
-
-        // For pre-orders, check available stock (total stock - reserved pre-orders)
-        const availableStock =
-          (item.storeItemStock || 0) -
-          (item.storeItemReservedPreOrderQuantity || 0);
-        if (availableStock < item.quantity) {
-          invalidItems.push(
-            `Insufficient pre-order availability for ${item.storeItemName}. Available: ${availableStock}, Requested: ${item.quantity}`,
-          );
-          continue;
-        }
-      } else {
-        // For regular orders, check stock availability
-        if (
-          item.storeItemStock == null ||
-          item.storeItemStock < item.quantity
-        ) {
-          invalidItems.push(
-            `Insufficient stock for ${item.storeItemName}. Available: ${item.storeItemStock || 0}, Requested: ${item.quantity}`,
+            `Insufficient stock for ${item.storeItemName}. Available: ${stock}, Requested: ${item.quantity}`,
           );
           continue;
         }
@@ -484,10 +442,9 @@ export class PaymentService {
         discountedUnitPrice * item.quantity,
       );
 
-      const isPreOrder = item.storeItemPreOrderEnabled === true;
-      const preOrderFulfillmentDate = item.storeItemPreOrderFulfillmentDate
-        ? new Date(item.storeItemPreOrderFulfillmentDate)
-        : null;
+      const isPreOrder =
+        item.storeItemPreOrderEnabled === true &&
+        (item.storeItemStock ?? 0) <= 0;
 
       return {
         productId: item.productId,
@@ -504,8 +461,6 @@ export class PaymentService {
         discountValue: item.storeItemDiscountValue,
         image: item.storeItemDisplay,
         isPreOrder,
-        preOrderFulfillmentDate,
-        preOrderDepositAmount: item.storeItemPreOrderDepositAmount || 0,
       };
     });
 
@@ -588,8 +543,6 @@ export class PaymentService {
           source: isGlobalOverride ? 'GLOBAL' : 'PRODUCT',
         },
         isPreOrder: item.isPreOrder,
-        preOrderFulfillmentDate: item.preOrderFulfillmentDate,
-        preOrderDepositAmount: item.preOrderDepositAmount,
       };
     };
 
@@ -734,39 +687,9 @@ export class PaymentService {
 
     // Check if order contains pre-orders
     const hasPreOrders = orderItemsData.some((item) => item.isPreOrder);
-    const preOrderItems = orderItemsData.filter((item) => item.isPreOrder);
-    const regularItems = orderItemsData.filter((item) => !item.isPreOrder);
 
-    // Calculate deposit amount for pre-orders
-    let preOrderDepositAmount = 0;
-    if (hasPreOrders) {
-      for (const item of preOrderItems) {
-        const baseUnitPrice = item.unitPrice ?? item.preOrderDepositAmount ?? 0;
-        const depositPerUnitRaw =
-          item.preOrderDepositAmount ?? baseUnitPrice ?? 0;
-        const depositPerUnit = Math.max(
-          0,
-          Math.min(depositPerUnitRaw, baseUnitPrice || depositPerUnitRaw),
-        );
-        preOrderDepositAmount += depositPerUnit * item.quantity;
-      }
-    }
-
-    // Determine payment amount (deposit for pre-orders, full amount for regular)
-    const paymentAmount = hasPreOrders ? preOrderDepositAmount : totalAmount;
-
-    // Determine earliest fulfillment date for pre-orders
-    let expectedFulfillmentDate: Date | null = null;
-    if (hasPreOrders && preOrderItems.length > 0) {
-      const fulfillmentDates = preOrderItems
-        .map((item) => item.preOrderFulfillmentDate)
-        .filter((date): date is Date => date !== null);
-      if (fulfillmentDates.length > 0) {
-        expectedFulfillmentDate = new Date(
-          Math.min(...fulfillmentDates.map((d) => d.getTime())),
-        );
-      }
-    }
+    const paymentAmount = totalAmount;
+    const expectedFulfillmentDate: Date | null = null;
 
     // Handle delivery address
     let deliveryAddressId: string | undefined;
@@ -836,18 +759,6 @@ export class PaymentService {
       );
     }
 
-    // Reserve pre-order quantities before creating order
-    if (hasPreOrders) {
-      for (const item of preOrderItems) {
-        await this.database.db
-          .update(storeItems)
-          .set({
-            reservedPreOrderQuantity: sql`${storeItems.reservedPreOrderQuantity} + ${item.quantity}`,
-          })
-          .where(eq(storeItems.productId, item.productId));
-      }
-    }
-
     // Create order in database
     const orderId = generateId();
     await this.database.db.insert(orders).values({
@@ -858,8 +769,7 @@ export class PaymentService {
       deliveryAddressId,
       isPreOrder: hasPreOrders,
       preOrderStatus: hasPreOrders ? 'PLACED' : null,
-      expectedFulfillmentDate: expectedFulfillmentDate,
-      preOrderDepositAmount: preOrderDepositAmount,
+      expectedFulfillmentDate,
     });
     await this.database.db.insert(orderItems).values(
       orderItemsData.map((item) => ({
@@ -868,9 +778,7 @@ export class PaymentService {
         productId: item.productId,
         quantity: item.quantity,
         price: item.unitPrice,
-        preOrderReleaseDate: item.isPreOrder
-          ? item.preOrderFulfillmentDate
-          : null,
+        preOrderReleaseDate: null,
       })),
     );
 
@@ -881,19 +789,14 @@ export class PaymentService {
 
     const paymentInit = await this.provider.initializePayment({
       orderId: orderId,
-      amount: paymentAmount, // Use deposit amount for pre-orders
+      amount: paymentAmount,
       currency,
-      description: hasPreOrders
-        ? `Pre-order ${description || 'Store Checkout'}`
-        : description || 'Store Checkout',
+      description: description || 'Store Checkout',
       items: providerLineItems,
       userId,
       paymentId,
       isPreOrder: hasPreOrders,
-      captureMethod:
-        hasPreOrders && preOrderDepositAmount < totalAmount
-          ? 'manual'
-          : 'automatic', // Manual capture for deposits, automatic for full payment
+      captureMethod: 'automatic',
     });
 
     // Create payment record
@@ -903,16 +806,13 @@ export class PaymentService {
       providerRef: paymentInit.providerRef,
       status: PaymentStatus.PENDING,
       currency: currency as any,
-      amount: totalAmount, // Store full amount
-      capturedAmount:
-        hasPreOrders && preOrderDepositAmount < totalAmount ? 0 : totalAmount, // For deposits, start with 0 captured
-      authorizedAmount: paymentAmount, // Amount authorized/captured initially
+      amount: totalAmount,
+      capturedAmount: totalAmount,
+      authorizedAmount: paymentAmount,
       isPreOrderPayment: hasPreOrders,
       metadata: {
         type: 'store_checkout',
         isPreOrder: hasPreOrders,
-        depositAmount: preOrderDepositAmount,
-        remainingAmount: hasPreOrders ? totalAmount - preOrderDepositAmount : 0,
       } as PaymentMetadata,
     });
 
@@ -1465,43 +1365,28 @@ export class PaymentService {
           )[0];
 
           const isPreOrder = payment.isPreOrderPayment || order?.isPreOrder;
-          const capturedAmount = payment.capturedAmount || 0;
-          const authorizedAmount = payment.authorizedAmount || 0;
-          const fullAmount = payment.amount;
-
-          // For pre-orders with deposits, update captured amount
-          // For full payments or deposits that match full amount, mark as fully paid
-          const newCapturedAmount = isPreOrder
-            ? Math.min(authorizedAmount, fullAmount)
-            : fullAmount;
-
-          const isFullyPaid = newCapturedAmount >= fullAmount;
 
           await tx
             .update(payments)
             .set({
-              status: isFullyPaid ? PaymentStatus.PAID : PaymentStatus.PENDING,
+              status: PaymentStatus.PAID,
               providerRef: webhookResult.providerRef,
-              capturedAmount: newCapturedAmount,
-              authorizedAmount: authorizedAmount,
+              capturedAmount: payment.amount,
+              authorizedAmount: payment.amount,
               metadata: updatedMetadata as PaymentMetadata,
             })
             .where(eq(payments.id, payment.id));
 
           // Update order status
           if (isPreOrder) {
-            // For pre-orders, update pre-order status to CONFIRMED
             await tx
               .update(orders)
               .set({
                 preOrderStatus: PreOrderStatus.CONFIRMED,
-                status: isFullyPaid
-                  ? OrderStatus.PROCESSING
-                  : OrderStatus.PENDING,
+                status: OrderStatus.PENDING,
               })
               .where(eq(orders.paymentId, payment.id));
           } else {
-            // For regular orders, update to PROCESSING
             await this.updateOrderStatusForPayment(
               tx,
               payment.id,
@@ -1509,10 +1394,7 @@ export class PaymentService {
             );
           }
 
-          // Only finalize checkout if fully paid (for pre-orders with deposits, wait for fulfillment)
-          if (isFullyPaid) {
-            await this.finalizeStoreCheckout(tx, payment.id);
-          }
+          await this.finalizeStoreCheckout(tx, payment.id);
         });
 
         await this.sendPaymentStatusEmail({
@@ -1758,14 +1640,18 @@ export class PaymentService {
       return;
     }
 
-    // Decrement stock for each product
-    for (const orderItem of orderItemsList) {
-      await tx
-        .update(storeItems)
-        .set({
-          stock: sql`${storeItems.stock} - ${orderItem.quantity}`,
-        })
-        .where(eq(storeItems.productId, orderItem.productId));
+    const isPreOrder = order.isPreOrder;
+
+    if (!isPreOrder) {
+      // Decrement stock for each product
+      for (const orderItem of orderItemsList) {
+        await tx
+          .update(storeItems)
+          .set({
+            stock: sql`${storeItems.stock} - ${orderItem.quantity}`,
+          })
+          .where(eq(storeItems.productId, orderItem.productId));
+      }
     }
 
     // Get and delete cart items for this user matching the order items
@@ -2605,32 +2491,8 @@ export class PaymentService {
       throw new BadRequestException('Payment is not a pre-order payment');
     }
 
-    const remainingAmount = payment.amount - payment.capturedAmount;
-
-    // If there's a remaining amount, capture it from Stripe
-    if (remainingAmount > 0 && payment.providerRef) {
-      try {
-        // For Stripe, we need to capture the remaining amount
-        // If it was authorized but not captured, we capture it now
-        const captureResult = await this.provider.capturePayment(
-          payment.providerRef,
-        );
-
-        if (captureResult.status !== 'PAID') {
-          throw new BadRequestException(
-            `Failed to capture remaining payment: ${captureResult.status}`,
-          );
-        }
-      } catch (error) {
-        throw new BadRequestException(
-          `Failed to capture remaining payment: ${error.message}`,
-        );
-      }
-    }
-
     // Update payment and order status
     await this.database.db.transaction(async (tx) => {
-      // Update payment to fully captured
       await tx
         .update(payments)
         .set({
@@ -2639,7 +2501,6 @@ export class PaymentService {
         })
         .where(eq(payments.id, payment.id));
 
-      // Update order status
       await tx
         .update(orders)
         .set({
@@ -2648,14 +2509,12 @@ export class PaymentService {
         })
         .where(eq(orders.id, orderId));
 
-      // Release reserved pre-order quantities and decrement stock
       const orderItemsList = await tx
         .select()
         .from(orderItems)
         .where(eq(orderItems.orderId, orderId));
 
       for (const orderItem of orderItemsList) {
-        // Get the store item to check if it's a pre-order item
         const storeItem = (
           await tx
             .select()
@@ -2664,24 +2523,24 @@ export class PaymentService {
             .limit(1)
         )[0];
 
-        if (storeItem && storeItem.preOrderEnabled) {
-          // Release reserved quantity and decrement stock
-          await tx
-            .update(storeItems)
-            .set({
-              reservedPreOrderQuantity: sql`${storeItems.reservedPreOrderQuantity} - ${orderItem.quantity}`,
-              stock: sql`${storeItems.stock} - ${orderItem.quantity}`,
-            })
-            .where(eq(storeItems.productId, orderItem.productId));
-        } else {
-          // Regular item, just decrement stock
-          await tx
-            .update(storeItems)
-            .set({
-              stock: sql`${storeItems.stock} - ${orderItem.quantity}`,
-            })
-            .where(eq(storeItems.productId, orderItem.productId));
+        if (!storeItem) {
+          throw new NotFoundException(
+            `Store item ${orderItem.productId} not found`,
+          );
         }
+
+        if ((storeItem.stock || 0) < orderItem.quantity) {
+          throw new BadRequestException(
+            `Insufficient stock to fulfill pre-order for ${storeItem.name}`,
+          );
+        }
+
+        await tx
+          .update(storeItems)
+          .set({
+            stock: sql`${storeItems.stock} - ${orderItem.quantity}`,
+          })
+          .where(eq(storeItems.productId, orderItem.productId));
       }
 
       // Finalize checkout (clear cart items)

@@ -100,26 +100,6 @@ export class CreateStoreItemDto {
   preOrderEnabled?: boolean;
 
   @IsOptional()
-  @IsISO8601()
-  @Transform(transformToIsoString)
-  preOrderStart?: string | null;
-
-  @IsOptional()
-  @IsISO8601()
-  @Transform(transformToIsoString)
-  preOrderEnd?: string | null;
-
-  @IsOptional()
-  @IsISO8601()
-  @Transform(transformToIsoString)
-  preOrderFulfillmentDate?: string | null;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  preOrderDepositAmount?: number;
-
-  @IsOptional()
   @IsString()
   productUsage?: string;
 

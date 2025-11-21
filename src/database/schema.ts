@@ -293,15 +293,6 @@ export const storeItems = sqliteTable('StoreItem', {
   preOrderEnabled: integer('preOrderEnabled', { mode: 'boolean' })
     .notNull()
     .default(false),
-  preOrderStart: integer('preOrderStart', { mode: 'timestamp' }),
-  preOrderEnd: integer('preOrderEnd', { mode: 'timestamp' }),
-  preOrderFulfillmentDate: integer('preOrderFulfillmentDate', {
-    mode: 'timestamp',
-  }),
-  preOrderDepositAmount: real('preOrderDepositAmount').notNull().default(0),
-  reservedPreOrderQuantity: integer('reservedPreOrderQuantity')
-    .notNull()
-    .default(0),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -409,7 +400,6 @@ export const orders = sqliteTable('Order', {
     mode: 'timestamp',
   }),
   fulfillmentNotes: text('fulfillmentNotes'),
-  preOrderDepositAmount: real('preOrderDepositAmount').notNull().default(0),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

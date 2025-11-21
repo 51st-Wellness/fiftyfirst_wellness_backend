@@ -69,19 +69,6 @@ export class StoreService {
 
     // Handle pre-order fields
     storeItemData.preOrderEnabled = createStoreItemDto.preOrderEnabled ?? false;
-    storeItemData.preOrderStart = createStoreItemDto.preOrderStart
-      ? new Date(createStoreItemDto.preOrderStart)
-      : null;
-    storeItemData.preOrderEnd = createStoreItemDto.preOrderEnd
-      ? new Date(createStoreItemDto.preOrderEnd)
-      : null;
-    storeItemData.preOrderFulfillmentDate =
-      createStoreItemDto.preOrderFulfillmentDate
-        ? new Date(createStoreItemDto.preOrderFulfillmentDate)
-        : null;
-    storeItemData.preOrderDepositAmount =
-      createStoreItemDto.preOrderDepositAmount ?? 0;
-    storeItemData.reservedPreOrderQuantity = 0;
 
     // Handle display file upload (can be image or video)
     const displayFile = files.display;
@@ -261,26 +248,6 @@ export class StoreService {
     // Handle pre-order fields
     if (updateStoreItemDto.preOrderEnabled !== undefined) {
       updateData.preOrderEnabled = updateStoreItemDto.preOrderEnabled;
-    }
-    if (updateStoreItemDto.preOrderStart !== undefined) {
-      updateData.preOrderStart = updateStoreItemDto.preOrderStart
-        ? new Date(updateStoreItemDto.preOrderStart)
-        : null;
-    }
-    if (updateStoreItemDto.preOrderEnd !== undefined) {
-      updateData.preOrderEnd = updateStoreItemDto.preOrderEnd
-        ? new Date(updateStoreItemDto.preOrderEnd)
-        : null;
-    }
-    if (updateStoreItemDto.preOrderFulfillmentDate !== undefined) {
-      updateData.preOrderFulfillmentDate =
-        updateStoreItemDto.preOrderFulfillmentDate
-          ? new Date(updateStoreItemDto.preOrderFulfillmentDate)
-          : null;
-    }
-    if (updateStoreItemDto.preOrderDepositAmount !== undefined) {
-      updateData.preOrderDepositAmount =
-        updateStoreItemDto.preOrderDepositAmount;
     }
 
     // Handle display file upload and deletion of old display (can be image or video)

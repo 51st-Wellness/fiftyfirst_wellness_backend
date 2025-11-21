@@ -61,8 +61,10 @@ export class CartService {
       throw new BadRequestException('Product is not available for purchase');
     }
 
+    const isPreOrderItem = Boolean(storeItem.preOrderEnabled);
+
     // Check stock availability
-    if (storeItem.stock < quantity) {
+    if (!isPreOrderItem && storeItem.stock < quantity) {
       throw new BadRequestException('Insufficient stock available');
     }
 
@@ -83,7 +85,7 @@ export class CartService {
       const newQuantity = existingCartItem.quantity + quantity;
 
       // Check if new quantity exceeds stock
-      if (storeItem.stock < newQuantity) {
+      if (!isPreOrderItem && storeItem.stock < newQuantity) {
         throw new BadRequestException(
           'Cannot add more items than available stock',
         );
@@ -209,7 +211,9 @@ export class CartService {
     )[0];
 
     // Check stock availability
-    if (storeItem && storeItem.stock < quantity) {
+    const isPreOrderItem = Boolean(storeItem?.preOrderEnabled);
+
+    if (!isPreOrderItem && storeItem && storeItem.stock < quantity) {
       throw new BadRequestException('Insufficient stock available');
     }
 
