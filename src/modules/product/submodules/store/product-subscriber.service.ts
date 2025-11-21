@@ -117,23 +117,18 @@ export class ProductSubscriberService {
       throw new NotFoundException('Product not found');
     }
 
-    // Get all PENDING subscribers for this product
+    // Get all subscribers for this product (both PENDING and NOTIFIED)
     const subscribers = await this.repository.findByProduct(dto.productId);
 
-    const pendingSubscribers = subscribers.filter(
-      (subscriber) => subscriber.status !== ProductSubscriberStatus.NOTIFIED,
-    );
-
-    if (pendingSubscribers.length === 0) {
-      throw new BadRequestException(
-        'All subscribers have already been notified for this product',
-      );
+    if (subscribers.length === 0) {
+      throw new BadRequestException('No subscribers found for this product');
     }
 
     const productUrl = this.buildProductUrl(product.productId);
 
+    // Send emails to all subscribers
     const sendResults = await Promise.allSettled(
-      pendingSubscribers.map((subscriber) =>
+      subscribers.map((subscriber) =>
         this.emailService.sendMail({
           to: this.resolveSubscriberEmail(subscriber),
           type: EmailType.PRODUCT_AVAILABILITY_NOTIFICATION,
@@ -151,10 +146,11 @@ export class ProductSubscriberService {
     const successfullyNotifiedIds: string[] = [];
     sendResults.forEach((result, index) => {
       if (result.status === 'fulfilled' && result.value) {
-        successfullyNotifiedIds.push(pendingSubscribers[index].id);
+        successfullyNotifiedIds.push(subscribers[index].id);
       }
     });
 
+    // Update all successfully notified subscribers to NOTIFIED status
     await Promise.all(
       successfullyNotifiedIds.map((id) =>
         this.repository.update(id, {
@@ -164,8 +160,8 @@ export class ProductSubscriberService {
     );
 
     return {
-      totalPending: pendingSubscribers.length,
-      emailsSent: successfullyNotifiedIds.length,
+      totalSent: successfullyNotifiedIds.length,
+      totalSubscribers: subscribers.length,
       productName: product.name,
     };
   }
