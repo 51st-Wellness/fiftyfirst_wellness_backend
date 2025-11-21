@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import {
   OrderWithRelations,
@@ -30,14 +34,32 @@ import {
 import { PaymentService } from 'src/modules/payment/payment.service';
 import { ReviewService } from 'src/modules/review/review.service';
 import { ProductReviewDto } from 'src/modules/review/dto/review-response.dto';
+import { EmailService } from 'src/modules/notification/email/email.service';
+import { EmailType } from 'src/modules/notification/email/constants/email.enum';
+import { ConfigService } from 'src/config/config.service';
+import { ENV } from 'src/config/env.enum';
+import { PreOrderBulkEmailDto } from './dto/pre-order-bulk-email.dto';
 
 @Injectable()
 export class OrderService {
+  private readonly frontendBaseUrl: string;
+  private readonly supportEmail: string;
+
   constructor(
     private readonly database: DatabaseService,
     private readonly paymentService: PaymentService,
     private readonly reviewService: ReviewService,
-  ) {}
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
+  ) {
+    const fallbackUrl = 'https://fiftyfirstswellness.com';
+    const envUrl = this.configService.get(ENV.FRONTEND_URL, fallbackUrl);
+    this.frontendBaseUrl = (envUrl || fallbackUrl).replace(/\/$/, '');
+    this.supportEmail = this.configService.get(
+      ENV.COMPANY_EMAIL,
+      'support@fiftyfirstswellness.com',
+    );
+  }
 
   // Get lightweight summaries for all orders for a user
   async getUserOrders(userId: string): Promise<OrderSummaryDto[]> {
@@ -472,5 +494,266 @@ export class OrderService {
       .where(eq(orders.id, orderId));
 
     return this.getAdminOrder(orderId);
+  }
+
+  async getPreOrders(params: {
+    page?: number;
+    limit?: number;
+    preOrderStatus?: string;
+    search?: string;
+  }): Promise<{
+    orders: AdminOrderListItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const limit = params.limit && params.limit > 0 ? params.limit : 10;
+    const offset = (page - 1) * limit;
+
+    const filters: SQL<unknown>[] = [eq(orders.isPreOrder, true)];
+
+    if (params.preOrderStatus) {
+      filters.push(eq(orders.preOrderStatus, params.preOrderStatus));
+    }
+
+    if (params.search) {
+      const likeQuery = `%${params.search}%`;
+      filters.push(
+        or(
+          sql`${orders.id} LIKE ${likeQuery}`,
+          sql`LOWER(${users.firstName} || ' ' || ${users.lastName}) LIKE LOWER(${likeQuery})`,
+          sql`${users.email} LIKE ${likeQuery}`,
+        ) as SQL<unknown>,
+      );
+    }
+
+    const whereClause = and(...filters);
+
+    const [countResult, orderRows] = await Promise.all([
+      this.database.db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.id))
+        .where(whereClause as any),
+      this.database.db
+        .select({
+          order: orders,
+          userId: users.id,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          userEmail: users.email,
+          userPhone: users.phone,
+          paymentStatus: payments.status,
+          paymentProvider: payments.provider,
+          paymentCurrency: payments.currency,
+          paymentAmount: payments.amount,
+        })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.id))
+        .leftJoin(payments, eq(orders.paymentId, payments.id))
+        .where(whereClause as any)
+        .orderBy(desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset),
+    ]);
+
+    const orderIds = orderRows.map((row) => row.order.id);
+    const itemsMap = new Map<
+      string,
+      {
+        productId: string;
+        name: string | null;
+        quantity: number;
+        price: number;
+      }[]
+    >();
+
+    if (orderIds.length > 0) {
+      const orderItemsResult = await this.database.db
+        .select({
+          orderId: orderItems.orderId,
+          productId: orderItems.productId,
+          quantity: orderItems.quantity,
+          price: orderItems.price,
+          name: storeItems.name,
+        })
+        .from(orderItems)
+        .leftJoin(storeItems, eq(orderItems.productId, storeItems.productId))
+        .where(inArray(orderItems.orderId, orderIds));
+
+      for (const item of orderItemsResult) {
+        const list = itemsMap.get(item.orderId) ?? [];
+        list.push({
+          productId: item.productId,
+          name: item.name ?? null,
+          quantity: item.quantity ?? 0,
+          price: item.price ?? 0,
+        });
+        itemsMap.set(item.orderId, list);
+      }
+    }
+
+    const toCustomer = (row: {
+      userId: string | null;
+      userFirstName: string | null;
+      userLastName: string | null;
+      userEmail: string | null;
+      userPhone: string | null;
+    }): OrderCustomerDto => ({
+      id: row.userId ?? '',
+      firstName: row.userFirstName ?? null,
+      lastName: row.userLastName ?? null,
+      email: row.userEmail ?? '',
+      phone: row.userPhone ?? null,
+    });
+
+    const formattedOrders: AdminOrderListItem[] = orderRows.map((row) => {
+      const items = itemsMap.get(row.order.id) ?? [];
+      const totalQuantity = items.reduce(
+        (sum, item) => sum + (item.quantity ?? 0),
+        0,
+      );
+      return {
+        ...row.order,
+        itemCount: items.length,
+        totalQuantity,
+        paymentStatus: row.paymentStatus ?? null,
+        paymentProvider: row.paymentProvider ?? null,
+        paymentCurrency: row.paymentCurrency ?? null,
+        paymentAmount: row.paymentAmount ?? null,
+        customer: toCustomer({
+          userId: row.userId ?? row.order.userId,
+          userFirstName: row.userFirstName,
+          userLastName: row.userLastName,
+          userEmail: row.userEmail,
+          userPhone: row.userPhone,
+        }),
+        items: items.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          quantity: item.quantity,
+        })),
+      };
+    });
+
+    const total = countResult[0]?.count || 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return {
+      orders: formattedOrders,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  async sendBulkEmailToPreOrders(dto: PreOrderBulkEmailDto) {
+    // Get product details
+    const productResult = await this.database.db
+      .select()
+      .from(storeItems)
+      .where(eq(storeItems.productId, dto.productId))
+      .limit(1);
+
+    if (productResult.length === 0) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const product = productResult[0];
+
+    // Build filters for pre-orders
+    const filters: SQL<unknown>[] = [
+      eq(orders.isPreOrder, true),
+      sql`EXISTS (
+        SELECT 1 FROM ${orderItems} 
+        WHERE ${orderItems.orderId} = ${orders.id} 
+        AND ${orderItems.productId} = ${dto.productId}
+      )`,
+    ];
+
+    if (dto.preOrderStatus) {
+      filters.push(eq(orders.preOrderStatus, dto.preOrderStatus));
+    }
+
+    const whereClause = and(...filters);
+
+    // Get all pre-orders for this product
+    const preOrderRows = await this.database.db
+      .select({
+        order: orders,
+        userId: users.id,
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+        userEmail: users.email,
+      })
+      .from(orders)
+      .leftJoin(users, eq(orders.userId, users.id))
+      .where(whereClause as any);
+
+    if (preOrderRows.length === 0) {
+      throw new BadRequestException(
+        'No pre-orders found for this product with the specified criteria',
+      );
+    }
+
+    const productUrl = `${this.frontendBaseUrl}/marketplace/${dto.productId}`;
+
+    // Send emails to all pre-order customers
+    const sendResults = await Promise.allSettled(
+      preOrderRows.map((row) => {
+        const user = row.userEmail
+          ? {
+              email: row.userEmail,
+              firstName: row.userFirstName,
+              lastName: row.userLastName,
+            }
+          : null;
+
+        if (!user?.email) {
+          return Promise.resolve(false);
+        }
+
+        const fallbackName =
+          user.firstName ||
+          user.lastName ||
+          user.email.split('@')[0] ||
+          'there';
+
+        return this.emailService.sendMail({
+          to: user.email,
+          type: EmailType.PRODUCT_AVAILABILITY_NOTIFICATION,
+          subjectOverride: dto.subject,
+          context: {
+            firstName: fallbackName,
+            productName: product.name,
+            productDescription: product.description,
+            productImage:
+              (product.display as any)?.url ||
+              (Array.isArray(product.images) ? product.images[0] : undefined),
+            productUrl,
+            ctaText: 'View Product',
+            message: dto.message,
+            supportEmail: this.supportEmail,
+          },
+        });
+      }),
+    );
+
+    const successfullySent = sendResults.filter(
+      (result) => result.status === 'fulfilled' && result.value === true,
+    ).length;
+
+    return {
+      totalSent: successfullySent,
+      totalPreOrders: preOrderRows.length,
+      productName: product.name,
+    };
   }
 }

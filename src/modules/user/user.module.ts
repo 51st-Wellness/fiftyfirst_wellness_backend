@@ -15,6 +15,8 @@ import { StoreRepository } from 'src/modules/product/submodules/store/store.repo
 import { PaymentModule } from 'src/modules/payment/payment.module';
 import { forwardRef } from '@nestjs/common';
 import { ReviewModule } from '../review/review.module';
+import { NotificationModule } from '../notification/notification.module';
+import { ConfigModule } from 'src/config/config.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { ReviewModule } from '../review/review.module';
     StorageModule,
     forwardRef(() => PaymentModule),
     forwardRef(() => ReviewModule),
+    NotificationModule,
+    ConfigModule,
   ],
   providers: [
     UserService,
