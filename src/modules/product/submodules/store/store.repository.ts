@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { eq, desc, like, or, and, count, SQL, sql } from 'drizzle-orm';
-import { storeItems, products } from 'src/database/schema';
+import { storeItems, products, reviews } from 'src/database/schema';
 import {
   StoreItem,
   NewStoreItem,
@@ -34,10 +34,14 @@ export class StoreRepository {
     return result[0];
   }
 
-  // Find store item by ID
-  async findById(id: string): Promise<StoreItem | null> {
+  // Find store item by ID, including review statistics
+  async findById(
+    id: string,
+  ): Promise<
+    (StoreItem & { averageRating: number; reviewCount: number }) | null
+  > {
     try {
-      // Use Drizzle select with custom SQL for productIngredients to handle invalid JSON
+      // Use Drizzle select with custom SQL for productIngredients and review stats
       const result = await this.database.db
         .select({
           productId: storeItems.productId,
@@ -64,13 +68,22 @@ export class StoreRepository {
           preOrderEnabled: storeItems.preOrderEnabled,
           createdAt: storeItems.createdAt,
           updatedAt: storeItems.updatedAt,
+          averageRating: sql<number>`COALESCE(AVG(CASE WHEN ${reviews.status} = 'APPROVED' THEN ${reviews.rating} ELSE NULL END), 0)`,
+          reviewCount: sql<number>`COUNT(CASE WHEN ${reviews.status} = 'APPROVED' THEN 1 ELSE NULL END)`,
         })
         .from(storeItems)
+        .leftJoin(reviews, eq(reviews.productId, storeItems.productId))
         .where(eq(storeItems.productId, id))
+        .groupBy(storeItems.productId)
         .limit(1);
 
       if (result[0]) {
-        return this.sanitizeStoreItem(result[0]);
+        const item = this.sanitizeStoreItem(result[0]);
+        return {
+          ...item,
+          averageRating: Number(result[0].averageRating ?? 0),
+          reviewCount: Number(result[0].reviewCount ?? 0),
+        };
       }
       return null;
     } catch (error: any) {
@@ -99,7 +112,7 @@ export class StoreRepository {
     return item as StoreItem;
   }
 
-  // Find all store items with pagination and filters
+  // Find all store items with pagination and filters, including review statistics
   async findAll(
     skip?: number,
     take?: number,
@@ -109,7 +122,7 @@ export class StoreRepository {
       search?: string;
       category?: string;
     },
-  ): Promise<StoreItem[]> {
+  ): Promise<(StoreItem & { averageRating: number; reviewCount: number })[]> {
     try {
       // Build where conditions
       const conditions: SQL[] = [];
@@ -132,7 +145,7 @@ export class StoreRepository {
         conditions.push(like(storeItems.categories, `%${filters.category}%`));
       }
 
-      // Build query with custom SQL for productIngredients to handle invalid JSON
+      // Build query with review statistics using LEFT JOIN and aggregation
       let query = this.database.db
         .select({
           productId: storeItems.productId,
@@ -159,13 +172,18 @@ export class StoreRepository {
           preOrderEnabled: storeItems.preOrderEnabled,
           createdAt: storeItems.createdAt,
           updatedAt: storeItems.updatedAt,
+          averageRating: sql<number>`COALESCE(AVG(CASE WHEN ${reviews.status} = 'APPROVED' THEN ${reviews.rating} ELSE NULL END), 0)`,
+          reviewCount: sql<number>`COUNT(CASE WHEN ${reviews.status} = 'APPROVED' THEN 1 ELSE NULL END)`,
         })
         .from(storeItems)
+        .leftJoin(reviews, eq(reviews.productId, storeItems.productId))
         .$dynamic();
 
       if (conditions.length > 0) {
         query = query.where(and(...conditions));
       }
+
+      query = query.groupBy(storeItems.productId);
 
       if (skip !== undefined) {
         query = query.offset(skip);
@@ -176,7 +194,11 @@ export class StoreRepository {
       }
 
       const results = await query.orderBy(desc(storeItems.createdAt));
-      return results.map((item) => this.sanitizeStoreItem(item));
+      return results.map((item) => ({
+        ...this.sanitizeStoreItem(item),
+        averageRating: Number(item.averageRating ?? 0),
+        reviewCount: Number(item.reviewCount ?? 0),
+      }));
     } catch (error: any) {
       console.error('Error finding all store items:', error);
       throw error;

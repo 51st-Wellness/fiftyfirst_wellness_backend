@@ -11,7 +11,6 @@ import { StorageService } from 'src/util/storage/storage.service';
 import { DocumentType } from 'src/util/storage/constants';
 import { StructuredLoggerService } from 'src/lib/logging';
 import { DiscountType, StoreItem } from 'src/database/types';
-import { ReviewService } from 'src/modules/review/review.service';
 
 @Injectable()
 export class StoreService {
@@ -19,7 +18,6 @@ export class StoreService {
     private readonly storeRepository: StoreRepository,
     private readonly storageService: StorageService,
     private readonly logger: StructuredLoggerService,
-    private readonly reviewService: ReviewService,
   ) {}
 
   // Create a new store item with display file and additional images
@@ -131,7 +129,7 @@ export class StoreService {
     return storeItem;
   }
 
-  // Find all store items with pagination and filters
+  // Find all store items with pagination and filters (includes review stats from repository)
   async findAll(query: StoreItemQueryDto) {
     const {
       page = 1,
@@ -150,24 +148,14 @@ export class StoreService {
       search,
     };
 
-    // Get store items with filters
+    // Get store items with filters and review statistics (already included in repository query)
     const [storeItems, total] = await Promise.all([
       this.storeRepository.findAll(skip, limit, filters),
       this.storeRepository.count(filters),
     ]);
 
-    const reviewStats = await this.reviewService.getReviewStatsForProducts(
-      storeItems.map((item) => item.productId),
-    );
-
-    const enrichedItems = storeItems.map((item) => ({
-      ...item,
-      averageRating: reviewStats.get(item.productId)?.averageRating ?? 0,
-      reviewCount: reviewStats.get(item.productId)?.reviewCount ?? 0,
-    }));
-
     return {
-      data: enrichedItems as StoreItem[],
+      data: storeItems as StoreItem[],
       meta: {
         total,
         page,
@@ -177,20 +165,14 @@ export class StoreService {
     };
   }
 
-  // Find store item by ID
+  // Find store item by ID (includes review stats from repository)
   async findOne(id: string) {
     const storeItem = await this.storeRepository.findById(id);
     if (!storeItem) {
       throw new NotFoundException('Store item not found');
     }
-    const stats = await this.reviewService.getReviewStatsForProducts([id]);
-    const summary = stats.get(id);
-
-    return {
-      ...storeItem,
-      averageRating: summary?.averageRating ?? 0,
-      reviewCount: summary?.reviewCount ?? 0,
-    };
+    // Review statistics are already included in the repository query
+    return storeItem;
   }
 
   // Update store item with display file and additional images
