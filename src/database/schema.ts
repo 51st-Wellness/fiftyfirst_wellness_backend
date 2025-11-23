@@ -24,9 +24,14 @@ export type PaymentStatus = (typeof paymentStatuses)[number];
 export const orderStatuses = [
   'PENDING',
   'PROCESSING',
-  'PACKAGING',
-  'IN_TRANSIT',
-  'FULFILLED',
+  'NOTFOUND',
+  'INFORECEIVED',
+  'TRANSIT',
+  'PICKUP',
+  'UNDELIVERED',
+  'DELIVERED',
+  'EXCEPTION',
+  'EXPIRED',
 ] as const;
 export type OrderStatus = (typeof orderStatuses)[number];
 
@@ -85,9 +90,14 @@ export const PaymentStatus = {
 export const OrderStatus = {
   PENDING: 'PENDING' as const,
   PROCESSING: 'PROCESSING' as const,
-  PACKAGING: 'PACKAGING' as const,
-  IN_TRANSIT: 'IN_TRANSIT' as const,
-  FULFILLED: 'FULFILLED' as const,
+  NOTFOUND: 'NOTFOUND' as const,
+  INFORECEIVED: 'INFORECEIVED' as const,
+  TRANSIT: 'TRANSIT' as const,
+  PICKUP: 'PICKUP' as const,
+  UNDELIVERED: 'UNDELIVERED' as const,
+  DELIVERED: 'DELIVERED' as const,
+  EXCEPTION: 'EXCEPTION' as const,
+  EXPIRED: 'EXPIRED' as const,
 };
 
 export const PaymentProvider = {
@@ -400,6 +410,14 @@ export const orders = sqliteTable('Order', {
     mode: 'timestamp',
   }),
   fulfillmentNotes: text('fulfillmentNotes'),
+  trackingReference: text('trackingReference'), // Royal Mail tracking number
+  trackingStatus: text('trackingStatus'), // Current status from Royal Mail
+  trackingLastChecked: integer('trackingLastChecked', { mode: 'timestamp' }), // Last API check
+  trackingStatusUpdated: integer('trackingStatusUpdated', {
+    mode: 'timestamp',
+  }), // When status last changed
+  trackingEvents: text('trackingEvents', { mode: 'json' }), // Store tracking history/events
+  trackingJobId: text('trackingJobId'), // BullMQ job ID for recurring tracking checks
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

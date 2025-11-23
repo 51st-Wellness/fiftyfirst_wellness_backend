@@ -64,6 +64,13 @@
       "when": 1763726857814,
       "tag": "0008_sloppy_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1763922249885,
+      "tag": "0009_amazing_rockslide",
+      "breakpoints": true
     }
   ]
 }

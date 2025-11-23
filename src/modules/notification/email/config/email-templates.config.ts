@@ -32,4 +32,5 @@ export const EmailTemplates: Record<EmailType, string> = {
   // Marketplace
   [EmailType.PRODUCT_AVAILABILITY_NOTIFICATION]:
     'product-availability-notification.ejs',
+  [EmailType.TRACKING_STATUS_UPDATE]: 'tracking-status-update.ejs',
 } as const;

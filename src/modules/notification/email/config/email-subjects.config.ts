@@ -40,4 +40,6 @@ export const EmailSubjects: Record<EmailType, string> = {
   // Marketplace
   [EmailType.PRODUCT_AVAILABILITY_NOTIFICATION]:
     'Product Update from Fifty Firsts Wellness',
+  [EmailType.TRACKING_STATUS_UPDATE]:
+    'Tracking Status Update - Fifty Firsts Wellness',
 } as const;

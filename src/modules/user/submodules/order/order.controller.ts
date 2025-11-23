@@ -210,9 +210,14 @@ export class OrderController {
     const validStatuses: OrderStatus[] = [
       OrderStatus.PENDING,
       OrderStatus.PROCESSING,
-      OrderStatus.PACKAGING,
-      OrderStatus.IN_TRANSIT,
-      OrderStatus.FULFILLED,
+      OrderStatus.NOTFOUND,
+      OrderStatus.INFORECEIVED,
+      OrderStatus.TRANSIT,
+      OrderStatus.PICKUP,
+      OrderStatus.UNDELIVERED,
+      OrderStatus.DELIVERED,
+      OrderStatus.EXCEPTION,
+      OrderStatus.EXPIRED,
     ];
 
     if (!validStatuses.includes(status)) {

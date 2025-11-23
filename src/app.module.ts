@@ -16,6 +16,7 @@ import { StatsModule } from './modules/stats/stats.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { ReviewModule } from './modules/review/review.module';
+import { TrackingModule } from './modules/tracking/tracking.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ReviewModule } from './modules/review/review.module';
     SubscriptionModule,
     SettingsModule,
     ReviewModule,
+    TrackingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
