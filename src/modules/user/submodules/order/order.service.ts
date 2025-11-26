@@ -872,7 +872,7 @@ export class OrderService {
         postageDetails: {
           serviceCode: order.serviceCode,
           sendNotificationsTo: 'recipient',
-          receiveEmailNotification: true,
+          // Note: receiveEmailNotification removed as OLP2 service doesn't support it
         },
         specialInstructions: address.deliveryInstructions || undefined,
       };

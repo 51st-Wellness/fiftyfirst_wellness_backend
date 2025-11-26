@@ -254,4 +254,24 @@ export class OrderController {
       { message: 'Pre-order fulfilled' },
     );
   }
+
+  // Test endpoint to submit order to Click & Drop (for testing purposes)
+  @Post('me/:id/submit-to-clickdrop')
+  async submitOrderToClickDrop(
+    @CurrentUser() user: User,
+    @Param('id') orderId: string,
+  ): Promise<ResponseDto<{ message: string }>> {
+    const order = await this.orderService.getUserOrder(user.id, orderId);
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    await this.orderService.submitOrderToClickDrop(orderId);
+
+    return ResponseDto.createSuccessResponse(
+      'Order submitted to Click & Drop successfully',
+      { message: 'Order submitted to Click & Drop' },
+    );
+  }
 }
