@@ -48,4 +48,8 @@ export class CartCheckoutDto {
 
   @IsOptional()
   saveAddress?: boolean; // Whether to save the custom address
+
+  @IsOptional()
+  @IsString()
+  shippingServiceKey?: string; // Selected shipping service (e.g., 'ROYAL_MAIL_48')
 }

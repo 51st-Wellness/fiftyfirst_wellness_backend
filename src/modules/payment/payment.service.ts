@@ -39,6 +39,11 @@ import {
 import { SettingsService } from 'src/modules/settings/settings.service';
 import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 import { EventsEmitter } from 'src/util/events/events.emitter';
+import { EVENTS } from 'src/util/events/events.enum';
+import {
+  ShippingService,
+  CartItemForShipping,
+} from 'src/modules/shipping/shipping.service';
 
 // Payment metadata type - only store what's not available via database relationships
 export type PaymentMetadata =
@@ -100,6 +105,7 @@ export class PaymentService {
     @Inject(PAYMENT_PROVIDER_TOKEN) private readonly provider: PaymentProvider, // Payment provider
     private readonly settingsService: SettingsService,
     private readonly eventsEmitter: EventsEmitter,
+    private readonly shippingService: ShippingService,
   ) {}
 
   // Payment statuses that should trigger outbound email notifications
@@ -363,6 +369,10 @@ export class PaymentService {
         storeItemDiscountStart: storeItems.discountStart,
         storeItemDiscountEnd: storeItems.discountEnd,
         storeItemPreOrderEnabled: storeItems.preOrderEnabled,
+        storeItemWeight: storeItems.weight,
+        storeItemLength: storeItems.length,
+        storeItemWidth: storeItems.width,
+        storeItemHeight: storeItems.height,
       })
       .from(cartItems)
       .where(eq(cartItems.userId, userId))
@@ -664,9 +674,47 @@ export class PaymentService {
         desc(deliveryAddresses.createdAt),
       );
 
+    // Calculate shipping options for the cart
+    // Get cart items with weight/dimensions for shipping calculation
+    const cartWithDetails = await this.database.db
+      .select({
+        quantity: cartItems.quantity,
+        weight: storeItems.weight,
+        length: storeItems.length,
+        width: storeItems.width,
+        height: storeItems.height,
+      })
+      .from(cartItems)
+      .where(eq(cartItems.userId, userProfile.id))
+      .innerJoin(products, eq(cartItems.productId, products.id))
+      .innerJoin(storeItems, eq(products.id, storeItems.productId));
+
+    // Map to CartItemForShipping format
+    const shippingItems: CartItemForShipping[] = cartWithDetails.map(
+      (item) => ({
+        weight: item.weight || undefined,
+        length: item.length || undefined,
+        width: item.width || undefined,
+        height: item.height || undefined,
+        quantity: item.quantity,
+      }),
+    );
+
+    // Calculate shipping for all available services
+    const consolidation =
+      this.shippingService.consolidateCartItems(shippingItems);
+    const availableServices = await this.shippingService.getAvailableServices(
+      consolidation.totalWeight,
+    );
+
     return {
       ...summary,
       deliveryAddresses: addresses,
+      shipping: {
+        weight: consolidation.totalWeight,
+        packageFormat: consolidation.packageFormat,
+        availableServices,
+      },
     };
   }
 
@@ -679,14 +727,52 @@ export class PaymentService {
 
     const {
       orderItems: orderItemsData,
-      totalAmount,
+      totalAmount: subtotalAmount,
       currency,
-      cartItems,
+      cartItems: cartItemsData,
       pricing,
     } = await this.getCartSummary(userId);
 
     // Check if order contains pre-orders
     const hasPreOrders = orderItemsData.some((item) => item.isPreOrder);
+
+    // Calculate shipping cost
+    const cartWithDetails = await this.database.db
+      .select({
+        quantity: cartItems.quantity,
+        weight: storeItems.weight,
+        length: storeItems.length,
+        width: storeItems.width,
+        height: storeItems.height,
+      })
+      .from(cartItems)
+      .where(eq(cartItems.userId, userId))
+      .innerJoin(products, eq(cartItems.productId, products.id))
+      .innerJoin(storeItems, eq(products.id, storeItems.productId));
+
+    const shippingItems: CartItemForShipping[] = cartWithDetails.map(
+      (item) => ({
+        weight: item.weight || undefined,
+        length: item.length || undefined,
+        width: item.width || undefined,
+        height: item.height || undefined,
+        quantity: item.quantity,
+      }),
+    );
+
+    // Use provided shipping service or default
+    const shippingServiceKey =
+      cartCheckoutDto.shippingServiceKey ||
+      (await this.shippingService.getDefaultShippingService());
+
+    const shippingCalculation =
+      await this.shippingService.calculateShippingCost(
+        shippingItems,
+        shippingServiceKey,
+      );
+
+    // Calculate total including shipping
+    const totalAmount = subtotalAmount + shippingCalculation.totalPrice;
 
     const paymentAmount = totalAmount;
     const expectedFulfillmentDate: Date | null = null;
@@ -759,7 +845,7 @@ export class PaymentService {
       );
     }
 
-    // Create order in database
+    // Create order in database with shipping details
     const orderId = generateId();
     await this.database.db.insert(orders).values({
       id: orderId,
@@ -770,6 +856,18 @@ export class PaymentService {
       isPreOrder: hasPreOrders,
       preOrderStatus: hasPreOrders ? 'PLACED' : null,
       expectedFulfillmentDate,
+      serviceCode: shippingCalculation.serviceCode,
+      shippingCost: shippingCalculation.totalPrice,
+      parcelWeight: shippingCalculation.weight,
+      packageFormatIdentifier: shippingCalculation.packageFormat,
+      parcelDimensions: shippingCalculation.dimensions,
+      statusHistory: [
+        {
+          status: 'PENDING',
+          timestamp: new Date().toISOString(),
+          note: 'Order created',
+        },
+      ],
     });
     await this.database.db.insert(orderItems).values(
       orderItemsData.map((item) => ({
@@ -1189,6 +1287,16 @@ export class PaymentService {
       .from(subscriptions)
       .where(eq(subscriptions.paymentId, payment.id));
 
+    // Emit event for paid orders to trigger Click & Drop submission
+    if (captureResult.status === 'PAID' && relatedOrders.length > 0) {
+      relatedOrders.forEach((order) => {
+        this.eventsEmitter.emit(EVENTS.ORDER_PAYMENT_CONFIRMED, {
+          orderId: order.id,
+          userId: order.userId,
+        });
+      });
+    }
+
     return {
       status: captureResult.status,
       paymentId: payment.id,
@@ -1407,6 +1515,21 @@ export class PaymentService {
             contextType: 'store',
           }),
           contextType: 'store',
+        });
+
+        // Emit event for paid orders to trigger Click & Drop submission (non-preorders only)
+        const relatedOrders = await this.database.db
+          .select()
+          .from(orders)
+          .where(eq(orders.paymentId, payment.id));
+
+        relatedOrders.forEach((order) => {
+          if (!order.isPreOrder) {
+            this.eventsEmitter.emit(EVENTS.ORDER_PAYMENT_CONFIRMED, {
+              orderId: order.id,
+              userId: order.userId,
+            });
+          }
         });
 
         return {

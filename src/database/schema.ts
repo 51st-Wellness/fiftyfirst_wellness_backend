@@ -303,6 +303,10 @@ export const storeItems = sqliteTable('StoreItem', {
   preOrderEnabled: integer('preOrderEnabled', { mode: 'boolean' })
     .notNull()
     .default(false),
+  weight: real('weight'), // Weight in grams for Click & Drop
+  length: real('length'), // Length in mm for Click & Drop
+  width: real('width'), // Width in mm for Click & Drop
+  height: real('height'), // Height in mm for Click & Drop
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -410,14 +414,22 @@ export const orders = sqliteTable('Order', {
     mode: 'timestamp',
   }),
   fulfillmentNotes: text('fulfillmentNotes'),
-  trackingReference: text('trackingReference'), // Royal Mail tracking number
-  trackingStatus: text('trackingStatus'), // Current status from Royal Mail
+  // Tracking fields (from Click & Drop API)
+  trackingStatus: text('trackingStatus'), // Current status from Royal Mail Click & Drop
   trackingLastChecked: integer('trackingLastChecked', { mode: 'timestamp' }), // Last API check
   trackingStatusUpdated: integer('trackingStatusUpdated', {
     mode: 'timestamp',
   }), // When status last changed
   trackingEvents: text('trackingEvents', { mode: 'json' }), // Store tracking history/events
-  trackingJobId: text('trackingJobId'), // BullMQ job ID for recurring tracking checks
+  // Click & Drop fields
+  clickDropOrderIdentifier: integer('clickDropOrderIdentifier'), // Order identifier from Click & Drop API
+  packageFormatIdentifier: text('packageFormatIdentifier'), // 'smallParcel', 'mediumParcel', 'largeParcel', etc.
+  serviceCode: text('serviceCode'), // Royal Mail service code (account-specific)
+  shippingCost: real('shippingCost'), // Shipping cost charged to customer
+  parcelWeight: integer('parcelWeight'), // Total weight in grams
+  parcelDimensions: text('parcelDimensions', { mode: 'json' }), // {height, width, depth} in mm
+  labelBase64: text('labelBase64'), // Base64 encoded PDF label
+  statusHistory: text('statusHistory', { mode: 'json' }), // Array of status changes for audit
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

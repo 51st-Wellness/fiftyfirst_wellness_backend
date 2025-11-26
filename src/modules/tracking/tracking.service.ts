@@ -3,13 +3,13 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue, Job } from 'bullmq';
 import { DatabaseService } from 'src/database/database.service';
 import { orders, OrderStatus, users } from 'src/database/schema';
-import { eq } from 'drizzle-orm';
-import { RoyalMailService } from './royal-mail/royal-mail.service';
+import { eq, and, isNotNull, or, inArray, sql } from 'drizzle-orm';
+import { ClickDropService } from './royal-mail/click-drop.service';
 import { QUEUE_NAMES } from 'src/config/queues.config';
-import { AddTrackingDto } from './dto/add-tracking.dto';
 import { TrackingStatusDto } from './dto/tracking-response.dto';
 import { RoyalMailTrackingStatus } from './royal-mail/royal-mail.types';
 import { EventsEmitter } from 'src/util/events/events.emitter';
+import { EVENTS } from 'src/util/events/events.enum';
 import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 
 @Injectable()
@@ -21,89 +21,128 @@ export class TrackingService {
     @InjectQueue(QUEUE_NAMES.TRACKING)
     private readonly trackingQueue: Queue,
     private readonly database: DatabaseService,
-    private readonly royalMailService: RoyalMailService,
+    private readonly clickDropService: ClickDropService,
     private readonly eventsEmitter: EventsEmitter,
   ) {}
 
-  // Add or update tracking reference for an order
-  async addTrackingReference(
-    orderId: string,
-    dto: AddTrackingDto,
-  ): Promise<void> {
-    const order = await this.database.db
-      .select()
-      .from(orders)
-      .where(eq(orders.id, orderId))
-      .limit(1);
+  // Check Click & Drop orders and update status
+  async checkClickDropOrders(): Promise<void> {
+    // Get all orders with Click & Drop order identifiers that aren't in final status
+    const finalStatuses = [
+      OrderStatus.DELIVERED,
+      OrderStatus.UNDELIVERED,
+      OrderStatus.EXPIRED,
+    ];
 
-    if (!order || order.length === 0) {
-      throw new NotFoundException('Order not found');
-    }
-
-    const existingOrder = order[0];
-
-    // If there's an existing tracking job, remove it
-    if (existingOrder.trackingJobId) {
-      try {
-        const existingJob = await this.trackingQueue.getJob(
-          existingOrder.trackingJobId,
-        );
-        if (existingJob) {
-          await existingJob.remove();
-        }
-      } catch (error) {
-        this.logger.warn(
-          `Failed to remove existing tracking job ${existingOrder.trackingJobId}:`,
-          error,
-        );
-      }
-    }
-
-    // Fetch initial tracking status
-    const trackingData = await this.royalMailService.getTrackingStatus(
-      dto.trackingReference,
-    );
-
-    // Map Royal Mail status to OrderStatus
-    const orderStatus = this.mapTrackingStatusToOrderStatus(
-      trackingData.status,
-    );
-
-    // Create recurring job for tracking checks
-    const job = await this.trackingQueue.add(
-      'check-tracking',
-      {
-        orderId,
-        trackingReference: dto.trackingReference,
-      },
-      {
-        jobId: `tracking-${orderId}`,
-        repeat: {
-          every: this.TRACKING_INTERVAL, // Repeat every 24 hours
-        },
-      },
-    );
-
-    // Update order with tracking information
-    await this.database.db
-      .update(orders)
-      .set({
-        trackingReference: dto.trackingReference,
-        trackingStatus: trackingData.status.toUpperCase(),
-        trackingLastChecked: new Date(),
-        trackingStatusUpdated: new Date(),
-        trackingEvents: trackingData.events,
-        trackingJobId: job.id,
-        status: orderStatus,
+    const ordersToCheck = await this.database.db
+      .select({
+        id: orders.id,
+        clickDropOrderIdentifier: orders.clickDropOrderIdentifier,
+        status: orders.status,
       })
-      .where(eq(orders.id, orderId));
+      .from(orders)
+      .where(
+        and(
+          isNotNull(orders.clickDropOrderIdentifier),
+          sql`${orders.status} NOT IN (${sql.join(finalStatuses, sql`, `)})`,
+        ),
+      )
+      .limit(100); // Process up to 100 orders per batch (API limit)
 
-    this.logger.log(
-      `Tracking reference ${dto.trackingReference} added for order ${orderId}`,
-    );
+    if (ordersToCheck.length === 0) {
+      this.logger.log('No Click & Drop orders to check');
+      return;
+    }
+
+    // Group orders by Click & Drop order identifier (semicolon-separated for API)
+    const orderIdentifiers = ordersToCheck
+      .map((o) => o.clickDropOrderIdentifier)
+      .join(';');
+
+    try {
+      this.logger.log(`Checking ${ordersToCheck.length} Click & Drop orders`);
+
+      // Fetch order info from Click & Drop API
+      const clickDropOrders =
+        await this.clickDropService.getOrdersByIdentifiers(orderIdentifiers);
+
+      // Update each order with latest info
+      for (const cdOrder of clickDropOrders) {
+        const localOrder = ordersToCheck.find(
+          (o) => o.clickDropOrderIdentifier === cdOrder.orderIdentifier,
+        );
+
+        if (!localOrder) continue;
+
+        // Determine status based on Click & Drop order state
+        let newStatus = localOrder.status;
+        const now = new Date();
+
+        if (cdOrder.manifestedOn) {
+          newStatus = OrderStatus.TRANSIT;
+        }
+        if (cdOrder.shippedOn) {
+          newStatus = OrderStatus.DELIVERED;
+        }
+
+        // Get current status history
+        const currentOrder = await this.database.db
+          .select()
+          .from(orders)
+          .where(eq(orders.id, localOrder.id))
+          .limit(1);
+
+        const statusHistory = (currentOrder[0]?.statusHistory as any[]) || [];
+
+        // Add status change to history if status changed
+        if (newStatus !== localOrder.status) {
+          statusHistory.push({
+            status: newStatus,
+            timestamp: now.toISOString(),
+            note: `Updated from Click & Drop API`,
+            clickDropData: {
+              manifestedOn: cdOrder.manifestedOn,
+              shippedOn: cdOrder.shippedOn,
+              printedOn: cdOrder.printedOn,
+            },
+          });
+
+          this.logger.log(
+            `Order ${localOrder.id} status changed from ${localOrder.status} to ${newStatus}`,
+          );
+
+          // Emit event for notifications
+          this.eventsEmitter.emit(EVENTS.ORDER_STATUS_CHANGED, {
+            orderId: localOrder.id,
+            oldStatus: localOrder.status,
+            newStatus,
+            trackingNumber: cdOrder.trackingNumber,
+          });
+        }
+
+        // Update order in database
+        await this.database.db
+          .update(orders)
+          .set({
+            status: newStatus,
+            trackingLastChecked: now,
+            trackingStatusUpdated:
+              newStatus !== localOrder.status ? now : undefined,
+            statusHistory,
+          })
+          .where(eq(orders.id, localOrder.id));
+      }
+
+      this.logger.log(
+        `Successfully updated ${clickDropOrders.length} orders from Click & Drop`,
+      );
+    } catch (error) {
+      this.logger.error('Error checking Click & Drop orders:', error);
+      // Don't throw - we'll retry on next scheduled run
+    }
   }
 
-  // Manually refresh tracking status
+  // Manually refresh tracking status via Click & Drop
   async refreshTrackingStatus(
     orderId: string,
     userId?: string,
@@ -125,175 +164,112 @@ export class TrackingService {
       throw new NotFoundException('Order not found');
     }
 
-    if (!existingOrder.trackingReference) {
-      throw new NotFoundException('No tracking reference found for this order');
+    if (!existingOrder.clickDropOrderIdentifier) {
+      throw new NotFoundException(
+        'No Click & Drop order found for this order. Order may not have been submitted yet.',
+      );
     }
 
-    // Fetch latest tracking status
-    const trackingData = await this.royalMailService.getTrackingStatus(
-      existingOrder.trackingReference,
+    // Fetch latest status from Click & Drop
+    const clickDropOrders = await this.clickDropService.getOrdersByIdentifiers(
+      existingOrder.clickDropOrderIdentifier.toString(),
     );
 
-    const previousStatus = existingOrder.trackingStatus;
-    const newStatus = trackingData.status.toUpperCase();
+    if (!clickDropOrders || clickDropOrders.length === 0) {
+      throw new NotFoundException(
+        'Unable to fetch tracking information from Click & Drop',
+      );
+    }
+
+    const cdOrder = clickDropOrders[0];
+    const previousStatus = existingOrder.status;
+    const newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
     const statusChanged = previousStatus !== newStatus;
 
-    // Map Royal Mail status to OrderStatus
-    const orderStatus = this.mapTrackingStatusToOrderStatus(
-      trackingData.status,
-    );
+    const now = new Date();
 
-    // Update order with latest tracking information
+    // Update order with latest information
     await this.database.db
       .update(orders)
       .set({
-        trackingStatus: newStatus,
-        trackingLastChecked: new Date(),
+        status: newStatus,
+        trackingLastChecked: now,
         trackingStatusUpdated: statusChanged
-          ? new Date()
+          ? now
           : existingOrder.trackingStatusUpdated,
-        trackingEvents: trackingData.events,
-        status: orderStatus,
       })
       .where(eq(orders.id, orderId));
 
-    // If status is final (delivered, etc.), stop the recurring job
-    if (this.royalMailService.isFinalStatus(trackingData.status)) {
-      await this.stopTrackingJob(orderId);
+    // Emit event if status changed
+    if (statusChanged) {
+      this.eventsEmitter.emit(EVENTS.ORDER_STATUS_CHANGED, {
+        orderId: existingOrder.id,
+        oldStatus: previousStatus,
+        newStatus,
+        trackingNumber: cdOrder.trackingNumber,
+      });
     }
 
     return {
       orderId: existingOrder.id,
-      trackingReference: existingOrder.trackingReference,
-      trackingStatus: trackingData.status,
-      trackingLastChecked: new Date(),
+      trackingReference: cdOrder.trackingNumber || null,
+      trackingStatus: newStatus.toLowerCase() as any,
+      trackingLastChecked: now,
       trackingStatusUpdated: statusChanged
-        ? new Date()
+        ? now
         : existingOrder.trackingStatusUpdated,
-      trackingEvents: trackingData.events,
-      isTrackingActive: !this.royalMailService.isFinalStatus(
-        trackingData.status,
-      ),
+      trackingEvents: existingOrder.trackingEvents
+        ? (existingOrder.trackingEvents as any[])
+        : null,
+      isTrackingActive: this.isTrackingActive(newStatus),
     };
   }
 
-  // Process tracking check job (called by consumer)
-  async processTrackingCheck(job: Job): Promise<void> {
-    const { orderId, trackingReference } = job.data;
+  // Map Click & Drop order status to our OrderStatus enum
+  private mapClickDropStatusToOrderStatus(cdOrder: any): OrderStatus {
+    // Map based on Click & Drop order lifecycle
+    if (cdOrder.shippedOn) {
+      return OrderStatus.TRANSIT;
+    }
+    if (cdOrder.manifestedOn) {
+      return OrderStatus.INFORECEIVED;
+    }
+    if (cdOrder.printedOn) {
+      return OrderStatus.PROCESSING;
+    }
+    return OrderStatus.PENDING;
+  }
 
-    this.logger.log(
-      `Processing tracking check for order ${orderId} with reference ${trackingReference}`,
-    );
+  // Process tracking check job (called by consumer) - now checks all Click & Drop orders
+  async processTrackingCheck(job: Job): Promise<void> {
+    this.logger.log('Processing Click & Drop tracking check job');
 
     try {
-      const order = await this.database.db
-        .select()
-        .from(orders)
-        .where(eq(orders.id, orderId))
-        .limit(1);
-
-      if (!order || order.length === 0) {
-        this.logger.warn(`Order ${orderId} not found, removing job`);
-        await job.remove();
-        return;
-      }
-
-      const existingOrder = order[0];
-
-      // If tracking reference was removed, stop the job
-      if (!existingOrder.trackingReference) {
-        this.logger.log(
-          `Tracking reference removed for order ${orderId}, stopping job`,
-        );
-        await this.stopTrackingJob(orderId);
-        return;
-      }
-
-      // Fetch latest tracking status
-      const trackingData = await this.royalMailService.getTrackingStatus(
-        existingOrder.trackingReference,
-      );
-
-      const previousStatus = existingOrder.trackingStatus;
-      const newStatus = trackingData.status.toUpperCase();
-      const statusChanged = previousStatus !== newStatus;
-
-      // Map Royal Mail status to OrderStatus
-      const orderStatus = this.mapTrackingStatusToOrderStatus(
-        trackingData.status,
-      );
-
-      // Update order with latest tracking information
-      await this.database.db
-        .update(orders)
-        .set({
-          trackingStatus: newStatus,
-          trackingLastChecked: new Date(),
-          trackingStatusUpdated: statusChanged
-            ? new Date()
-            : existingOrder.trackingStatusUpdated,
-          trackingEvents: trackingData.events,
-          status: orderStatus,
-        })
-        .where(eq(orders.id, orderId));
-
-      // If status changed, send notification email
-      if (statusChanged) {
-        await this.sendTrackingStatusUpdateEmail(existingOrder.userId, {
-          orderId,
-          previousStatus,
-          newStatus: trackingData.status,
-          trackingReference: existingOrder.trackingReference,
-          events: trackingData.events,
-        });
-      }
-
-      // If status is final, stop the recurring job
-      if (this.royalMailService.isFinalStatus(trackingData.status)) {
-        this.logger.log(
-          `Final status reached for order ${orderId}, stopping tracking job`,
-        );
-        await this.stopTrackingJob(orderId);
-      }
+      // Check all Click & Drop orders (batch processing)
+      await this.checkClickDropOrders();
     } catch (error) {
       this.logger.error(
-        `Error processing tracking check for order ${orderId}:`,
+        `Error processing tracking check for order ${job.data.orderId}:`,
         error,
       );
       throw error;
     }
   }
 
-  // Stop tracking job for an order
-  async stopTrackingJob(orderId: string): Promise<void> {
-    const order = await this.database.db
-      .select()
-      .from(orders)
-      .where(eq(orders.id, orderId))
-      .limit(1);
-
-    if (!order || order.length === 0 || !order[0].trackingJobId) {
-      return;
+  // Check if tracking is still active based on tracking status (not order status)
+  private isTrackingActive(trackingStatus: string | null): boolean {
+    if (!trackingStatus) {
+      return true; // No tracking status yet, consider active
     }
 
-    try {
-      const job = await this.trackingQueue.getJob(order[0].trackingJobId);
-      if (job) {
-        await job.remove();
-        this.logger.log(`Stopped tracking job for order ${orderId}`);
-      }
-
-      // Clear job ID from order
-      await this.database.db
-        .update(orders)
-        .set({ trackingJobId: null })
-        .where(eq(orders.id, orderId));
-    } catch (error) {
-      this.logger.error(
-        `Error stopping tracking job for order ${orderId}:`,
-        error,
-      );
-    }
+    // Use the same logic as RoyalMailService.isFinalStatus for consistency
+    const finalTrackingStatuses = [
+      'delivered',
+      'undelivered',
+      'exception',
+      'expired',
+    ];
+    return !finalTrackingStatuses.includes(trackingStatus.toLowerCase());
   }
 
   // Get tracking status for an order
@@ -318,9 +294,27 @@ export class TrackingService {
       throw new NotFoundException('Order not found');
     }
 
+    // Get tracking number from Click & Drop if available
+    let trackingNumber: string | null = null;
+    if (existingOrder.clickDropOrderIdentifier) {
+      try {
+        const clickDropOrders =
+          await this.clickDropService.getOrdersByIdentifiers(
+            existingOrder.clickDropOrderIdentifier.toString(),
+          );
+        if (clickDropOrders && clickDropOrders.length > 0) {
+          trackingNumber = clickDropOrders[0].trackingNumber || null;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to fetch tracking number from Click & Drop for order ${orderId}`,
+        );
+      }
+    }
+
     return {
       orderId: existingOrder.id,
-      trackingReference: existingOrder.trackingReference || null,
+      trackingReference: trackingNumber,
       trackingStatus: existingOrder.trackingStatus
         ? (existingOrder.trackingStatus.toLowerCase() as RoyalMailTrackingStatus)
         : null,
@@ -329,7 +323,8 @@ export class TrackingService {
       trackingEvents: existingOrder.trackingEvents
         ? (existingOrder.trackingEvents as any[])
         : null,
-      isTrackingActive: !!existingOrder.trackingJobId,
+      // FIXED: Check trackingStatus instead of order status for consistency
+      isTrackingActive: this.isTrackingActive(existingOrder.trackingStatus),
     };
   }
 

@@ -6,6 +6,7 @@ import { NotificationModule } from 'src/modules/notification/notification.module
 import { EventsListeners } from 'src/util/events/event.listener';
 import { EventsEmitter } from 'src/util/events/events.emitter';
 import { AuthModule } from 'src/modules/auth/auth.module';
+import { UserModule } from 'src/modules/user/user.module';
 
 @Global()
 @Module({
@@ -21,8 +22,7 @@ import { AuthModule } from 'src/modules/auth/auth.module';
       ignoreErrors: false,
     }),
     NotificationModule,
-    // forwardRef(() => UserModule),
-    // forwardRef(() => AuthModule),
+    forwardRef(() => UserModule),
     AuthModule,
   ],
   providers: [

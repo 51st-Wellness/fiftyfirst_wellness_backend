@@ -17,6 +17,8 @@ import { forwardRef } from '@nestjs/common';
 import { ReviewModule } from '../review/review.module';
 import { NotificationModule } from '../notification/notification.module';
 import { ConfigModule } from 'src/config/config.module';
+import { ClickDropService } from '@/modules/tracking/royal-mail/click-drop.service';
+import { TrackingModule } from '@/modules/tracking/tracking.module';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { ConfigModule } from 'src/config/config.module';
     OrderService,
     ProgrammeRepository,
     StoreRepository,
+    ClickDropService,
   ],
   controllers: [
     UserController,
@@ -42,6 +45,12 @@ import { ConfigModule } from 'src/config/config.module';
     CartController,
     OrderController,
   ],
-  exports: [UserService, BookmarkService, CartService, OrderService],
+  exports: [
+    UserService,
+    BookmarkService,
+    CartService,
+    OrderService,
+    // TrackingModule,
+  ],
 })
 export class UserModule {}

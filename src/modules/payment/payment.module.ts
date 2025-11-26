@@ -5,16 +5,18 @@ import { PaymentService } from './payment.service';
 import { DatabaseModule } from 'src/database/database.module';
 import { ConfigModule } from 'src/config/config.module';
 import { PaymentProviderBinding } from './providers/payment.factory';
-import { UserModule } from 'src/modules/user/user.module';
 import { SettingsModule } from 'src/modules/settings/settings.module';
+import { ShippingModule } from 'src/modules/shipping/shipping.module';
+import { UserModule } from '@/modules/user/user.module';
 
 @Module({
   imports: [
-    SubscriptionModule,
+    forwardRef(() => SubscriptionModule),
+    forwardRef(() => UserModule),
     DatabaseModule,
     ConfigModule,
-    forwardRef(() => UserModule),
     SettingsModule,
+    ShippingModule,
   ],
   controllers: [PaymentController],
   providers: [PaymentService, PaymentProviderBinding],

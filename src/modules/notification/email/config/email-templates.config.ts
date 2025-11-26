@@ -33,4 +33,8 @@ export const EmailTemplates: Record<EmailType, string> = {
   [EmailType.PRODUCT_AVAILABILITY_NOTIFICATION]:
     'product-availability-notification.ejs',
   [EmailType.TRACKING_STATUS_UPDATE]: 'tracking-status-update.ejs',
+  [EmailType.ORDER_DISPATCHED]: 'order-dispatched.ejs',
+  [EmailType.ORDER_IN_TRANSIT]: 'order-in-transit.ejs',
+  [EmailType.ORDER_DELIVERED]: 'order-delivered.ejs',
+  [EmailType.ORDER_EXCEPTION]: 'order-exception.ejs',
 } as const;

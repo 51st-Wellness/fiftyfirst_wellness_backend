@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import {
@@ -40,6 +42,8 @@ import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
 import { PreOrderBulkEmailDto } from './dto/pre-order-bulk-email.dto';
+import { ClickDropService } from 'src/modules/tracking/royal-mail/click-drop.service';
+import { CreateOrderRequest } from 'src/modules/tracking/royal-mail/click-drop.types';
 
 @Injectable()
 export class OrderService {
@@ -48,10 +52,12 @@ export class OrderService {
 
   constructor(
     private readonly database: DatabaseService,
+    @Inject(forwardRef(() => PaymentService))
     private readonly paymentService: PaymentService,
     private readonly reviewService: ReviewService,
     private readonly emailService: EmailService,
     private readonly configService: ConfigService,
+    private readonly clickDropService: ClickDropService,
   ) {
     const fallbackUrl = 'https://fiftyfirstswellness.com';
     const envUrl = this.configService.get(ENV.FRONTEND_URL, fallbackUrl);
@@ -758,5 +764,146 @@ export class OrderService {
       totalPreOrders: preOrderRows.length,
       productName: product.name,
     };
+  }
+
+  // Submit order to Click & Drop API after payment confirmation
+  async submitOrderToClickDrop(orderId: string): Promise<void> {
+    try {
+      // Get order with all related data
+      const orderData = await this.database.db
+        .select({
+          order: orders,
+          address: deliveryAddresses,
+          user: users,
+        })
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .leftJoin(
+          deliveryAddresses,
+          eq(orders.deliveryAddressId, deliveryAddresses.id),
+        )
+        .leftJoin(users, eq(orders.userId, users.id))
+        .limit(1);
+
+      if (!orderData || orderData.length === 0) {
+        throw new NotFoundException(`Order ${orderId} not found`);
+      }
+
+      const { order, address, user } = orderData[0];
+
+      if (!address) {
+        throw new BadRequestException(
+          `Order ${orderId} has no delivery address`,
+        );
+      }
+
+      if (!order.parcelWeight || !order.serviceCode) {
+        throw new BadRequestException(
+          `Order ${orderId} missing shipping details`,
+        );
+      }
+
+      // Get order items with product details
+      const items = await this.database.db
+        .select({
+          orderItem: orderItems,
+          product: products,
+          storeItem: storeItems,
+        })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, orderId))
+        .innerJoin(products, eq(orderItems.productId, products.id))
+        .leftJoin(storeItems, eq(products.id, storeItems.productId));
+
+      // Build Click & Drop order request
+      const clickDropRequest: CreateOrderRequest = {
+        orderReference: orderId.substring(0, 40), // Max 40 chars
+        recipient: {
+          address: {
+            fullName: address.recipientName,
+            addressLine1: address.addressLine1,
+            city: address.postTown,
+            postcode: address.postcode || undefined,
+            countryCode: 'GB', // UK only for now
+          },
+          phoneNumber: address.contactPhone,
+          emailAddress: user?.email,
+        },
+        packages: [
+          {
+            weightInGrams: order.parcelWeight,
+            packageFormatIdentifier:
+              (order.packageFormatIdentifier as any) || 'parcel',
+            dimensions: order.parcelDimensions as any,
+            contents: items.map((item) => ({
+              name: item.storeItem?.name,
+              quantity: item.orderItem.quantity,
+              unitValue: item.orderItem.price,
+              unitWeightInGrams: item.storeItem?.weight
+                ? Math.round(item.storeItem.weight)
+                : undefined,
+            })),
+          },
+        ],
+        orderDate: order.createdAt.toISOString(),
+        subtotal: order.totalAmount - (order.shippingCost || 0),
+        shippingCostCharged: order.shippingCost || 0,
+        total: order.totalAmount,
+        currencyCode: 'GBP',
+        postageDetails: {
+          serviceCode: order.serviceCode,
+          sendNotificationsTo: 'recipient',
+          receiveEmailNotification: true,
+        },
+        specialInstructions: address.deliveryInstructions || undefined,
+      };
+
+      // Submit to Click & Drop
+      const response = await this.clickDropService.createOrders({
+        items: [clickDropRequest],
+      });
+
+      // Check if order was created successfully
+      if (response.createdOrders && response.createdOrders.length > 0) {
+        const createdOrder = response.createdOrders[0];
+
+        // Update order with Click & Drop details
+        const statusHistory = (order.statusHistory as any[]) || [];
+        statusHistory.push({
+          status: 'INFORECEIVED',
+          timestamp: new Date().toISOString(),
+          note: 'Order submitted to Click & Drop',
+          clickDropOrderIdentifier: createdOrder.orderIdentifier,
+        });
+
+        await this.database.db
+          .update(orders)
+          .set({
+            clickDropOrderIdentifier: createdOrder.orderIdentifier,
+            labelBase64: createdOrder.label,
+            status: OrderStatus.INFORECEIVED,
+            statusHistory,
+          })
+          .where(eq(orders.id, orderId));
+
+        console.log(
+          `Order ${orderId} successfully submitted to Click & Drop (ID: ${createdOrder.orderIdentifier})`,
+        );
+      } else if (response.failedOrders && response.failedOrders.length > 0) {
+        const errors = response.failedOrders[0].errors;
+        console.error(
+          `Failed to submit order ${orderId} to Click & Drop:`,
+          errors,
+        );
+        // Don't throw - allow manual retry by admin
+        // Log error prominently for admin review
+      }
+    } catch (error) {
+      console.error(
+        `Error submitting order ${orderId} to Click & Drop:`,
+        error,
+      );
+      // Don't throw - allow order to remain in PENDING status for manual handling
+    }
   }
 }

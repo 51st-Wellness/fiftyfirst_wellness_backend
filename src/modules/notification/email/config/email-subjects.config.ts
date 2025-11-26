@@ -42,4 +42,8 @@ export const EmailSubjects: Record<EmailType, string> = {
     'Product Update from Fifty Firsts Wellness',
   [EmailType.TRACKING_STATUS_UPDATE]:
     'Tracking Status Update - Fifty Firsts Wellness',
+  [EmailType.ORDER_DISPATCHED]: 'Order Dispatched - Fifty Firsts Wellness',
+  [EmailType.ORDER_IN_TRANSIT]: 'Order In Transit - Fifty Firsts Wellness',
+  [EmailType.ORDER_DELIVERED]: 'Order Delivered - Fifty Firsts Wellness',
+  [EmailType.ORDER_EXCEPTION]: 'Order Exception - Fifty Firsts Wellness',
 } as const;

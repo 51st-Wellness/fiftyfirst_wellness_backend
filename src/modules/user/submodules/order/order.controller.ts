@@ -9,6 +9,8 @@ import {
   UseGuards,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { OrderService } from './order.service';
 import {
@@ -31,6 +33,7 @@ import { PreOrderBulkEmailDto } from './dto/pre-order-bulk-email.dto';
 export class OrderController {
   constructor(
     private readonly orderService: OrderService,
+    @Inject(forwardRef(() => PaymentService))
     private readonly paymentService: PaymentService,
   ) {}
 
