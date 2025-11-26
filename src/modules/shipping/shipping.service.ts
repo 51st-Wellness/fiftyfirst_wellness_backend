@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SettingsService } from '../settings/settings.service';
 import { PackageFormat } from '../tracking/royal-mail/click-drop.types';
+import { ConfigService } from 'src/config/config.service';
+import { ENV } from 'src/config/env.enum';
+import { createShippingSettingsData } from 'src/database/seeders/data/shipping-settings.data';
 
 // Shipping service configuration types
 export interface WeightBand {
@@ -63,96 +66,45 @@ export interface ShippingCalculation {
 const SHIPPING_RATES_KEY = 'SHIPPING_RATES';
 const DEFAULT_SHIPPING_SERVICE_KEY = 'DEFAULT_SHIPPING_SERVICE';
 
-// Default configuration (used if not in settings)
-const DEFAULT_SHIPPING_RATES: ShippingRatesConfig = {
-  services: {
-    ROYAL_MAIL_48: {
-      label: 'Royal Mail 2nd Class',
-      serviceCode: 'CRL1', // Example - admin must update with actual account code
-      bands: [
-        { maxWeight: 1000, price: 4.19 },
-        { maxWeight: 2000, price: 6.49 },
-        { maxWeight: 5000, price: 9.99 },
-        { maxWeight: 10000, price: 14.99 },
-        { maxWeight: 20000, price: 24.99 },
-        { maxWeight: 30000, price: 34.99 },
-      ],
-      description: 'Delivery within 2-3 working days',
-    },
-    ROYAL_MAIL_24: {
-      label: 'Royal Mail 1st Class',
-      serviceCode: 'CRL2', // Example - admin must update with actual account code
-      bands: [
-        { maxWeight: 1000, price: 5.82 },
-        { maxWeight: 2000, price: 8.99 },
-        { maxWeight: 5000, price: 12.99 },
-        { maxWeight: 10000, price: 18.99 },
-        { maxWeight: 20000, price: 29.99 },
-        { maxWeight: 30000, price: 42.99 },
-      ],
-      description: 'Next working day delivery',
-    },
-    TRACKED_24: {
-      label: 'Royal Mail Tracked 24',
-      serviceCode: 'TPN', // Example - admin must update with actual account code
-      bands: [
-        { maxWeight: 1000, price: 7.20 },
-        { maxWeight: 2000, price: 9.50 },
-        { maxWeight: 5000, price: 13.50 },
-        { maxWeight: 10000, price: 19.50 },
-        { maxWeight: 20000, price: 31.50 },
-        { maxWeight: 30000, price: 45.50 },
-      ],
-      description: 'Tracked next working day delivery',
-    },
-  },
-  addOns: {
-    SIGNED_FOR: {
-      label: 'Signed For',
-      price: 1.50,
-      description: 'Signature required on delivery',
-    },
-  },
-  defaultService: 'ROYAL_MAIL_48',
-};
-
 @Injectable()
 export class ShippingService {
   private readonly logger = new Logger(ShippingService.name);
 
-  constructor(private readonly settingsService: SettingsService) {}
+  constructor(
+    private readonly settingsService: SettingsService,
+    private readonly configService: ConfigService,
+  ) {}
 
   // Get shipping rates configuration
   async getShippingRates(): Promise<ShippingRatesConfig> {
     try {
-      const record = await this.settingsService.getSettingRecord(SHIPPING_RATES_KEY);
+      const record =
+        await this.settingsService.getSettingRecord(SHIPPING_RATES_KEY);
       if (record) {
         return JSON.parse(record.value);
       }
     } catch (error) {
-      this.logger.warn('Failed to load shipping rates from settings, using defaults');
+      this.logger.warn(
+        'Failed to load shipping rates from settings, using defaults',
+      );
     }
-    return DEFAULT_SHIPPING_RATES;
+    return createShippingSettingsData();
   }
 
   // Update shipping rates configuration (admin only)
   async updateShippingRates(config: ShippingRatesConfig): Promise<void> {
-    await this.settingsService.upsertSetting(
-      SHIPPING_RATES_KEY,
-      config,
-      {
-        description: 'Shipping service rates and configuration',
-        category: 'shipping',
-        isEditable: true,
-      },
-    );
+    await this.settingsService.upsertSetting(SHIPPING_RATES_KEY, config, {
+      description: 'Shipping service rates and configuration',
+      category: 'shipping',
+      isEditable: true,
+    });
     this.logger.log('Shipping rates configuration updated');
   }
 
   // Get default shipping service key
   async getDefaultShippingService(): Promise<string> {
     const rates = await this.getShippingRates();
-    return rates.defaultService || 'ROYAL_MAIL_48';
+    return rates.defaultService;
   }
 
   // Get available shipping services with prices for given weight
@@ -195,6 +147,13 @@ export class ShippingService {
 
     if (!selectedService) {
       throw new Error(`Shipping service not found: ${selectedServiceKey}`);
+    }
+
+    // Validate service code is configured (OLP2 is the default for Royal Mail 2nd Class)
+    if (!selectedService.serviceCode) {
+      throw new Error(
+        `Service code for ${selectedService.label} is not configured. Please update shipping settings with your Click & Drop account-specific service codes.`,
+      );
     }
 
     // Consolidate cart items
@@ -316,4 +275,3 @@ export class ShippingService {
     return null;
   }
 }
-

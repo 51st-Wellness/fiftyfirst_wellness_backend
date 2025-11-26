@@ -11,7 +11,6 @@ const HELMET_OPTIONS: HelmetOptions = {
 const CORS_OPTIONS: CorsOptions = {
   origin: [
     configService.get(ENV.FRONTEND_URL),
-    configService.get(ENV.DEVELOPMENT_URL),
     'http://localhost:3000',
     'http://localhost:3001', //nextjs dev server
     'http://localhost:5173', //react vite dev server

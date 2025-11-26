@@ -58,7 +58,7 @@ async function bootstrap() {
   console.log(`🚀 API Service running on port ${AppConfig.PORT}`);
   if (configService.get(ENV.NODE_ENV) === 'development') {
     console.log(`
-      visit : ${configService.get(ENV.DEVELOPMENT_URL)}/api`);
+      visit : ${configService.get(ENV.SERVER_URL)}/api`);
   } else {
     console.log(`
       visit : ${configService.get(ENV.FRONTEND_URL)}/api`);

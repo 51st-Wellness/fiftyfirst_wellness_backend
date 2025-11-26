@@ -1174,6 +1174,23 @@ export class PaymentService {
         contextType,
       });
 
+      // Emit event for paid orders to trigger Click & Drop submission (after transaction)
+      if (newStatus === PaymentStatus.PAID) {
+        const relatedOrders = await this.database.db
+          .select()
+          .from(orders)
+          .where(eq(orders.paymentId, payment.id));
+
+        relatedOrders.forEach((order) => {
+          if (!order.isPreOrder) {
+            this.eventsEmitter.emit(EVENTS.ORDER_PAYMENT_CONFIRMED, {
+              orderId: order.id,
+              userId: order.userId,
+            });
+          }
+        });
+      }
+
       return {
         status: newStatus,
         paymentId: payment.id,

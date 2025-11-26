@@ -835,14 +835,33 @@ export class OrderService {
             packageFormatIdentifier:
               (order.packageFormatIdentifier as any) || 'parcel',
             dimensions: order.parcelDimensions as any,
-            contents: items.map((item) => ({
-              name: item.storeItem?.name,
-              quantity: item.orderItem.quantity,
-              unitValue: item.orderItem.price,
-              unitWeightInGrams: item.storeItem?.weight
-                ? Math.round(item.storeItem.weight)
-                : undefined,
-            })),
+            contents: items.map((item) => {
+              // Click & Drop requires both UnitValue and UnitWeightInGrams when SKU is not provided
+              // Ensure both are valid positive numbers
+              const unitValue =
+                item.orderItem.price && item.orderItem.price > 0
+                  ? item.orderItem.price
+                  : 0.01; // Minimum value if price is 0 or null
+
+              const unitWeightInGrams =
+                item.storeItem?.weight && item.storeItem.weight > 0
+                  ? Math.round(item.storeItem.weight)
+                  : 100; // Default 100g if weight is 0, null, or undefined
+
+              const contentItem: any = {
+                name: item.storeItem?.name || 'Product',
+                quantity: item.orderItem.quantity,
+                unitValue,
+                unitWeightInGrams,
+              };
+
+              // Include SKU if available (productId can serve as SKU)
+              if (item.product?.id) {
+                contentItem.SKU = item.product.id.substring(0, 100); // Max 100 chars
+              }
+
+              return contentItem;
+            }),
           },
         ],
         orderDate: order.createdAt.toISOString(),
@@ -893,7 +912,7 @@ export class OrderService {
         const errors = response.failedOrders[0].errors;
         console.error(
           `Failed to submit order ${orderId} to Click & Drop:`,
-          errors,
+          JSON.stringify(errors, null, 2),
         );
         // Don't throw - allow manual retry by admin
         // Log error prominently for admin review

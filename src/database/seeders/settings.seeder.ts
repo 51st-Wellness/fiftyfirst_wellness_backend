@@ -1,11 +1,16 @@
 import { Database } from '../connection';
 import { settings } from '../schema';
-
-const GLOBAL_DISCOUNT_KEY = 'STORE_GLOBAL_DISCOUNT';
+import { ConfigService } from 'src/config/config.service';
+import { createShippingSettingsData } from './data/shipping-settings.data';
+import {
+  GLOBAL_DISCOUNT_KEY,
+  SHIPPING_RATES_KEY,
+} from 'src/modules/settings/settings.constant';
 
 export async function seedSettings(db: Database) {
   console.log('⚙️ Seeding settings...');
 
+  // Seed Global Discount Settings
   await db
     .insert(settings)
     .values({
@@ -38,5 +43,27 @@ export async function seedSettings(db: Database) {
       },
     });
 
-  console.log('✅ Settings seeded');
+  // Seed Shipping Settings
+
+  await db
+    .insert(settings)
+    .values({
+      key: SHIPPING_RATES_KEY,
+      value: JSON.stringify(createShippingSettingsData()),
+      description:
+        'Royal Mail Click & Drop shipping service rates and configuration',
+      category: 'shipping',
+      isEditable: true,
+    })
+    .onConflictDoUpdate({
+      target: settings.key,
+      set: {
+        value: JSON.stringify(createShippingSettingsData()),
+        description:
+          'Royal Mail Click & Drop shipping service rates and configuration',
+        updatedAt: new Date(),
+      },
+    });
+
+  console.log('✅ Settings seeded (Global Discount + Shipping Rates)');
 }

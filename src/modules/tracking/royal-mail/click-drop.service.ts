@@ -94,10 +94,22 @@ export class ClickDropService {
       // Log any failed orders for admin review
       if (data.failedOrders && data.failedOrders.length > 0) {
         data.failedOrders.forEach((failedOrder) => {
-          this.logger.error(
-            `Failed to create order ${failedOrder.order.orderReference}:`,
-            failedOrder.errors,
+          const serviceCodeErrors = failedOrder.errors.filter(
+            (error) => error.errorCode === 31 || error.errorMessage.includes('Service code')
           );
+          
+          if (serviceCodeErrors.length > 0) {
+            this.logger.error(
+              `INVALID SERVICE CODE for order ${failedOrder.order.orderReference}:`,
+              serviceCodeErrors,
+              'Please update shipping settings with correct Click & Drop service codes'
+            );
+          } else {
+            this.logger.error(
+              `Failed to create order ${failedOrder.order.orderReference}:`,
+              failedOrder.errors,
+            );
+          }
         });
       }
 
