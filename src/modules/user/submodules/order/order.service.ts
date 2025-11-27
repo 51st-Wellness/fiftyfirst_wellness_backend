@@ -798,6 +798,13 @@ export class OrderService {
       }
 
       if (!order.parcelWeight || !order.serviceCode) {
+        console.error(
+          `[DEBUG] Missing shipping details for order ${orderId}:`,
+          {
+            parcelWeight: order.parcelWeight,
+            serviceCode: order.serviceCode,
+          },
+        );
         throw new BadRequestException(
           `Order ${orderId} missing shipping details`,
         );
@@ -834,7 +841,13 @@ export class OrderService {
             weightInGrams: order.parcelWeight,
             packageFormatIdentifier:
               (order.packageFormatIdentifier as any) || 'parcel',
-            dimensions: order.parcelDimensions as any,
+            dimensions: order.parcelDimensions
+              ? {
+                  heightInMms: (order.parcelDimensions as any).height,
+                  widthInMms: (order.parcelDimensions as any).width,
+                  depthInMms: (order.parcelDimensions as any).depth,
+                }
+              : undefined,
             contents: items.map((item) => {
               // Click & Drop requires both UnitValue and UnitWeightInGrams when SKU is not provided
               // Ensure both are valid positive numbers
@@ -909,13 +922,20 @@ export class OrderService {
           `Order ${orderId} successfully submitted to Click & Drop (ID: ${createdOrder.orderIdentifier})`,
         );
       } else if (response.failedOrders && response.failedOrders.length > 0) {
-        const errors = response.failedOrders[0].errors;
+        const failedOrder = response.failedOrders[0];
+        const errors = failedOrder?.errors || [];
+        const orderRef = failedOrder?.order?.orderReference || orderId;
+
         console.error(
-          `Failed to submit order ${orderId} to Click & Drop:`,
+          `Failed to submit order ${orderRef} to Click & Drop:`,
           JSON.stringify(errors, null, 2),
         );
         // Don't throw - allow manual retry by admin
         // Log error prominently for admin review
+      } else {
+        console.warn(
+          `Click & Drop API response for order ${orderId} had no created or failed orders`,
+        );
       }
     } catch (error) {
       console.error(

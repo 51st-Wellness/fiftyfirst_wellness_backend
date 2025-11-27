@@ -50,9 +50,9 @@ export interface BillingDetailsRequest {
 
 // Dimensions Request
 export interface DimensionsRequest {
-  heightInMms: number; // required if dimensions included
-  widthInMms: number; // required if dimensions included
-  depthInMms: number; // required if dimensions included
+  heightInMms: number; // required, integer format
+  widthInMms: number; // required, integer format  
+  depthInMms: number; // required, integer format
 }
 
 // Product Item Request
