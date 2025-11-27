@@ -11,6 +11,8 @@ export type PaymentInitInput = {
   userId: string;
   isPreOrder?: boolean; // Whether this is a pre-order payment
   captureMethod?: 'automatic' | 'manual'; // Capture method for Stripe
+  shippingCost?: number; // Shipping cost to add as separate line item
+  shippingDescription?: string; // Description for shipping line item
 };
 
 export type PaymentInitResult = {

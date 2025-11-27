@@ -891,6 +891,8 @@ export class PaymentService {
       currency,
       description: description || 'Store Checkout',
       items: providerLineItems,
+      shippingCost: shippingCalculation.totalPrice,
+      shippingDescription: `Shipping (${shippingServiceKey})`,
       userId,
       paymentId,
       isPreOrder: hasPreOrders,

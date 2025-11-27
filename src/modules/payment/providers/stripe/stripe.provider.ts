@@ -69,6 +69,20 @@ export class StripeProvider implements PaymentProvider {
             },
           ];
 
+    // Add shipping as a separate line item if provided (only for non-subscription payments)
+    if (!isSubscription && input.shippingCost && input.shippingCost > 0) {
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: input.currency.toLowerCase(),
+          product_data: {
+            name: input.shippingDescription || 'Shipping',
+          },
+          unit_amount: Math.round(input.shippingCost * 100),
+        },
+      });
+    }
+
     const baseMetadata: StripeMetadata = {
       userId: input.userId,
       type: isSubscription ? 'subscription' : 'store_checkout',
