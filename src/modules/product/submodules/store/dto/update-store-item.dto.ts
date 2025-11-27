@@ -7,6 +7,17 @@ export class UpdateStoreItemDto extends PartialType(CreateStoreItemDto) {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
+  @Transform(({ value }) => {
+    // Handle undefined, null, or empty string
+    if (value === undefined || value === null || value === '') {
+      return [];
+    }
+    // If already an array, return as-is
+    if (Array.isArray(value)) {
+      return value;
+    }
+    // Wrap single value in array
+    return [value];
+  })
   existingImages?: string[];
 }

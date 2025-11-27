@@ -70,6 +70,10 @@ export class StoreRepository {
           updatedAt: storeItems.updatedAt,
           averageRating: sql<number>`COALESCE(AVG(CASE WHEN ${reviews.status} = 'APPROVED' THEN ${reviews.rating} ELSE NULL END), 0)`,
           reviewCount: sql<number>`COUNT(CASE WHEN ${reviews.status} = 'APPROVED' THEN 1 ELSE NULL END)`,
+          weight: storeItems.weight,
+          length: storeItems.length,
+          width: storeItems.width,
+          height: storeItems.height,
         })
         .from(storeItems)
         .leftJoin(reviews, eq(reviews.productId, storeItems.productId))
@@ -174,6 +178,10 @@ export class StoreRepository {
           updatedAt: storeItems.updatedAt,
           averageRating: sql<number>`COALESCE(AVG(CASE WHEN ${reviews.status} = 'APPROVED' THEN ${reviews.rating} ELSE NULL END), 0)`,
           reviewCount: sql<number>`COUNT(CASE WHEN ${reviews.status} = 'APPROVED' THEN 1 ELSE NULL END)`,
+          weight: storeItems.weight,
+          length: storeItems.length,
+          width: storeItems.width,
+          height: storeItems.height,
         })
         .from(storeItems)
         .leftJoin(reviews, eq(reviews.productId, storeItems.productId))
