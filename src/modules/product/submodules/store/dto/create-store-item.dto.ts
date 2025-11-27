@@ -112,4 +112,24 @@ export class CreateStoreItemDto {
   @IsString({ each: true })
   @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   productIngredients?: string[];
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  weight?: number; // Weight in grams for Click & Drop
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  length?: number; // Length in mm for Click & Drop
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  width?: number; // Width in mm for Click & Drop
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  height?: number; // Height in mm for Click & Drop
 }
