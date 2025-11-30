@@ -3,8 +3,12 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { EVENTS } from './events.enum';
 import { EmailService } from 'src/modules/notification/email/email.service';
 import { EmailPayloadDto } from 'src/modules/notification/email/dto/email-payload.dto';
-import { OrderService } from 'src/modules/user/submodules/order/order.service';
+import { DatabaseService } from 'src/database/database.service';
+import { EventsEmitter } from './events.emitter';
+import { orders, users } from 'src/database/schema';
+import { eq } from 'drizzle-orm';
 import { EmailType } from 'src/modules/notification/email/constants/email.enum';
+import { ClickDropService } from '@/modules/tracking/royal-mail/click-drop.service';
 
 @Injectable()
 export class EventsListeners {
@@ -12,7 +16,9 @@ export class EventsListeners {
 
   constructor(
     private readonly emailService: EmailService,
-    private readonly orderService: OrderService,
+    private readonly database: DatabaseService,
+    private readonly eventsEmitter: EventsEmitter,
+    private readonly clickDropService: ClickDropService,
   ) {}
 
   @OnEvent(EVENTS.NOTIFICATION_EMAIL)
@@ -33,7 +39,7 @@ export class EventsListeners {
       `Payment confirmed for order ${data.orderId}, submitting to Click & Drop`,
     );
     try {
-      await this.orderService.submitOrderToClickDrop(data.orderId);
+      await this.clickDropService.submitOrderToClickDrop(data.orderId);
     } catch (error) {
       this.logger.error(
         `Failed to submit order ${data.orderId} to Click & Drop:`,
@@ -53,31 +59,94 @@ export class EventsListeners {
       `Order ${data.orderId} status changed from ${data.oldStatus} to ${data.newStatus}`,
     );
 
-    // Emit email notification based on status
-    let emailType: EmailType | null = null;
+    try {
+      // Get order details including user information
+      const orderResult = await this.database.db
+        .select({
+          order: orders,
+          user: users,
+        })
+        .from(orders)
+        .where(eq(orders.id, data.orderId))
+        .innerJoin(users, eq(orders.userId, users.id))
+        .limit(1);
 
-    switch (data.newStatus) {
-      case 'TRANSIT':
-        emailType = EmailType.ORDER_IN_TRANSIT;
-        break;
-      case 'DELIVERED':
-        emailType = EmailType.ORDER_DELIVERED;
-        break;
-      case 'EXCEPTION':
-      case 'UNDELIVERED':
-        emailType = EmailType.ORDER_EXCEPTION;
-        break;
-      case 'INFORECEIVED':
-        emailType = EmailType.ORDER_DISPATCHED;
-        break;
-    }
+      if (!orderResult || orderResult.length === 0) {
+        this.logger.warn(
+          `Order ${data.orderId} not found for status change notification`,
+        );
+        return;
+      }
 
-    if (emailType) {
-      // Note: Actual email sending would need order details and user email
-      // This would be implemented with proper email template and data fetching
-      this.logger.log(
-        `Would send ${emailType} email for order ${data.orderId}`,
+      const { order, user } = orderResult[0];
+
+      if (!user || !user.email) {
+        this.logger.warn(
+          `User ${order.userId} not found or has no email for order ${data.orderId}`,
+        );
+        return;
+      }
+
+      // Determine email type based on status
+      let emailType: EmailType | null = null;
+
+      switch (data.newStatus) {
+        case 'TRANSIT':
+          emailType = EmailType.ORDER_IN_TRANSIT;
+          break;
+        case 'DELIVERED':
+          emailType = EmailType.ORDER_DELIVERED;
+          break;
+        case 'EXCEPTION':
+        case 'UNDELIVERED':
+          emailType = EmailType.ORDER_EXCEPTION;
+          break;
+        case 'DISPATCHED':
+          emailType = EmailType.ORDER_DISPATCHED;
+          break;
+      }
+
+      if (emailType) {
+        // Send email notification
+        this.eventsEmitter.sendEmail({
+          to: user.email,
+          type: emailType,
+          context: {
+            firstName: user.firstName || 'Customer',
+            lastName: user.lastName || '',
+            orderId: data.orderId,
+            trackingReference: data.trackingNumber || '',
+            previousStatus: data.oldStatus,
+            newStatus: data.newStatus,
+            statusDescription: this.getStatusDescription(data.newStatus),
+          },
+        });
+
+        this.logger.log(
+          `Sent ${emailType} email to ${user.email} for order ${data.orderId}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error handling order status change for ${data.orderId}:`,
+        error,
       );
     }
+  }
+
+  // Get human-readable status description
+  private getStatusDescription(status: string): string {
+    const descriptions: Record<string, string> = {
+      PENDING: 'Your order is being prepared',
+      PROCESSING: 'Your order is being processed',
+      DISPATCHED: 'Your order has been dispatched',
+      TRANSIT: 'Your order is in transit',
+      DELIVERED: 'Your order has been delivered',
+      UNDELIVERED: 'Delivery attempt unsuccessful',
+      EXCEPTION: 'An exception occurred during delivery',
+      EXPIRED: 'Tracking information has expired',
+    };
+
+    return descriptions[status] || 'Status update';
   }
 }

@@ -1,19 +1,23 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue, Job } from 'bullmq';
 import { DatabaseService } from 'src/database/database.service';
 import { orders, OrderStatus, users } from 'src/database/schema';
-import { eq, and, isNotNull, or, inArray, sql } from 'drizzle-orm';
+import { eq, and, isNotNull, or, inArray, sql, not } from 'drizzle-orm';
 import { ClickDropService } from './royal-mail/click-drop.service';
 import { QUEUE_NAMES } from 'src/config/queues.config';
 import { TrackingStatusDto } from './dto/tracking-response.dto';
-import { RoyalMailTrackingStatus } from './royal-mail/royal-mail.types';
 import { EventsEmitter } from 'src/util/events/events.emitter';
 import { EVENTS } from 'src/util/events/events.enum';
 import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 
 @Injectable()
-export class TrackingService {
+export class TrackingService implements OnModuleInit {
   private readonly logger = new Logger(TrackingService.name);
   private readonly TRACKING_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -24,6 +28,25 @@ export class TrackingService {
     private readonly clickDropService: ClickDropService,
     private readonly eventsEmitter: EventsEmitter,
   ) {}
+
+  // Initialize repeatable job for hourly tracking checks
+  async onModuleInit() {
+    // Schedule hourly tracking check (for testing - can be adjusted later)
+    // Using BullMQ repeatable jobs instead of @nestjs/schedule
+    await this.trackingQueue.add(
+      'check-tracking',
+      {},
+      {
+        repeat: {
+          pattern: '0 * * * *', // Cron pattern: Every hour at minute 0
+        },
+        jobId: 'hourly-tracking-check', // Unique ID to prevent duplicates
+      },
+    );
+    this.logger.log(
+      'Scheduled hourly Click & Drop tracking check (every 1 hour)',
+    );
+  }
 
   // Check Click & Drop orders and update status
   async checkClickDropOrders(): Promise<void> {
@@ -37,6 +60,7 @@ export class TrackingService {
     const ordersToCheck = await this.database.db
       .select({
         id: orders.id,
+        userId: orders.userId,
         clickDropOrderIdentifier: orders.clickDropOrderIdentifier,
         status: orders.status,
       })
@@ -44,7 +68,7 @@ export class TrackingService {
       .where(
         and(
           isNotNull(orders.clickDropOrderIdentifier),
-          sql`${orders.status} NOT IN (${sql.join(finalStatuses, sql`, `)})`,
+          not(inArray(orders.status, finalStatuses)),
         ),
       )
       .limit(100); // Process up to 100 orders per batch (API limit)
@@ -57,6 +81,7 @@ export class TrackingService {
     // Group orders by Click & Drop order identifier (semicolon-separated for API)
     const orderIdentifiers = ordersToCheck
       .map((o) => o.clickDropOrderIdentifier)
+      .filter((id): id is number => id !== null)
       .join(';');
 
     try {
@@ -66,6 +91,19 @@ export class TrackingService {
       const clickDropOrders =
         await this.clickDropService.getOrdersByIdentifiers(orderIdentifiers);
 
+      // Handle case where API returns fewer orders than requested
+      if (clickDropOrders.length < ordersToCheck.length) {
+        const foundIdentifiers = new Set(
+          clickDropOrders.map((o) => o.orderIdentifier),
+        );
+        const missing = ordersToCheck.filter(
+          (o) => !foundIdentifiers.has(o.clickDropOrderIdentifier!),
+        );
+        this.logger.warn(
+          `${missing.length} orders not found in Click & Drop API (may have been deleted or not yet created)`,
+        );
+      }
+
       // Update each order with latest info
       for (const cdOrder of clickDropOrders) {
         const localOrder = ordersToCheck.find(
@@ -74,60 +112,87 @@ export class TrackingService {
 
         if (!localOrder) continue;
 
-        // Determine status based on Click & Drop order state
-        let newStatus = localOrder.status;
+        // Use the correct status mapping method
+        const newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
+        const previousStatus = localOrder.status;
+        const statusChanged = newStatus !== previousStatus;
         const now = new Date();
 
-        if (cdOrder.manifestedOn) {
-          newStatus = OrderStatus.TRANSIT;
-        }
-        if (cdOrder.shippedOn) {
-          newStatus = OrderStatus.DELIVERED;
-        }
-
-        // Get current status history
+        // Get current order details for status history and tracking updates
         const currentOrder = await this.database.db
           .select()
           .from(orders)
           .where(eq(orders.id, localOrder.id))
           .limit(1);
 
-        const statusHistory = (currentOrder[0]?.statusHistory as any[]) || [];
+        if (!currentOrder || currentOrder.length === 0) continue;
+
+        const existingOrder = currentOrder[0];
+        const statusHistory = (existingOrder.statusHistory as any[]) || [];
+
+        // Update tracking events with tracking number if available
+        let trackingEvents = (existingOrder.trackingEvents as any[]) || [];
+        if (cdOrder.trackingNumber) {
+          // Add or update tracking number in events
+          const hasTrackingNumber = trackingEvents.some(
+            (e) => e.trackingNumber,
+          );
+          if (!hasTrackingNumber) {
+            trackingEvents.push({
+              trackingNumber: cdOrder.trackingNumber,
+              timestamp: now.toISOString(),
+              source: 'Click & Drop API',
+            });
+          }
+        }
 
         // Add status change to history if status changed
-        if (newStatus !== localOrder.status) {
+        if (statusChanged) {
           statusHistory.push({
             status: newStatus,
             timestamp: now.toISOString(),
             note: `Updated from Click & Drop API`,
             clickDropData: {
+              orderIdentifier: cdOrder.orderIdentifier,
+              trackingNumber: cdOrder.trackingNumber,
+              printedOn: cdOrder.printedOn,
               manifestedOn: cdOrder.manifestedOn,
               shippedOn: cdOrder.shippedOn,
-              printedOn: cdOrder.printedOn,
             },
           });
 
           this.logger.log(
-            `Order ${localOrder.id} status changed from ${localOrder.status} to ${newStatus}`,
+            `Order ${localOrder.id} status changed from ${previousStatus} to ${newStatus}`,
           );
 
           // Emit event for notifications
           this.eventsEmitter.emit(EVENTS.ORDER_STATUS_CHANGED, {
             orderId: localOrder.id,
-            oldStatus: localOrder.status,
+            oldStatus: previousStatus,
             newStatus,
             trackingNumber: cdOrder.trackingNumber,
           });
+
+          // Send email notification
+          await this.sendTrackingStatusUpdateEmail(localOrder.userId, {
+            orderId: localOrder.id,
+            previousStatus,
+            newStatus,
+            trackingReference: cdOrder.trackingNumber || '',
+            events: trackingEvents,
+          });
         }
 
-        // Update order in database
+        // Update order in database with all tracking fields
         await this.database.db
           .update(orders)
           .set({
             status: newStatus,
             trackingLastChecked: now,
-            trackingStatusUpdated:
-              newStatus !== localOrder.status ? now : undefined,
+            trackingStatusUpdated: statusChanged
+              ? now
+              : existingOrder.trackingStatusUpdated,
+            trackingEvents,
             statusHistory,
           })
           .where(eq(orders.id, localOrder.id));
@@ -188,7 +253,37 @@ export class TrackingService {
 
     const now = new Date();
 
-    // Update order with latest information
+    // Update tracking events with tracking number if available
+    let trackingEvents = (existingOrder.trackingEvents as any[]) || [];
+    if (cdOrder.trackingNumber) {
+      const hasTrackingNumber = trackingEvents.some((e) => e.trackingNumber);
+      if (!hasTrackingNumber) {
+        trackingEvents.push({
+          trackingNumber: cdOrder.trackingNumber,
+          timestamp: now.toISOString(),
+          source: 'Click & Drop API',
+        });
+      }
+    }
+
+    // Get current status history
+    const statusHistory = (existingOrder.statusHistory as any[]) || [];
+    if (statusChanged) {
+      statusHistory.push({
+        status: newStatus,
+        timestamp: now.toISOString(),
+        note: `Manually refreshed from Click & Drop API`,
+        clickDropData: {
+          orderIdentifier: cdOrder.orderIdentifier,
+          trackingNumber: cdOrder.trackingNumber,
+          printedOn: cdOrder.printedOn,
+          manifestedOn: cdOrder.manifestedOn,
+          shippedOn: cdOrder.shippedOn,
+        },
+      });
+    }
+
+    // Update order with latest information including tracking fields
     await this.database.db
       .update(orders)
       .set({
@@ -197,6 +292,8 @@ export class TrackingService {
         trackingStatusUpdated: statusChanged
           ? now
           : existingOrder.trackingStatusUpdated,
+        trackingEvents,
+        statusHistory,
       })
       .where(eq(orders.id, orderId));
 
@@ -213,7 +310,7 @@ export class TrackingService {
     return {
       orderId: existingOrder.id,
       trackingReference: cdOrder.trackingNumber || null,
-      trackingStatus: newStatus.toLowerCase() as any,
+      trackingStatus: newStatus,
       trackingLastChecked: now,
       trackingStatusUpdated: statusChanged
         ? now
@@ -226,17 +323,22 @@ export class TrackingService {
   }
 
   // Map Click & Drop order status to our OrderStatus enum
+  // Based on Click & Drop API lifecycle: printedOn -> manifestedOn -> shippedOn
   private mapClickDropStatusToOrderStatus(cdOrder: any): OrderStatus {
-    // Map based on Click & Drop order lifecycle
+    // Check in reverse order of lifecycle (most advanced status first)
     if (cdOrder.shippedOn) {
+      // We'll use TRANSIT for shipped orders
       return OrderStatus.TRANSIT;
     }
     if (cdOrder.manifestedOn) {
-      return OrderStatus.INFORECEIVED;
+      // manifestedOn means order info received and manifested
+      return OrderStatus.DISPATCHED;
     }
     if (cdOrder.printedOn) {
+      // printedOn means label has been printed
       return OrderStatus.PROCESSING;
     }
+    // No dates set means order is still pending
     return OrderStatus.PENDING;
   }
 
@@ -256,20 +358,15 @@ export class TrackingService {
     }
   }
 
-  // Check if tracking is still active based on tracking status (not order status)
-  private isTrackingActive(trackingStatus: string | null): boolean {
-    if (!trackingStatus) {
-      return true; // No tracking status yet, consider active
-    }
-
-    // Use the same logic as RoyalMailService.isFinalStatus for consistency
-    const finalTrackingStatuses = [
-      'delivered',
-      'undelivered',
-      'exception',
-      'expired',
+  // Check if tracking is still active based on order status
+  private isTrackingActive(orderStatus: OrderStatus): boolean {
+    const finalStatuses: OrderStatus[] = [
+      OrderStatus.DELIVERED,
+      OrderStatus.UNDELIVERED,
+      OrderStatus.EXCEPTION,
+      OrderStatus.EXPIRED,
     ];
-    return !finalTrackingStatuses.includes(trackingStatus.toLowerCase());
+    return !finalStatuses.includes(orderStatus);
   }
 
   // Get tracking status for an order
@@ -315,36 +412,14 @@ export class TrackingService {
     return {
       orderId: existingOrder.id,
       trackingReference: trackingNumber,
-      trackingStatus: existingOrder.trackingStatus
-        ? (existingOrder.trackingStatus.toLowerCase() as RoyalMailTrackingStatus)
-        : null,
+      trackingStatus: existingOrder.status,
       trackingLastChecked: existingOrder.trackingLastChecked || null,
       trackingStatusUpdated: existingOrder.trackingStatusUpdated || null,
       trackingEvents: existingOrder.trackingEvents
         ? (existingOrder.trackingEvents as any[])
         : null,
-      // FIXED: Check trackingStatus instead of order status for consistency
-      isTrackingActive: this.isTrackingActive(existingOrder.trackingStatus),
+      isTrackingActive: this.isTrackingActive(existingOrder.status),
     };
-  }
-
-  // Map Royal Mail tracking status to OrderStatus enum
-  private mapTrackingStatusToOrderStatus(
-    trackingStatus: RoyalMailTrackingStatus,
-  ): OrderStatus {
-    const statusMap: Record<RoyalMailTrackingStatus, OrderStatus> = {
-      pending: OrderStatus.PENDING,
-      notfound: OrderStatus.NOTFOUND,
-      inforeceived: OrderStatus.INFORECEIVED,
-      transit: OrderStatus.TRANSIT,
-      pickup: OrderStatus.PICKUP,
-      undelivered: OrderStatus.UNDELIVERED,
-      delivered: OrderStatus.DELIVERED,
-      exception: OrderStatus.EXCEPTION,
-      expired: OrderStatus.EXPIRED,
-    };
-
-    return statusMap[trackingStatus] || OrderStatus.PENDING;
   }
 
   // Send tracking status update email
@@ -416,18 +491,19 @@ export class TrackingService {
 
   // Get human-readable status description
   private getStatusDescription(status: string): string {
-    const descriptions: Record<string, string> = {
-      pending: 'Your order is being prepared',
-      notfound: 'Tracking information not found',
-      inforeceived: 'Shipping information received',
-      transit: 'Your order is in transit',
-      pickup: 'Ready for pickup',
-      undelivered: 'Delivery attempt unsuccessful',
-      delivered: 'Your order has been delivered',
-      exception: 'An exception occurred during delivery',
-      expired: 'Tracking information has expired',
+    const descriptions: Record<OrderStatus, string> = {
+      [OrderStatus.PENDING]: 'Your order is being prepared',
+      [OrderStatus.PROCESSING]: 'Your order is being processed',
+      [OrderStatus.DISPATCHED]: 'Your order has been dispatched',
+      [OrderStatus.TRANSIT]: 'Your order is in transit',
+      [OrderStatus.PICKUP]: 'Ready for pickup',
+      [OrderStatus.UNDELIVERED]: 'Delivery attempt unsuccessful',
+      [OrderStatus.DELIVERED]: 'Your order has been delivered',
+      [OrderStatus.EXCEPTION]: 'An exception occurred during delivery',
+      [OrderStatus.EXPIRED]: 'Tracking information has expired',
+      [OrderStatus.NOTFOUND]: 'Tracking information not found',
     };
 
-    return descriptions[status.toLowerCase()] || 'Status update';
+    return descriptions[status as OrderStatus] || 'Status update';
   }
 }

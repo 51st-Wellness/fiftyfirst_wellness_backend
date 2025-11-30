@@ -91,7 +91,7 @@ export class AWSS3Provider implements IStorageProvider {
         .replace('https://', '')
         .replace('http://', '');
       // return `https://${endpointWithoutProtocol}/${bucket}/${fileKey}`;
-      // temporary fix cause public route is unactivated
+      // temporary fix cause public bucket is private for now
       return this.getSignedFileUrl(fileKey, bucket, 3600 * 24 * 7);
     }
 

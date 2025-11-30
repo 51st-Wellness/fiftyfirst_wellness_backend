@@ -210,7 +210,7 @@ export class PaymentService {
             provider: this.getProviderType(),
             providerRef: webhookResult.providerRef,
             status: webhookResult.status,
-            currency: webhookResult.metadata.currency || 'USD',
+            currency: webhookResult.metadata.currency || 'GBP',
             amount: webhookResult.metadata.amount / 100, // Convert from cents
             metadata: {
               type: 'subscription',
@@ -501,7 +501,7 @@ export class PaymentService {
 
     let globalDiscountAmount = 0;
     let totalAmount = roundCurrency(subtotalAfterProductDiscounts);
-    const currency = 'USD';
+    const currency = 'GBP';
 
     const toOrderItem = (
       item: (typeof computedItems)[number],
@@ -993,7 +993,7 @@ export class PaymentService {
     const paymentInit = await this.provider.initializePayment({
       subscriptionId: generateId(), // Temporary ID for metadata
       amount: plan.price,
-      currency: 'USD',
+      currency: 'GBP',
       description: `Subscription: ${plan.name}`,
       userId: user.id,
       paymentId,
@@ -1023,7 +1023,7 @@ export class PaymentService {
       provider: this.getProviderType(),
       providerRef: paymentInit.providerRef,
       status: PaymentStatus.PENDING,
-      currency: 'USD' as any,
+      currency: 'GBP' as any,
       amount: plan.price,
       metadata: {
         type: 'subscription',
@@ -1043,7 +1043,7 @@ export class PaymentService {
       subscriptionId: subscription.id,
       approvalUrl: paymentInit.approvalUrl,
       amount: plan.price,
-      currency: 'USD',
+      currency: 'GBP',
       planName: plan.name,
     };
   }
@@ -1985,7 +1985,7 @@ export class PaymentService {
         subscriptionId: subscriptionDetails?.subscriptionId || '',
         subscriptionName: subscriptionDetails?.planName || '',
         amount: paymentRecord.amount || 0,
-        currency: paymentRecord.currency || 'USD',
+        currency: paymentRecord.currency || 'GBP',
         items: items || [],
         ctaLabel: copy.ctaLabel || 'Review your payment',
         ctaUrl: copy.ctaUrl || baseCtaUrl,

@@ -902,7 +902,7 @@ export class OrderService {
         // Update order with Click & Drop details
         const statusHistory = (order.statusHistory as any[]) || [];
         statusHistory.push({
-          status: 'INFORECEIVED',
+          status: 'DISPATCHED',
           timestamp: new Date().toISOString(),
           note: 'Order submitted to Click & Drop',
           clickDropOrderIdentifier: createdOrder.orderIdentifier,
@@ -913,7 +913,7 @@ export class OrderService {
           .set({
             clickDropOrderIdentifier: createdOrder.orderIdentifier,
             labelBase64: createdOrder.label,
-            status: OrderStatus.INFORECEIVED,
+            status: OrderStatus.DISPATCHED,
             statusHistory,
           })
           .where(eq(orders.id, orderId));

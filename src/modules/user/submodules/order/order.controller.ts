@@ -214,7 +214,7 @@ export class OrderController {
       OrderStatus.PENDING,
       OrderStatus.PROCESSING,
       OrderStatus.NOTFOUND,
-      OrderStatus.INFORECEIVED,
+      OrderStatus.DISPATCHED,
       OrderStatus.TRANSIT,
       OrderStatus.PICKUP,
       OrderStatus.UNDELIVERED,

@@ -25,7 +25,7 @@ export const orderStatuses = [
   'PENDING',
   'PROCESSING',
   'NOTFOUND',
-  'INFORECEIVED',
+  'DISPATCHED',
   'TRANSIT',
   'PICKUP',
   'UNDELIVERED',
@@ -91,7 +91,7 @@ export const OrderStatus = {
   PENDING: 'PENDING' as const,
   PROCESSING: 'PROCESSING' as const,
   NOTFOUND: 'NOTFOUND' as const,
-  INFORECEIVED: 'INFORECEIVED' as const,
+  DISPATCHED: 'DISPATCHED' as const,
   TRANSIT: 'TRANSIT' as const,
   PICKUP: 'PICKUP' as const,
   UNDELIVERED: 'UNDELIVERED' as const,
@@ -415,7 +415,6 @@ export const orders = sqliteTable('Order', {
   }),
   fulfillmentNotes: text('fulfillmentNotes'),
   // Tracking fields (from Click & Drop API)
-  trackingStatus: text('trackingStatus'), // Current status from Royal Mail Click & Drop
   trackingLastChecked: integer('trackingLastChecked', { mode: 'timestamp' }), // Last API check
   trackingStatusUpdated: integer('trackingStatusUpdated', {
     mode: 'timestamp',
