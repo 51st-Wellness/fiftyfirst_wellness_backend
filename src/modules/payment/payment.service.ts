@@ -347,6 +347,67 @@ export class PaymentService {
     }
   }
 
+  // Picks the best preview image from computed order items
+  private getOrderPreviewImage(
+    items: Array<{ image?: unknown }>,
+  ): string | null {
+    for (const item of items) {
+      const preview = this.normalizePreviewImage(item.image);
+      if (preview) {
+        return preview;
+      }
+    }
+    return null;
+  }
+
+  // Normalizes any supported image structure into a string URL
+  private normalizePreviewImage(source: unknown): string | null {
+    if (!source) {
+      return null;
+    }
+
+    if (typeof source === 'string') {
+      return source;
+    }
+
+    if (Array.isArray(source)) {
+      const stringCandidate = source.find((entry) => typeof entry === 'string');
+      if (typeof stringCandidate === 'string') {
+        return stringCandidate;
+      }
+      const objectCandidate = source.find(
+        (entry) => typeof entry === 'object' && entry !== null,
+      ) as Record<string, unknown> | undefined;
+      if (objectCandidate && typeof objectCandidate.url === 'string') {
+        return objectCandidate.url;
+      }
+      return null;
+    }
+
+    if (typeof source === 'object') {
+      const record = source as Record<string, unknown>;
+      if (typeof record.url === 'string') {
+        return record.url;
+      }
+      if (Array.isArray(record.sources)) {
+        const nested = record.sources.find(
+          (entry) => typeof entry === 'string',
+        );
+        if (typeof nested === 'string') {
+          return nested;
+        }
+        const objectCandidate = record.sources.find(
+          (entry) => typeof entry === 'object' && entry !== null,
+        ) as Record<string, unknown> | undefined;
+        if (objectCandidate && typeof objectCandidate.url === 'string') {
+          return objectCandidate.url;
+        }
+      }
+    }
+
+    return null;
+  }
+
   private async getCartSummary(userId: string) {
     const roundCurrency = (value: number) =>
       Math.round((value + Number.EPSILON) * 100) / 100;
@@ -732,6 +793,7 @@ export class PaymentService {
       cartItems: cartItemsData,
       pricing,
     } = await this.getCartSummary(userId);
+    const previewImage = this.getOrderPreviewImage(orderItemsData);
 
     // Check if order contains pre-orders
     const hasPreOrders = orderItemsData.some((item) => item.isPreOrder);
@@ -770,6 +832,13 @@ export class PaymentService {
         shippingItems,
         shippingServiceKey,
       );
+
+    // Use the human-friendly shipping label from configuration for Stripe line item
+    const shippingLineItemLabel =
+      shippingCalculation.serviceLabel ||
+      shippingCalculation.serviceCode ||
+      shippingServiceKey ||
+      'Shipping';
 
     // Calculate total including shipping
     const totalAmount = subtotalAmount + shippingCalculation.totalPrice;
@@ -852,6 +921,7 @@ export class PaymentService {
       userId,
       status: OrderStatus.PENDING,
       totalAmount,
+      previewImage: previewImage ?? null,
       deliveryAddressId,
       isPreOrder: hasPreOrders,
       preOrderStatus: hasPreOrders ? 'PLACED' : null,
@@ -892,7 +962,7 @@ export class PaymentService {
       description: description || 'Store Checkout',
       items: providerLineItems,
       shippingCost: shippingCalculation.totalPrice,
-      shippingDescription: `Shipping (${shippingServiceKey})`,
+      shippingDescription: shippingLineItemLabel,
       userId,
       paymentId,
       isPreOrder: hasPreOrders,

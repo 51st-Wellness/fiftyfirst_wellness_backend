@@ -406,6 +406,7 @@ export const orders = sqliteTable('Order', {
   userId: text('userId').notNull(),
   status: text('status', { enum: orderStatuses }).notNull().default('PENDING'),
   totalAmount: real('totalAmount').notNull(),
+  previewImage: text('previewImage'),
   paymentId: text('paymentId'),
   deliveryAddressId: text('deliveryAddressId'), // Foreign key to deliveryAddresses
   isPreOrder: integer('isPreOrder', { mode: 'boolean' })
