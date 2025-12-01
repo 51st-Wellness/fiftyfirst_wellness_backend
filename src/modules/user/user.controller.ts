@@ -155,6 +155,24 @@ export class UserController {
     });
   }
 
+  // Admin: Permanently delete a user account (hard delete, distinct from deactivation)
+  @StrictRoles(UserRole.ADMIN)
+  @Delete(':id')
+  async deleteUser(@Param('id') id: string, @Req() req: Request) {
+    if ((req.user as User).id === id) {
+      throw new BadRequestException('You cannot delete your own account');
+    }
+
+    const user = await this.userService.findOne(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.userService.remove(id);
+
+    return ResponseDto.createSuccessResponse('User deleted successfully');
+  }
+
   // Admin: Toggle user active/inactive status (Strict mode for clear suspension messaging)
   @StrictRoles(UserRole.ADMIN)
   @Put(':id/status')
