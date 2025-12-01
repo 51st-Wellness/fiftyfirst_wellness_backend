@@ -8,9 +8,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue, Job } from 'bullmq';
 import { DatabaseService } from 'src/database/database.service';
 import { orders, OrderStatus, users } from 'src/database/schema';
-import { eq, and, isNotNull, or, inArray, sql, not } from 'drizzle-orm';
+import { eq, and, isNotNull, not, inArray } from 'drizzle-orm';
 import { ClickDropService } from './royal-mail/click-drop.service';
-import { RoyalMailTrackingService } from './royal-mail/royal-mail-tracking.service';
 import { QUEUE_NAMES } from 'src/config/queues.config';
 import { TrackingStatusDto } from './dto/tracking-response.dto';
 import { EventsEmitter } from 'src/util/events/events.emitter';
@@ -27,78 +26,25 @@ export class TrackingService implements OnModuleInit {
     private readonly trackingQueue: Queue,
     private readonly database: DatabaseService,
     private readonly clickDropService: ClickDropService,
-    private readonly royalMailTrackingService: RoyalMailTrackingService,
     private readonly eventsEmitter: EventsEmitter,
   ) {}
 
-  // Initialize repeatable job for hourly tracking checks
+  // Initialize repeatable job for daily tracking checks
   async onModuleInit() {
-    // Schedule hourly tracking check (for testing - can be adjusted later)
-    // Using BullMQ repeatable jobs instead of @nestjs/schedule
-    // await this.trackingQueue.add(
-    //   'check-tracking',
-    //   {},
-    //   {
-    //     repeat: {
-    //       // pattern: '0 * * * *', // Cron pattern: Every hour at minute 0
-    //       every: this.trackingInterval,
-    //     },
-    //     jobId: 'hourly-tracking-check', // Unique ID to prevent duplicates
-    //   },
-    // );
-    // this.logger.log(
-    //   'Scheduled hourly Click & Drop tracking check (every 1 hour)',
-    // );
+    await this.trackingQueue.add(
+      'check-tracking',
+      {},
+      {
+        repeat: {
+          every: this.trackingInterval, // every 24 hours
+        },
+        jobId: 'daily-tracking-check', // Unique ID to prevent duplicates
+      },
+    );
+    this.logger.log('Scheduled Click & Drop tracking check (every 24 hours)');
   }
 
-  // Enhance status using Royal Mail Tracking API when a tracking number exists
-  private async royalMailTracking(
-    trackingNumber: string,
-    currentStatus: OrderStatus,
-  ): Promise<OrderStatus> {
-    if (!this.royalMailTrackingService.isConfigured()) {
-      return currentStatus;
-    }
-
-    try {
-      const summaryResponse = await this.royalMailTrackingService.getSummary([
-        trackingNumber,
-      ]);
-
-      const mailPiece = summaryResponse.mailPieces?.[0];
-      const summary = mailPiece?.summary;
-
-      if (!summary) {
-        this.logger.warn(
-          `No summary found for tracking number: ${trackingNumber}`,
-        );
-        return currentStatus;
-      }
-
-      const statusCategory = summary.statusCategory || '';
-      const normalized = statusCategory.toUpperCase();
-
-      switch (normalized) {
-        case 'DELIVERED':
-          return OrderStatus.DELIVERED;
-        case 'IN TRANSIT':
-          return OrderStatus.TRANSIT;
-        case 'NOT FOUND':
-          return OrderStatus.NOTFOUND;
-        case 'EXCEPTION':
-          return OrderStatus.EXCEPTION;
-        default:
-          return currentStatus;
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error enhancing status with Royal Mail Tracking API for ${trackingNumber}:`,
-        error,
-      );
-      // Fallback to current status on any error
-      return currentStatus;
-    }
-  }
+  // NOTE: Royal Mail Tracking API integration removed.
 
   // Check Click & Drop orders and update status
   async checkClickDropOrders(): Promise<void> {
@@ -131,12 +77,19 @@ export class TrackingService implements OnModuleInit {
       return;
     }
 
+    // Build a lookup map from Click & Drop order identifier to local order (avoids O(n^2) search)
+    const ordersByClickDropId: Record<number, (typeof ordersToCheck)[number]> =
+      {};
+    for (const o of ordersToCheck) {
+      if (o.clickDropOrderIdentifier != null) {
+        ordersByClickDropId[o.clickDropOrderIdentifier] = o;
+      }
+    }
+
     // Group orders by Click & Drop order identifier (semicolon-separated for API)
-    const orderIdentifiers = ordersToCheck
-      .map((o) => o.clickDropOrderIdentifier)
-      // .filter((id): id is number => id !== null)
-      // todo: testing tracking for a specific order
-      .filter((id): id is number => id !== null && id === 1002)
+    const orderIdentifiers = Object.keys(ordersByClickDropId)
+      .map((id) => Number(id))
+      .filter((id): id is number => !Number.isNaN(id))
       .join(';');
 
     try {
@@ -161,32 +114,15 @@ export class TrackingService implements OnModuleInit {
 
       // Update each order with latest info
       for (const cdOrder of clickDropOrders) {
-        // todo: use a map to make this faster
-        const localOrder = ordersToCheck.find(
-          (o) => o.clickDropOrderIdentifier === cdOrder.orderIdentifier,
-        );
+        const localOrder = cdOrder.orderIdentifier
+          ? ordersByClickDropId[cdOrder.orderIdentifier]
+          : undefined;
 
-        console.log('Local Order:', JSON.stringify(localOrder, null, 2));
         if (!localOrder) continue;
 
-        // Use the correct status mapping method
-        let newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
+        // Determine status based on Click & Drop order state only
+        const newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
         const previousStatus = localOrder.status;
-
-        console.log('New Status:', newStatus);
-
-        // If the order has been shipped and we have a tracking number,
-        // if (cdOrder.shippedOn && cdOrder.trackingNumber) {
-        // TODO: testing tracking for a specific order
-        if (localOrder.trackingNumber) {
-          console.log(
-            'Using Royal Mail Tracking API to get more accurate status',
-          );
-          newStatus = await this.royalMailTracking(
-            localOrder.trackingNumber,
-            newStatus,
-          );
-        }
 
         const statusChanged = newStatus !== previousStatus;
         const now = new Date();
@@ -303,17 +239,8 @@ export class TrackingService implements OnModuleInit {
     const cdOrder = clickDropOrders[0];
     const previousStatus = existingOrder.status;
 
-    // Start with Click & Drop based status
-    let newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
-
-    // If shipped and we have a tracking number, enhance with Royal Mail Tracking API
-    if (cdOrder.shippedOn && cdOrder.trackingNumber) {
-      newStatus = await this.royalMailTracking(
-        cdOrder.trackingNumber,
-        newStatus,
-      );
-    }
-
+    // Determine status based on Click & Drop order state only
+    const newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
     const statusChanged = previousStatus !== newStatus;
 
     const now = new Date();
