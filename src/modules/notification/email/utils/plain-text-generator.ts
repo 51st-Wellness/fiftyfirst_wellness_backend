@@ -40,6 +40,8 @@ export class PlainTextGenerator {
       // Account management emails
       case EmailType.ACCOUNT_DEACTIVATION:
         return this.generateAccountDeactivationPlainText(baseContext);
+      case EmailType.ACCOUNT_DELETION:
+        return this.generateAccountDeletionPlainText(baseContext);
 
       // Newsletter and marketing emails
       case EmailType.NEWSLETTER_SUBSCRIPTION:
@@ -266,6 +268,39 @@ If you change your mind, you can reactivate your account by logging in with your
 We're sorry to see you go, but we understand that everyone's wellness journey is unique.
 
 If you ever want to return to our community, we'll be here to welcome you back!
+
+Best regards,
+The Fifty Firsts Wellness Team
+
+---
+Contact us at ${context.companyEmail || 'support@fiftyfirstswellness.com'} for assistance.
+    `.trim();
+  }
+
+  private static generateAccountDeletionPlainText(context: any): string {
+    return `
+Account Deletion Confirmation - Fifty Firsts Wellness
+
+Dear ${context.firstName || 'User'},
+
+This email confirms that your Fifty Firsts Wellness account has been permanently deleted from our system.
+
+What This Means:
+- Your account has been permanently removed
+- All your personal data has been deleted
+- Your order history is no longer accessible
+- You cannot reactivate this account
+
+We're sorry to see you go. Your wellness journey with us has come to an end, but we hope the time you spent with our community was valuable.
+
+Want to Return?
+If you wish to rejoin our community in the future, you'll need to create a new account. You're always welcome back!
+
+Create a new account: ${context.frontendUrl || 'https://fiftyfirstswellness.com'}/register
+
+If you believe this was done in error, please contact us immediately.
+
+Thank you for being part of our community.
 
 Best regards,
 The Fifty Firsts Wellness Team

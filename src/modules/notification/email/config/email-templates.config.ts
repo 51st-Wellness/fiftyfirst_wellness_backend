@@ -15,6 +15,7 @@ export const EmailTemplates: Record<EmailType, string> = {
 
   // Account management emails
   [EmailType.ACCOUNT_DEACTIVATION]: 'account-deactivation.ejs',
+  [EmailType.ACCOUNT_DELETION]: 'account-deletion.ejs',
 
   // Newsletter and marketing emails
   [EmailType.NEWSLETTER_SUBSCRIPTION]: 'newsletter-subscription.ejs',

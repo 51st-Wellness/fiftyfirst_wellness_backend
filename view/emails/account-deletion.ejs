@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Account Deactivation Confirmation - Fifty Firsts Wellness</title>
+    <title>Account Deleted - Fifty Firsts Wellness</title>
     <style>
       /* Reset and base styles */
       * {
@@ -45,7 +45,7 @@
       }
 
       .email-header {
-        background-color: #dc2626;
+        background-color: #991b1b;
         color: #ffffff;
         padding: 32px 40px;
         text-align: center;
@@ -84,40 +84,60 @@
         line-height: 1.7;
       }
 
-      .status-box {
-        background-color: #fee2e2;
-        border: 1px solid #dc2626;
-        border-left: 4px solid #dc2626;
+      .warning-box {
+        background-color: #fef2f2;
+        border: 1px solid #991b1b;
+        border-left: 4px solid #991b1b;
         border-radius: 6px;
         padding: 24px;
         margin: 24px 0;
       }
 
-      .status-title {
+      .warning-title {
         font-weight: 600;
-        color: #dc2626;
+        color: #991b1b;
         margin-bottom: 16px;
         font-size: 16px;
       }
 
-      .status-list {
+      .warning-list {
         list-style: none;
         padding: 0;
       }
 
-      .status-list li {
+      .warning-list li {
         padding: 8px 0;
         color: #374151;
         position: relative;
         padding-left: 20px;
       }
 
-      .status-list li:before {
-        content: '•';
-        color: #dc2626;
+      .warning-list li:before {
+        content: '✗';
+        color: #991b1b;
         font-weight: bold;
         position: absolute;
         left: 0;
+      }
+
+      .info-box {
+        background-color: #f0f9ff;
+        border: 1px solid #0284c7;
+        border-radius: 6px;
+        padding: 20px;
+        margin: 24px 0;
+      }
+
+      .info-title {
+        font-weight: 600;
+        color: #0284c7;
+        margin-bottom: 8px;
+      }
+
+      .info-text {
+        color: #374151;
+        font-size: 14px;
+        line-height: 1.6;
       }
 
       .btn-container {
@@ -233,56 +253,61 @@
       <div class="email-container">
         <div class="email-header">
           <div class="logo">Fifty Firsts Wellness</div>
-          <div class="tagline">Account Deactivation Confirmed</div>
+          <div class="tagline">Account Permanently Deleted</div>
         </div>
 
         <div class="email-content">
-          <h1 class="content-title">Account Successfully Deactivated</h1>
+          <h1 class="content-title">Your Account Has Been Deleted</h1>
 
           <p class="content-text">Dear <%= firstName %>,</p>
 
           <p class="content-text">
-            Your Fifty Firsts Wellness account has been successfully deactivated
-            as requested.
+            This email confirms that your Fifty Firsts Wellness account has been
+            permanently deleted from our system.
           </p>
 
-          <div class="status-box">
-            <div class="status-title">Account Status:</div>
-            <ul class="status-list">
-              <li>Your account is now deactivated</li>
-              <li>Your data has been securely stored</li>
-              <li>You can reactivate your account at any time</li>
+          <div class="warning-box">
+            <div class="warning-title">What This Means:</div>
+            <ul class="warning-list">
+              <li>Your account has been permanently removed</li>
+              <li>All your personal data has been deleted</li>
+              <li>Your order history is no longer accessible</li>
+              <li>You cannot reactivate this account</li>
             </ul>
           </div>
 
           <p class="content-text">
-            If you change your mind, you can reactivate your account by logging
-            in with your existing credentials. We're sorry to see you go, but we
-            understand that everyone's wellness journey is unique.
+            We're sorry to see you go. Your wellness journey with us has come to
+            an end, but we hope the time you spent with our community was
+            valuable.
           </p>
 
-          <p class="content-text">
-            If you ever want to return to our community, we'll be here to
-            welcome you back!
-          </p>
+          <div class="info-box">
+            <div class="info-title">Want to Return?</div>
+            <div class="info-text">
+              If you wish to rejoin our community in the future, you'll need to
+              create a new account. You're always welcome back!
+            </div>
+          </div>
 
           <div class="btn-container">
-            <a href="<%= loginLink %>" class="btn">
-              Reactivate Account
+            <a href="<%= frontendUrl %>/register" class="btn">
+              Create New Account
             </a>
           </div>
 
           <div class="contact-info">
-            <div class="contact-title">📞 Need Assistance?</div>
+            <div class="contact-title">📞 Questions or Concerns?</div>
             <div class="contact-text">
-              Contact us at <%= companyEmail %>
+              If you believe this was done in error, please contact us
+              immediately at <%= companyEmail %>
             </div>
           </div>
         </div>
 
         <div class="email-footer">
           <div class="footer-text">
-            <strong>Best regards,</strong><br />
+            <strong>Thank you for being part of our community.</strong><br />
             The Fifty Firsts Wellness Team
           </div>
 
@@ -295,3 +320,4 @@
     </div>
   </body>
 </html>
+

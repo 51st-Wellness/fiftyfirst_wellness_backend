@@ -22,6 +22,8 @@ export const EmailSubjects: Record<EmailType, string> = {
 
   [EmailType.ACCOUNT_DEACTIVATION]:
     'Account Deactivation Confirmation - Fifty Firsts Wellness',
+  [EmailType.ACCOUNT_DELETION]:
+    'Account Deletion Confirmation - Fifty Firsts Wellness',
   [EmailType.SUBSCRIPTION_RENEWAL]:
     'Subscription Renewal Reminder - Continue Your Wellness Journey!',
   [EmailType.NEWSLETTER_SUBSCRIPTION]:

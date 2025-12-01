@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { UserRepository } from './user.repository';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -21,14 +22,22 @@ import { DatabaseService } from 'src/database/database.service';
 import { deliveryAddresses } from 'src/database/schema';
 import { eq, and, sql, desc, ne } from 'drizzle-orm';
 import { generateId } from 'src/database/utils';
+import { EmailService } from 'src/modules/notification/email/email.service';
+import { EmailType } from 'src/modules/notification/email/constants/email.enum';
+import { ConfigService } from 'src/config/config.service';
+import { ENV } from 'src/config/env.enum';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     private readonly userRepository: UserRepository,
     private readonly programmeRepository: ProgrammeRepository,
     private readonly storeRepository: StoreRepository,
     private readonly database: DatabaseService,
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   // Create a new user with password hashing
@@ -110,10 +119,35 @@ export class UserService {
     return DataFormatter.formatObject(user, ['password']);
   }
 
-  // Delete user
+  // Delete user and send confirmation email
   async remove(id: string): Promise<Omit<User, 'password'>> {
-    const user = await this.userRepository.delete(id);
-    return DataFormatter.formatObject(user, ['password']);
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Send account deletion email before deleting
+    try {
+      await this.emailService.sendMail({
+        to: user.email,
+        type: EmailType.ACCOUNT_DELETION,
+        context: {
+          firstName: user.firstName,
+          frontendUrl: this.configService.get(ENV.FRONTEND_URL),
+          companyEmail: this.configService.get(ENV.COMPANY_EMAIL),
+        },
+      });
+      this.logger.log(`Account deletion email sent to ${user.email}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send account deletion email to ${user.email}`,
+        error,
+      );
+      // Continue with deletion even if email fails
+    }
+
+    const deletedUser = await this.userRepository.delete(id);
+    return DataFormatter.formatObject(deletedUser, ['password']);
   }
 
   // Verify password for authentication
@@ -209,13 +243,43 @@ export class UserService {
     return { users: formattedUsers, total };
   }
 
-  // Toggle user active status (Admin only)
+  // Toggle user active status (Admin only) and send notification email
   async toggleUserStatus(
     userId: string,
     isActive: boolean,
   ): Promise<Omit<User, 'password'>> {
     const user = await this.userRepository.toggleUserStatus(userId, isActive);
-    return DataFormatter.formatObject(user, ['password']);
+    const formattedUser = DataFormatter.formatObject(user, ['password']);
+
+    // Send email notification based on the new status
+    try {
+      const emailType = isActive
+        ? EmailType.ACCOUNT_ACTIVATION
+        : EmailType.ACCOUNT_DEACTIVATION;
+
+      await this.emailService.sendMail({
+        to: user.email,
+        type: emailType,
+        context: {
+          firstName: user.firstName,
+          frontendUrl: this.configService.get(ENV.FRONTEND_URL),
+          loginLink: `${this.configService.get(ENV.FRONTEND_URL)}/login`,
+          companyEmail: this.configService.get(ENV.COMPANY_EMAIL),
+        },
+      });
+
+      const action = isActive ? 'activation' : 'deactivation';
+      this.logger.log(`Account ${action} email sent to ${user.email}`);
+    } catch (error) {
+      const action = isActive ? 'activation' : 'deactivation';
+      this.logger.error(
+        `Failed to send account ${action} email to ${user.email}`,
+        error,
+      );
+      // Continue even if email fails
+    }
+
+    return formattedUser;
   }
 
   // Change user role (requires root api key at controller)
