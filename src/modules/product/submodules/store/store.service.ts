@@ -138,6 +138,9 @@ export class StoreService {
       isFeatured,
       isPublished,
       category,
+      minPrice,
+      maxPrice,
+      minRating,
     } = query;
     const skip = (page - 1) * limit;
 
@@ -146,6 +149,9 @@ export class StoreService {
       isPublished,
       category,
       search,
+      minPrice,
+      maxPrice,
+      minRating,
     };
 
     // Get store items with filters and review statistics (already included in repository query)

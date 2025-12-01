@@ -125,6 +125,9 @@ export class StoreRepository {
       isFeatured?: boolean;
       search?: string;
       category?: string;
+      minPrice?: number;
+      maxPrice?: number;
+      minRating?: number;
     },
   ): Promise<(StoreItem & { averageRating: number; reviewCount: number })[]> {
     try {
@@ -147,6 +150,12 @@ export class StoreRepository {
       }
       if (filters?.category) {
         conditions.push(like(storeItems.categories, `%${filters.category}%`));
+      }
+      if (filters?.minPrice !== undefined) {
+        conditions.push(sql`${storeItems.price} >= ${filters.minPrice}`);
+      }
+      if (filters?.maxPrice !== undefined) {
+        conditions.push(sql`${storeItems.price} <= ${filters.maxPrice}`);
       }
 
       // Build query with review statistics using LEFT JOIN and aggregation
@@ -193,6 +202,13 @@ export class StoreRepository {
 
       query = query.groupBy(storeItems.productId);
 
+      // Apply rating filter using HAVING on aggregated average rating
+      if (filters?.minRating !== undefined) {
+        query = query.having(
+          sql`COALESCE(AVG(CASE WHEN ${reviews.status} = 'APPROVED' THEN ${reviews.rating} ELSE NULL END), 0) >= ${filters.minRating}`,
+        );
+      }
+
       if (skip !== undefined) {
         query = query.offset(skip);
       }
@@ -219,6 +235,9 @@ export class StoreRepository {
     isFeatured?: boolean;
     search?: string;
     category?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    minRating?: number;
   }): Promise<number> {
     // Build where conditions
     const conditions: SQL[] = [];
@@ -240,19 +259,36 @@ export class StoreRepository {
     if (filters?.category) {
       conditions.push(like(storeItems.categories, `%${filters.category}%`));
     }
+    if (filters?.minPrice !== undefined) {
+      conditions.push(sql`${storeItems.price} >= ${filters.minPrice}`);
+    }
+    if (filters?.maxPrice !== undefined) {
+      conditions.push(sql`${storeItems.price} <= ${filters.maxPrice}`);
+    }
 
-    // Build count query step by step using a dynamic query builder
+    // Build base query selecting distinct product IDs with optional rating HAVING
     let query = this.database.db
-      .select({ count: count() })
+      .select({
+        productId: storeItems.productId,
+      })
       .from(storeItems)
+      .leftJoin(reviews, eq(reviews.productId, storeItems.productId))
       .$dynamic();
 
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
     }
 
+    query = query.groupBy(storeItems.productId);
+
+    if (filters?.minRating !== undefined) {
+      query = query.having(
+        sql`COALESCE(AVG(CASE WHEN ${reviews.status} = 'APPROVED' THEN ${reviews.rating} ELSE NULL END), 0) >= ${filters.minRating}`,
+      );
+    }
+
     const result = await query;
-    return result[0].count;
+    return result.length;
   }
 
   // Update store item by ID

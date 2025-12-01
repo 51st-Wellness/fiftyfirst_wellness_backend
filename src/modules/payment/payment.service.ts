@@ -1246,7 +1246,7 @@ export class PaymentService {
         contextType,
       });
 
-      // Emit event for paid orders to trigger Click & Drop submission (after transaction)
+      // Emit event for paid orders (including pre-orders) to trigger Click & Drop submission
       if (newStatus === PaymentStatus.PAID) {
         const relatedOrders = await this.database.db
           .select()
@@ -1254,12 +1254,10 @@ export class PaymentService {
           .where(eq(orders.paymentId, payment.id));
 
         relatedOrders.forEach((order) => {
-          if (!order.isPreOrder) {
-            this.eventsEmitter.emit(EVENTS.ORDER_PAYMENT_CONFIRMED, {
-              orderId: order.id,
-              userId: order.userId,
-            });
-          }
+          this.eventsEmitter.emit(EVENTS.ORDER_PAYMENT_CONFIRMED, {
+            orderId: order.id,
+            userId: order.userId,
+          });
         });
       }
 
@@ -1376,7 +1374,7 @@ export class PaymentService {
       .from(subscriptions)
       .where(eq(subscriptions.paymentId, payment.id));
 
-    // Emit event for paid orders to trigger Click & Drop submission
+    // Emit event for paid orders (including pre-orders) to trigger Click & Drop submission
     if (captureResult.status === 'PAID' && relatedOrders.length > 0) {
       relatedOrders.forEach((order) => {
         this.eventsEmitter.emit(EVENTS.ORDER_PAYMENT_CONFIRMED, {
@@ -1606,19 +1604,17 @@ export class PaymentService {
           contextType: 'store',
         });
 
-        // Emit event for paid orders to trigger Click & Drop submission (non-preorders only)
+        // Emit event for paid orders (including pre-orders) to trigger Click & Drop submission
         const relatedOrders = await this.database.db
           .select()
           .from(orders)
           .where(eq(orders.paymentId, payment.id));
 
         relatedOrders.forEach((order) => {
-          if (!order.isPreOrder) {
-            this.eventsEmitter.emit(EVENTS.ORDER_PAYMENT_CONFIRMED, {
-              orderId: order.id,
-              userId: order.userId,
-            });
-          }
+          this.eventsEmitter.emit(EVENTS.ORDER_PAYMENT_CONFIRMED, {
+            orderId: order.id,
+            userId: order.userId,
+          });
         });
 
         return {

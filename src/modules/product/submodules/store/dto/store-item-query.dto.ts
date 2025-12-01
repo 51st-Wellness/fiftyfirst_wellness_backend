@@ -1,5 +1,12 @@
-import { IsOptional, IsBoolean, IsString, IsArray } from 'class-validator';
-import { Transform } from 'class-transformer';
+import {
+  IsOptional,
+  IsBoolean,
+  IsString,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { PaginationQueryDto } from 'src/lib/dto/pagination.dto';
 
 export class StoreItemQueryDto extends PaginationQueryDto {
@@ -16,4 +23,23 @@ export class StoreItemQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(5)
+  minRating?: number;
 }
