@@ -5,10 +5,10 @@ import { EmailService } from 'src/modules/notification/email/email.service';
 import { EmailPayloadDto } from 'src/modules/notification/email/dto/email-payload.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { EventsEmitter } from './events.emitter';
-import { orders, users } from 'src/database/schema';
+import { orders, OrderStatus, users } from 'src/database/schema';
 import { eq } from 'drizzle-orm';
 import { EmailType } from 'src/modules/notification/email/constants/email.enum';
-import { ClickDropService } from '@/modules/tracking/royal-mail/click-drop.service';
+import { OrderService } from 'src/modules/user/submodules/order/order.service';
 
 @Injectable()
 export class EventsListeners {
@@ -18,7 +18,7 @@ export class EventsListeners {
     private readonly emailService: EmailService,
     private readonly database: DatabaseService,
     private readonly eventsEmitter: EventsEmitter,
-    private readonly clickDropService: ClickDropService,
+    private readonly orderService: OrderService,
   ) {}
 
   @OnEvent(EVENTS.NOTIFICATION_EMAIL)
@@ -39,7 +39,7 @@ export class EventsListeners {
       `Payment confirmed for order ${data.orderId}, submitting to Click & Drop`,
     );
     try {
-      await this.clickDropService.submitOrderToClickDrop(data.orderId);
+      await this.orderService.submitOrderToClickDrop(data.orderId);
     } catch (error) {
       this.logger.error(
         `Failed to submit order ${data.orderId} to Click & Drop:`,
@@ -91,17 +91,17 @@ export class EventsListeners {
       let emailType: EmailType | null = null;
 
       switch (data.newStatus) {
-        case 'TRANSIT':
+        case OrderStatus.TRANSIT:
           emailType = EmailType.ORDER_IN_TRANSIT;
           break;
-        case 'DELIVERED':
+        case OrderStatus.DELIVERED:
           emailType = EmailType.ORDER_DELIVERED;
           break;
-        case 'EXCEPTION':
-        case 'UNDELIVERED':
+        case OrderStatus.EXCEPTION:
+        case OrderStatus.UNDELIVERED:
           emailType = EmailType.ORDER_EXCEPTION;
           break;
-        case 'DISPATCHED':
+        case OrderStatus.DISPATCHED:
           emailType = EmailType.ORDER_DISPATCHED;
           break;
       }

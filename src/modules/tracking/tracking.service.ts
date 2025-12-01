@@ -10,6 +10,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { orders, OrderStatus, users } from 'src/database/schema';
 import { eq, and, isNotNull, or, inArray, sql, not } from 'drizzle-orm';
 import { ClickDropService } from './royal-mail/click-drop.service';
+import { RoyalMailTrackingService } from './royal-mail/royal-mail-tracking.service';
 import { QUEUE_NAMES } from 'src/config/queues.config';
 import { TrackingStatusDto } from './dto/tracking-response.dto';
 import { EventsEmitter } from 'src/util/events/events.emitter';
@@ -19,13 +20,14 @@ import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 @Injectable()
 export class TrackingService implements OnModuleInit {
   private readonly logger = new Logger(TrackingService.name);
-  private readonly TRACKING_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  private readonly trackingInterval = 3 * 1000; // 24 hours in milliseconds
 
   constructor(
     @InjectQueue(QUEUE_NAMES.TRACKING)
     private readonly trackingQueue: Queue,
     private readonly database: DatabaseService,
     private readonly clickDropService: ClickDropService,
+    private readonly royalMailTrackingService: RoyalMailTrackingService,
     private readonly eventsEmitter: EventsEmitter,
   ) {}
 
@@ -38,7 +40,8 @@ export class TrackingService implements OnModuleInit {
       {},
       {
         repeat: {
-          pattern: '0 * * * *', // Cron pattern: Every hour at minute 0
+          // pattern: '0 * * * *', // Cron pattern: Every hour at minute 0
+          every: this.trackingInterval,
         },
         jobId: 'hourly-tracking-check', // Unique ID to prevent duplicates
       },
@@ -46,6 +49,55 @@ export class TrackingService implements OnModuleInit {
     this.logger.log(
       'Scheduled hourly Click & Drop tracking check (every 1 hour)',
     );
+  }
+
+  // Enhance status using Royal Mail Tracking API when a tracking number exists
+  private async royalMailTracking(
+    trackingNumber: string,
+    currentStatus: OrderStatus,
+  ): Promise<OrderStatus> {
+    if (!this.royalMailTrackingService.isConfigured()) {
+      return currentStatus;
+    }
+
+    try {
+      const summaryResponse = await this.royalMailTrackingService.getSummary([
+        trackingNumber,
+      ]);
+
+      const mailPiece = summaryResponse.mailPieces?.[0];
+      const summary = mailPiece?.summary;
+
+      if (!summary) {
+        this.logger.warn(
+          `No summary found for tracking number: ${trackingNumber}`,
+        );
+        return currentStatus;
+      }
+
+      const statusCategory = summary.statusCategory || '';
+      const normalized = statusCategory.toUpperCase();
+
+      switch (normalized) {
+        case 'DELIVERED':
+          return OrderStatus.DELIVERED;
+        case 'IN TRANSIT':
+          return OrderStatus.TRANSIT;
+        case 'NOT FOUND':
+          return OrderStatus.NOTFOUND;
+        case 'EXCEPTION':
+          return OrderStatus.EXCEPTION;
+        default:
+          return currentStatus;
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error enhancing status with Royal Mail Tracking API for ${trackingNumber}:`,
+        error,
+      );
+      // Fallback to current status on any error
+      return currentStatus;
+    }
   }
 
   // Check Click & Drop orders and update status
@@ -63,6 +115,7 @@ export class TrackingService implements OnModuleInit {
         userId: orders.userId,
         clickDropOrderIdentifier: orders.clickDropOrderIdentifier,
         status: orders.status,
+        trackingNumber: orders.trackingNumber,
       })
       .from(orders)
       .where(
@@ -81,7 +134,9 @@ export class TrackingService implements OnModuleInit {
     // Group orders by Click & Drop order identifier (semicolon-separated for API)
     const orderIdentifiers = ordersToCheck
       .map((o) => o.clickDropOrderIdentifier)
-      .filter((id): id is number => id !== null)
+      // .filter((id): id is number => id !== null)
+      // todo: testing tracking for a specific order
+      .filter((id): id is number => id !== null && id === 1002)
       .join(';');
 
     try {
@@ -106,15 +161,33 @@ export class TrackingService implements OnModuleInit {
 
       // Update each order with latest info
       for (const cdOrder of clickDropOrders) {
+        // todo: use a map to make this faster
         const localOrder = ordersToCheck.find(
           (o) => o.clickDropOrderIdentifier === cdOrder.orderIdentifier,
         );
 
+        console.log('Local Order:', JSON.stringify(localOrder, null, 2));
         if (!localOrder) continue;
 
         // Use the correct status mapping method
-        const newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
+        let newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
         const previousStatus = localOrder.status;
+
+        console.log('New Status:', newStatus);
+
+        // If the order has been shipped and we have a tracking number,
+        // if (cdOrder.shippedOn && cdOrder.trackingNumber) {
+        // TODO: testing tracking for a specific order
+        if (localOrder.trackingNumber) {
+          console.log(
+            'Using Royal Mail Tracking API to get more accurate status',
+          );
+          newStatus = await this.royalMailTracking(
+            localOrder.trackingNumber,
+            newStatus,
+          );
+        }
+
         const statusChanged = newStatus !== previousStatus;
         const now = new Date();
 
@@ -129,22 +202,6 @@ export class TrackingService implements OnModuleInit {
 
         const existingOrder = currentOrder[0];
         const statusHistory = (existingOrder.statusHistory as any[]) || [];
-
-        // Update tracking events with tracking number if available
-        let trackingEvents = (existingOrder.trackingEvents as any[]) || [];
-        if (cdOrder.trackingNumber) {
-          // Add or update tracking number in events
-          const hasTrackingNumber = trackingEvents.some(
-            (e) => e.trackingNumber,
-          );
-          if (!hasTrackingNumber) {
-            trackingEvents.push({
-              trackingNumber: cdOrder.trackingNumber,
-              timestamp: now.toISOString(),
-              source: 'Click & Drop API',
-            });
-          }
-        }
 
         // Add status change to history if status changed
         if (statusChanged) {
@@ -173,26 +230,23 @@ export class TrackingService implements OnModuleInit {
             trackingNumber: cdOrder.trackingNumber,
           });
 
-          // Send email notification
+          // Send simple email notification about new status
           await this.sendTrackingStatusUpdateEmail(localOrder.userId, {
             orderId: localOrder.id,
             previousStatus,
             newStatus,
             trackingReference: cdOrder.trackingNumber || '',
-            events: trackingEvents,
+            events: [],
           });
         }
 
-        // Update order in database with all tracking fields
+        // Update order in database with latest status and tracking number
         await this.database.db
           .update(orders)
           .set({
             status: newStatus,
-            trackingLastChecked: now,
-            trackingStatusUpdated: statusChanged
-              ? now
-              : existingOrder.trackingStatusUpdated,
-            trackingEvents,
+            trackingNumber:
+              cdOrder.trackingNumber ?? (existingOrder as any).trackingNumber,
             statusHistory,
           })
           .where(eq(orders.id, localOrder.id));
@@ -248,23 +302,21 @@ export class TrackingService implements OnModuleInit {
 
     const cdOrder = clickDropOrders[0];
     const previousStatus = existingOrder.status;
-    const newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
+
+    // Start with Click & Drop based status
+    let newStatus = this.mapClickDropStatusToOrderStatus(cdOrder);
+
+    // If shipped and we have a tracking number, enhance with Royal Mail Tracking API
+    if (cdOrder.shippedOn && cdOrder.trackingNumber) {
+      newStatus = await this.royalMailTracking(
+        cdOrder.trackingNumber,
+        newStatus,
+      );
+    }
+
     const statusChanged = previousStatus !== newStatus;
 
     const now = new Date();
-
-    // Update tracking events with tracking number if available
-    let trackingEvents = (existingOrder.trackingEvents as any[]) || [];
-    if (cdOrder.trackingNumber) {
-      const hasTrackingNumber = trackingEvents.some((e) => e.trackingNumber);
-      if (!hasTrackingNumber) {
-        trackingEvents.push({
-          trackingNumber: cdOrder.trackingNumber,
-          timestamp: now.toISOString(),
-          source: 'Click & Drop API',
-        });
-      }
-    }
 
     // Get current status history
     const statusHistory = (existingOrder.statusHistory as any[]) || [];
@@ -283,16 +335,13 @@ export class TrackingService implements OnModuleInit {
       });
     }
 
-    // Update order with latest information including tracking fields
+    // Update order with latest information including tracking number
     await this.database.db
       .update(orders)
       .set({
         status: newStatus,
-        trackingLastChecked: now,
-        trackingStatusUpdated: statusChanged
-          ? now
-          : existingOrder.trackingStatusUpdated,
-        trackingEvents,
+        trackingNumber:
+          cdOrder.trackingNumber ?? (existingOrder as any).trackingNumber,
         statusHistory,
       })
       .where(eq(orders.id, orderId));
@@ -311,13 +360,6 @@ export class TrackingService implements OnModuleInit {
       orderId: existingOrder.id,
       trackingReference: cdOrder.trackingNumber || null,
       trackingStatus: newStatus,
-      trackingLastChecked: now,
-      trackingStatusUpdated: statusChanged
-        ? now
-        : existingOrder.trackingStatusUpdated,
-      trackingEvents: existingOrder.trackingEvents
-        ? (existingOrder.trackingEvents as any[])
-        : null,
       isTrackingActive: this.isTrackingActive(newStatus),
     };
   }
@@ -339,7 +381,7 @@ export class TrackingService implements OnModuleInit {
       return OrderStatus.PROCESSING;
     }
     // No dates set means order is still pending
-    return OrderStatus.PENDING;
+    return OrderStatus.PROCESSING;
   }
 
   // Process tracking check job (called by consumer) - now checks all Click & Drop orders
@@ -391,9 +433,11 @@ export class TrackingService implements OnModuleInit {
       throw new NotFoundException('Order not found');
     }
 
-    // Get tracking number from Click & Drop if available
-    let trackingNumber: string | null = null;
-    if (existingOrder.clickDropOrderIdentifier) {
+    // Prefer stored tracking number, fallback to Click & Drop if needed
+    let trackingNumber: string | null =
+      (existingOrder as any).trackingNumber || null;
+
+    if (!trackingNumber && existingOrder.clickDropOrderIdentifier) {
       try {
         const clickDropOrders =
           await this.clickDropService.getOrdersByIdentifiers(
@@ -413,11 +457,6 @@ export class TrackingService implements OnModuleInit {
       orderId: existingOrder.id,
       trackingReference: trackingNumber,
       trackingStatus: existingOrder.status,
-      trackingLastChecked: existingOrder.trackingLastChecked || null,
-      trackingStatusUpdated: existingOrder.trackingStatusUpdated || null,
-      trackingEvents: existingOrder.trackingEvents
-        ? (existingOrder.trackingEvents as any[])
-        : null,
       isTrackingActive: this.isTrackingActive(existingOrder.status),
     };
   }
@@ -447,10 +486,6 @@ export class TrackingService implements OnModuleInit {
       }
 
       const userData = user[0];
-      const latestEvent =
-        data.events && data.events.length > 0
-          ? data.events[data.events.length - 1]
-          : null;
 
       // Send email notification
       this.eventsEmitter.sendEmail({
@@ -464,17 +499,6 @@ export class TrackingService implements OnModuleInit {
           previousStatus: data.previousStatus || 'Unknown',
           newStatus: data.newStatus,
           statusDescription: this.getStatusDescription(data.newStatus),
-          latestEvent: latestEvent
-            ? {
-                timestamp: latestEvent.timestamp || new Date().toISOString(),
-                location: latestEvent.location || '',
-                description: latestEvent.description || 'Status update',
-              }
-            : {
-                timestamp: new Date().toISOString(),
-                location: '',
-                description: 'No recent updates available',
-              },
         },
       });
 

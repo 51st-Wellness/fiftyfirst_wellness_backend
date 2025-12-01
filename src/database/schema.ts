@@ -89,13 +89,15 @@ export const PaymentStatus = {
 
 export const OrderStatus = {
   PENDING: 'PENDING' as const,
+  // TODO: make RECEIVED the next after successful payment
+  RECEIVED: 'RECEIVED' as const,
   PROCESSING: 'PROCESSING' as const,
-  NOTFOUND: 'NOTFOUND' as const,
   DISPATCHED: 'DISPATCHED' as const,
   TRANSIT: 'TRANSIT' as const,
   PICKUP: 'PICKUP' as const,
   UNDELIVERED: 'UNDELIVERED' as const,
   DELIVERED: 'DELIVERED' as const,
+  NOTFOUND: 'NOTFOUND' as const,
   EXCEPTION: 'EXCEPTION' as const,
   EXPIRED: 'EXPIRED' as const,
 };
@@ -414,12 +416,6 @@ export const orders = sqliteTable('Order', {
     mode: 'timestamp',
   }),
   fulfillmentNotes: text('fulfillmentNotes'),
-  // Tracking fields (from Click & Drop API)
-  trackingLastChecked: integer('trackingLastChecked', { mode: 'timestamp' }), // Last API check
-  trackingStatusUpdated: integer('trackingStatusUpdated', {
-    mode: 'timestamp',
-  }), // When status last changed
-  trackingEvents: text('trackingEvents', { mode: 'json' }), // Store tracking history/events
   // Click & Drop fields
   clickDropOrderIdentifier: integer('clickDropOrderIdentifier'), // Order identifier from Click & Drop API
   packageFormatIdentifier: text('packageFormatIdentifier'), // 'smallParcel', 'mediumParcel', 'largeParcel', etc.
@@ -428,6 +424,7 @@ export const orders = sqliteTable('Order', {
   parcelWeight: integer('parcelWeight'), // Total weight in grams
   parcelDimensions: text('parcelDimensions', { mode: 'json' }), // {height, width, depth} in mm
   labelBase64: text('labelBase64'), // Base64 encoded PDF label
+  trackingNumber: text('trackingNumber'), // Royal Mail tracking number (from Click & Drop / Tracking API)
   statusHistory: text('statusHistory', { mode: 'json' }), // Array of status changes for audit
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()

@@ -1,11 +1,8 @@
-import { RoyalMailTrackingStatus } from '../royal-mail/royal-mail.types';
+import { OrderStatus } from 'src/database/schema';
 
 export interface TrackingStatusDto {
   orderId: string;
   trackingReference: string | null;
-  trackingStatus: RoyalMailTrackingStatus | null;
-  trackingLastChecked: Date | null;
-  trackingStatusUpdated: Date | null;
-  trackingEvents: any[] | null;
+  trackingStatus: OrderStatus;
   isTrackingActive: boolean;
 }

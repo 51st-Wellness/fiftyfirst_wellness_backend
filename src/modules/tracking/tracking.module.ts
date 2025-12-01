@@ -5,6 +5,7 @@ import { TrackingController } from './tracking.controller';
 import { TrackingService } from './tracking.service';
 import { TrackingProcessor } from './tracking.processor';
 import { ClickDropService } from './royal-mail/click-drop.service';
+import { RoyalMailTrackingService } from './royal-mail/royal-mail-tracking.service';
 import { QUEUE_NAMES } from 'src/config/queues.config';
 import { DatabaseModule } from 'src/database/database.module';
 import { CommonModule } from 'src/common/common.module';
@@ -72,7 +73,12 @@ import { UserModule } from '@/modules/user/user.module';
     UserModule,
   ],
   controllers: [TrackingController],
-  providers: [TrackingService, TrackingProcessor, ClickDropService],
-  exports: [TrackingService, ClickDropService],
+  providers: [
+    TrackingService,
+    TrackingProcessor,
+    ClickDropService,
+    RoyalMailTrackingService,
+  ],
+  exports: [TrackingService, ClickDropService, RoyalMailTrackingService],
 })
 export class TrackingModule {}
