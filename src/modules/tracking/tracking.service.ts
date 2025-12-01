@@ -15,11 +15,13 @@ import { TrackingStatusDto } from './dto/tracking-response.dto';
 import { EventsEmitter } from 'src/util/events/events.emitter';
 import { EVENTS } from 'src/util/events/events.enum';
 import { EmailType } from 'src/modules/notification/email/constants/email.enum';
+import { configService } from 'src/config/config.service';
+import { ENV } from 'src/config/env.enum';
 
 @Injectable()
 export class TrackingService implements OnModuleInit {
   private readonly logger = new Logger(TrackingService.name);
-  private readonly trackingInterval = 2 * 60 * 60 * 1000; // 24 hours in milliseconds
+  private readonly trackingInterval: number;
 
   constructor(
     @InjectQueue(QUEUE_NAMES.TRACKING)
@@ -27,7 +29,14 @@ export class TrackingService implements OnModuleInit {
     private readonly database: DatabaseService,
     private readonly clickDropService: ClickDropService,
     private readonly eventsEmitter: EventsEmitter,
-  ) {}
+  ) {
+    // Load tracking interval from environment (in milliseconds), fallback to 2 hours
+    const rawInterval = configService.get(ENV.TRACKING_INTERVAL_MS);
+    this.trackingInterval = parseInt(rawInterval);
+    if (isNaN(this.trackingInterval)) {
+      throw new Error('TRACKING_INTERVAL_MS is not a valid number');
+    }
+  }
 
   // Initialize repeatable job for daily tracking checks
   async onModuleInit() {
@@ -41,7 +50,9 @@ export class TrackingService implements OnModuleInit {
         jobId: 'daily-tracking-check', // Unique ID to prevent duplicates
       },
     );
-    this.logger.log('Scheduled Click & Drop tracking check (every 24 hours)');
+    this.logger.log(
+      `Scheduled Click & Drop tracking check (every ${this.trackingInterval} ms)`,
+    );
   }
 
   // NOTE: Royal Mail Tracking API integration removed.
