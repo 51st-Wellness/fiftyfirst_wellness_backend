@@ -313,7 +313,7 @@
 
                 <p class="content-text">
                     Hi <strong><%= firstName %> <%= lastName %></strong>,<br/><br/>
-                    We have an update on your order. Your package status has changed from <strong><%= previousStatus %></strong> to <strong><%= newStatus %></strong>.
+                    We have an update on your order. Your package status is now <strong><%= newStatus %></strong>.
                 </p>
 
                 <% 
@@ -355,39 +355,8 @@
                         <div class="summary-value"><%= trackingReference %></div>
                     </div>
                     <div class="summary-card">
-                        <div class="summary-label">Previous Status</div>
-                        <div class="summary-value"><%= previousStatus %></div>
-                    </div>
-                    <div class="summary-card">
                         <div class="summary-label">Current Status</div>
                         <div class="summary-value"><%= newStatus %></div>
-                    </div>
-                </div>
-
-                <div class="event-card">
-                    <div class="event-header">
-                        <div class="event-title">Latest Update</div>
-                        <div class="event-timestamp">
-                            <% 
-                              const eventDate = new Date(latestEvent.timestamp);
-                              const formattedDate = eventDate.toLocaleDateString('en-GB', {
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              });
-                            %>
-                            <%= formattedDate %>
-                        </div>
-                    </div>
-                    <% if (latestEvent.location && latestEvent.location.trim() !== '') { %>
-                        <div class="event-location">
-                            📍 <%= latestEvent.location %>
-                        </div>
-                    <% } %>
-                    <div class="event-description">
-                        <%= latestEvent.description %>
                     </div>
                 </div>
 

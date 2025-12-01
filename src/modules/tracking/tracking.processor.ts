@@ -16,7 +16,7 @@ export class TrackingProcessor extends WorkerHost {
     this.logger.log(`Processing job ${job.id} of type ${job.name}`);
 
     // todo: skip tracking for development
-    return;
+    // return;
     try {
       if (job.name === 'check-tracking') {
         await this.trackingService.processTrackingCheck(job);

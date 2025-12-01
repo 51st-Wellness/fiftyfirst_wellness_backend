@@ -19,7 +19,7 @@ import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 @Injectable()
 export class TrackingService implements OnModuleInit {
   private readonly logger = new Logger(TrackingService.name);
-  private readonly trackingInterval = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  private readonly trackingInterval = 5 * 1000; // 24 hours in milliseconds
 
   constructor(
     @InjectQueue(QUEUE_NAMES.TRACKING)
