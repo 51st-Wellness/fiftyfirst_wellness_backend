@@ -20,7 +20,7 @@ import { EmailType } from 'src/modules/notification/email/constants/email.enum';
 @Injectable()
 export class TrackingService implements OnModuleInit {
   private readonly logger = new Logger(TrackingService.name);
-  private readonly trackingInterval = 3 * 1000; // 24 hours in milliseconds
+  private readonly trackingInterval = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
   constructor(
     @InjectQueue(QUEUE_NAMES.TRACKING)
@@ -35,20 +35,20 @@ export class TrackingService implements OnModuleInit {
   async onModuleInit() {
     // Schedule hourly tracking check (for testing - can be adjusted later)
     // Using BullMQ repeatable jobs instead of @nestjs/schedule
-    await this.trackingQueue.add(
-      'check-tracking',
-      {},
-      {
-        repeat: {
-          // pattern: '0 * * * *', // Cron pattern: Every hour at minute 0
-          every: this.trackingInterval,
-        },
-        jobId: 'hourly-tracking-check', // Unique ID to prevent duplicates
-      },
-    );
-    this.logger.log(
-      'Scheduled hourly Click & Drop tracking check (every 1 hour)',
-    );
+    // await this.trackingQueue.add(
+    //   'check-tracking',
+    //   {},
+    //   {
+    //     repeat: {
+    //       // pattern: '0 * * * *', // Cron pattern: Every hour at minute 0
+    //       every: this.trackingInterval,
+    //     },
+    //     jobId: 'hourly-tracking-check', // Unique ID to prevent duplicates
+    //   },
+    // );
+    // this.logger.log(
+    //   'Scheduled hourly Click & Drop tracking check (every 1 hour)',
+    // );
   }
 
   // Enhance status using Royal Mail Tracking API when a tracking number exists
