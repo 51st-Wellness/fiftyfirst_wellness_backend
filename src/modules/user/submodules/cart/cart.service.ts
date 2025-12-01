@@ -63,6 +63,45 @@ export class CartService {
 
     const isPreOrderItem = Boolean(storeItem.preOrderEnabled);
 
+    // Enforce preorder-only cart rules:
+    // - If cart already contains a preorder item, it cannot contain any other products
+    // - If cart already has normal items, a preorder item must be checked out separately
+    const existingCartItems = await this.database.db
+      .select({
+        id: cartItems.id,
+        productId: cartItems.productId,
+        quantity: cartItems.quantity,
+        isPreOrder: storeItems.preOrderEnabled,
+      })
+      .from(cartItems)
+      .where(eq(cartItems.userId, userId))
+      .innerJoin(products, eq(cartItems.productId, products.id))
+      .innerJoin(storeItems, eq(products.id, storeItems.productId));
+
+    if (existingCartItems.length > 0) {
+      const cartHasPreOrder = existingCartItems.some(
+        (item) => Boolean(item.isPreOrder) === true,
+      );
+
+      if (cartHasPreOrder) {
+        // Cart already contains a preorder item – only allow updating quantity of the same product
+        const existingSameProduct = existingCartItems.find(
+          (item) => item.productId === productId,
+        );
+
+        if (!existingSameProduct) {
+          throw new BadRequestException(
+            'You already have a pre-order item in your cart. Please checkout that item separately before adding other products.',
+          );
+        }
+      } else if (isPreOrderItem) {
+        // Cart has only normal items and user is trying to add a preorder
+        throw new BadRequestException(
+          'Pre-order items must be checked out separately. Please complete your current cart or clear it before adding this pre-order item.',
+        );
+      }
+    }
+
     // Check stock availability
     if (!isPreOrderItem && storeItem.stock < quantity) {
       throw new BadRequestException('Insufficient stock available');

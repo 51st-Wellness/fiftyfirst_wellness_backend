@@ -1,6 +1,6 @@
 // Queue name constants for BullMQ
 export const QUEUE_NAMES = {
-  TRACKING: 'tracking-',
+  TRACKING: 'tracking--',
 } as const;
 
 // Queue configuration

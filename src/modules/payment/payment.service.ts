@@ -1853,6 +1853,10 @@ export class PaymentService {
     if (!isPreOrder) {
       // Decrement stock for each product
       for (const orderItem of orderItemsList) {
+        // todo: don't decrement stock for pre-order items
+        if (orderItem.preOrderReleaseDate) {
+          continue;
+        }
         await tx
           .update(storeItems)
           .set({

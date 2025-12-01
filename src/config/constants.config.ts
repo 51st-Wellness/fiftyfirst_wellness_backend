@@ -1,4 +1,4 @@
-export const JWT_EXPIRATION = 3600 * 24 * 14; // 14 days (2 weeks)
+export const JWT_EXPIRATION = 3600 * 24 * 30; // 30 days
 
 export const JWT_COOKIE_NAME = 'authorization';
 export const JWT_SERVICE = 'JWT_SERVICE';

@@ -20,10 +20,6 @@ import { UserModule } from '@/modules/user/user.module';
       useFactory: (configService: ConfigService) => {
         const redisUrl = configService.get(ENV.REDIS_URL);
 
-        if (!redisUrl) {
-          throw new Error('REDIS_URL is required for BullMQ');
-        }
-
         // Parse Redis URL
         let connection: any;
         if (
