@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { eq, desc, like, or, and, count, SQL, sql } from 'drizzle-orm';
-import { storeItems, products, reviews } from 'src/database/schema';
+import {
+  storeItems,
+  products,
+  reviews,
+  ProductType,
+  PricingModel,
+} from 'src/database/schema';
 import {
   StoreItem,
   NewStoreItem,
@@ -13,13 +19,20 @@ import { generateId } from 'src/database/utils';
 export class StoreRepository {
   constructor(private readonly database: DatabaseService) {}
 
-  // Create a new store item with corresponding product
+  // Create a new store item and its corresponding core product record
   async create(
     data: Omit<NewStoreItem, 'productId' | 'createdAt' | 'updatedAt'>,
   ): Promise<StoreItem> {
     const productId = generateId();
 
-    // Create the store item
+    // Create core product entry used across the platform (cart, orders, etc)
+    await this.database.db.insert(products).values({
+      id: productId,
+      type: ProductType.STORE,
+      pricingModel: PricingModel.ONE_TIME,
+    });
+
+    // Create the store item details
     const newStoreItem: NewStoreItem = {
       productId,
       ...data,
@@ -149,7 +162,9 @@ export class StoreRepository {
         }
       }
       if (filters?.category) {
-        conditions.push(like(storeItems.categories, `%${filters.category}%`));
+        // Check if category exists in the JSON array using LIKE pattern matching
+        // Categories are stored as JSON array: ["Category1", "Category2"]
+        conditions.push(like(storeItems.categories, `%"${filters.category}"%`));
       }
       if (filters?.minPrice !== undefined) {
         conditions.push(sql`${storeItems.price} >= ${filters.minPrice}`);
@@ -257,7 +272,9 @@ export class StoreRepository {
       }
     }
     if (filters?.category) {
-      conditions.push(like(storeItems.categories, `%${filters.category}%`));
+      // Check if category exists in the JSON array using LIKE pattern matching
+      // Categories are stored as JSON array: ["Category1", "Category2"]
+      conditions.push(like(storeItems.categories, `%"${filters.category}"%`));
     }
     if (filters?.minPrice !== undefined) {
       conditions.push(sql`${storeItems.price} >= ${filters.minPrice}`);

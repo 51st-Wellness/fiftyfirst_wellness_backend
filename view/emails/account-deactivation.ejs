@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Account Deactivation Confirmation - Fifty Firsts Wellness</title>
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      /* Reset and base styles */
       * {
         margin: 0;
         padding: 0;
@@ -14,16 +14,10 @@
       }
 
       body {
-        font-family:
-          'Quicksand',
-          -apple-system,
-          BlinkMacSystemFont,
-          'Segoe UI',
-          Roboto,
-          sans-serif;
+        font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         line-height: 1.6;
         color: #374151;
-        background-color: #f9fafb;
+        background-color: #f3f4f6;
         margin: 0;
         padding: 0;
         width: 100%;
@@ -31,85 +25,108 @@
 
       .email-wrapper {
         width: 100%;
-        background-color: #f9fafb;
-        padding: 20px 0;
+        background-color: #f3f4f6;
+        padding: 40px 20px;
       }
 
       .email-container {
-        max-width: 680px;
+        max-width: 600px;
         margin: 0 auto;
         background-color: #ffffff;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-radius: 0;
       }
 
       .email-header {
-        background-color: #dc2626;
-        color: #ffffff;
-        padding: 32px 40px;
-        text-align: center;
+        padding: 32px 40px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
 
-      .logo {
-        font-family: 'Playfair Display', serif;
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 8px;
-        color: #ffffff;
+      .logo-container {
+        display: flex;
+        align-items: center;
       }
 
-      .tagline {
-        font-size: 16px;
-        opacity: 0.9;
-        font-weight: 400;
+      .logo-img {
+        height: 60px;
+        width: auto;
+      }
+
+      .social-icons {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .social-icon {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        color: #6b7280;
+        text-decoration: none;
+      }
+
+      .social-icon svg {
+        width: 100%;
+        height: 100%;
       }
 
       .email-content {
-        padding: 40px;
+        padding: 36px 40px;
       }
 
       .content-title {
-        font-family: 'Playfair Display', serif;
-        font-size: 24px;
+        font-family: 'League Spartan', sans-serif;
+        font-size: 28px;
         font-weight: 600;
         color: #111827;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
+        line-height: 1.2;
+      }
+
+      .greeting {
+        font-size: 16px;
+        color: #374151;
+        margin-bottom: 12px;
       }
 
       .content-text {
         font-size: 16px;
         color: #4b5563;
-        margin-bottom: 24px;
+        margin-bottom: 16px;
         line-height: 1.7;
       }
 
       .status-box {
-        background-color: #fee2e2;
-        border: 1px solid #dc2626;
-        border-left: 4px solid #dc2626;
-        border-radius: 6px;
-        padding: 24px;
-        margin: 24px 0;
+        background-color: #f9fafb;
+        border-left: 3px solid #dc2626;
+        padding: 16px;
+        margin: 16px 0;
       }
 
       .status-title {
+        font-family: 'League Spartan', sans-serif;
+        font-size: 16px;
         font-weight: 600;
         color: #dc2626;
-        margin-bottom: 16px;
-        font-size: 16px;
+        margin-bottom: 8px;
       }
 
       .status-list {
         list-style: none;
         padding: 0;
+        margin: 0;
       }
 
       .status-list li {
-        padding: 8px 0;
+        padding: 4px 0;
         color: #374151;
         position: relative;
         padding-left: 20px;
+        font-size: 15px;
+        line-height: 1.5;
       }
 
       .status-list li:before {
@@ -122,33 +139,35 @@
 
       .btn-container {
         text-align: center;
-        margin: 32px 0;
+        margin: 24px 0;
       }
 
       .btn {
         display: inline-block;
-        padding: 14px 28px;
+        padding: 14px 32px;
         font-size: 16px;
         font-weight: 600;
         text-decoration: none;
-        border-radius: 6px;
-        text-align: center;
-        transition: all 0.2s ease;
-        margin: 16px 0;
+        border-radius: 0;
         background-color: #00969b;
         color: #ffffff;
+        transition: background-color 0.2s ease;
+      }
+
+      .btn:hover {
+        background-color: #007a7e;
       }
 
       .contact-info {
-        background-color: #f0fdff;
-        border: 1px solid #00969b;
-        border-radius: 6px;
-        padding: 20px;
-        margin: 24px 0;
-        text-align: center;
+        background-color: #f9fafb;
+        border-left: 3px solid #00969b;
+        padding: 16px;
+        margin: 16px 0;
       }
 
       .contact-title {
+        font-family: 'League Spartan', sans-serif;
+        font-size: 16px;
         font-weight: 600;
         color: #00969b;
         margin-bottom: 8px;
@@ -157,47 +176,69 @@
       .contact-text {
         color: #374151;
         font-size: 14px;
+        line-height: 1.6;
       }
 
       .email-footer {
-        background-color: #111827;
-        color: #d1d5db;
-        padding: 32px 40px;
+        background-color: #ffffff;
+        border-top: 1px solid #e5e7eb;
+        padding: 24px 40px;
         text-align: center;
       }
 
       .footer-text {
         font-size: 14px;
+        color: #6b7280;
         line-height: 1.6;
-        margin-bottom: 16px;
+        margin-bottom: 20px;
+      }
+
+      .footer-link {
+        color: #00969b;
+        text-decoration: none;
+        font-size: 14px;
+      }
+
+      .footer-link:hover {
+        text-decoration: underline;
       }
 
       .footer-copyright {
         font-size: 12px;
         color: #9ca3af;
-        margin-top: 20px;
-        padding-top: 16px;
-        border-top: 1px solid #374151;
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #e5e7eb;
       }
 
       @media only screen and (max-width: 640px) {
         .email-wrapper {
-          padding: 10px;
+          padding: 20px 10px;
         }
 
-        .email-container {
-          border-radius: 0;
-          margin: 0;
+        .email-header {
+          padding: 24px 20px 20px;
         }
 
-        .email-header,
-        .email-content,
-        .email-footer {
-          padding: 24px 20px;
+        .logo-img {
+          height: 60px;
+        }
+
+        .social-icons {
+          gap: 8px;
+        }
+
+        .social-icon {
+          width: 18px;
+          height: 18px;
+        }
+
+        .email-content {
+          padding: 32px 20px;
         }
 
         .content-title {
-          font-size: 20px;
+          font-size: 24px;
         }
 
         .btn {
@@ -205,25 +246,9 @@
           width: 100%;
           padding: 16px;
         }
-      }
 
-      @media only screen and (max-width: 480px) {
-        .email-header,
-        .email-content,
         .email-footer {
-          padding: 20px 16px;
-        }
-
-        .logo {
-          font-size: 24px;
-        }
-
-        .tagline {
-          font-size: 14px;
-        }
-
-        .content-title {
-          font-size: 18px;
+          padding: 24px 20px;
         }
       }
     </style>
@@ -232,22 +257,44 @@
     <div class="email-wrapper">
       <div class="email-container">
         <div class="email-header">
-          <div class="logo">Fifty Firsts Wellness</div>
-          <div class="tagline">Account Deactivation Confirmed</div>
+          <div class="logo-container">
+            <img src="https://dev.fiftyfirstswellness.co.uk/assets/logo-with-name.png" alt="Fifty Firsts Wellness" class="logo-img">
+          </div>
+          <div class="social-icons">
+            <a href="https://www.instagram.com/fiftyfirstswellness?igsh=MTVyODk5emhtZnlyMQ==" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+            </a>
+            <a href="https://www.facebook.com/share/1BFKL2XnMg/" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Facebook">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+            </a>
+            <a href="https://www.linkedin.com/company/fifty-firsts-wellness/" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+              </svg>
+            </a>
+            <a href="https://www.tiktok.com/@fiftyfirstswellness?_t=ZN-90gUvPI1xWV&_r=1" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="TikTok">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+              </svg>
+            </a>
+          </div>
         </div>
 
         <div class="email-content">
           <h1 class="content-title">Account Successfully Deactivated</h1>
 
-          <p class="content-text">Dear <%= firstName %>,</p>
+          <p class="greeting">Dear <%= firstName || 'User' %>,</p>
 
           <p class="content-text">
-            Your Fifty Firsts Wellness account has been successfully deactivated
-            as requested.
+            Your Fifty Firsts Wellness account has been successfully deactivated as requested.
           </p>
 
           <div class="status-box">
-            <div class="status-title">Account Status:</div>
+            <div class="status-title">Account Status</div>
             <ul class="status-list">
               <li>Your account is now deactivated</li>
               <li>Your data has been securely stored</li>
@@ -256,35 +303,37 @@
           </div>
 
           <p class="content-text">
-            If you change your mind, you can reactivate your account by logging
-            in with your existing credentials. We're sorry to see you go, but we
-            understand that everyone's wellness journey is unique.
+            If you change your mind, you can reactivate your account by logging in with your existing credentials. We're sorry to see you go, but we understand that everyone's wellness journey is unique.
           </p>
 
           <p class="content-text">
-            If you ever want to return to our community, we'll be here to
-            welcome you back!
+            If you ever want to return to our community, we'll be here to welcome you back!
           </p>
 
           <div class="btn-container">
-            <a href="<%= loginLink %>" class="btn"> Reactivate Account </a>
+            <a href="<%= loginLink || frontendUrl + '/login' %>" class="btn">Reactivate Account</a>
           </div>
 
           <div class="contact-info">
-            <div class="contact-title">📞 Need Assistance?</div>
-            <div class="contact-text">Contact us at <%= companyEmail %></div>
+            <div class="contact-title">Need Assistance?</div>
+            <div class="contact-text">
+              Contact us at <%= companyEmail || 'info@fiftyfirstswellness.co.uk' %>
+            </div>
           </div>
+
+          <p class="content-text" style="margin-top: 24px; margin-bottom: 0;">
+            Thanks,<br>
+            Fifty Firsts Wellness Team
+          </p>
         </div>
 
         <div class="email-footer">
           <div class="footer-text">
-            <strong>Best regards,</strong><br />
-            The Fifty Firsts Wellness Team
+            Questions or FAQ? Contact us at <a href="mailto:info@fiftyfirstswellness.co.uk" class="footer-link">info@fiftyfirstswellness.co.uk</a>
           </div>
 
           <div class="footer-copyright">
-            © <%= new Date().getFullYear() %> Fifty Firsts Wellness. All rights
-            reserved.
+            © <%= new Date().getFullYear() %> Fifty Firsts Wellness. All rights reserved.
           </div>
         </div>
       </div>

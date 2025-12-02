@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Product Update - Fifty Firsts Wellness</title>
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
       * {
         margin: 0;
@@ -13,77 +14,105 @@
       }
 
       body {
-        font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI',
-          Roboto, sans-serif;
+        font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         line-height: 1.6;
         color: #374151;
-        background-color: #f9fafb;
+        background-color: #f3f4f6;
         margin: 0;
-        padding: 24px 0;
+        padding: 0;
+        width: 100%;
+      }
+
+      .email-wrapper {
+        width: 100%;
+        background-color: #f3f4f6;
+        padding: 40px 20px;
       }
 
       .email-container {
-        max-width: 680px;
+        max-width: 600px;
         margin: 0 auto;
         background-color: #ffffff;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15);
+        border-radius: 0;
       }
 
       .email-header {
-        background: linear-gradient(135deg, #00969b 0%, #5f42e5 100%);
-        color: #ffffff;
-        padding: 36px;
-        text-align: center;
+        padding: 32px 40px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
 
-      .tagline {
-        font-size: 15px;
-        opacity: 0.9;
-        letter-spacing: 0.4px;
+      .logo-container {
+        display: flex;
+        align-items: center;
+      }
+
+      .logo-img {
+        height: 60px;
+        width: auto;
+      }
+
+      .social-icons {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .social-icon {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        color: #6b7280;
+        text-decoration: none;
+      }
+
+      .social-icon svg {
+        width: 100%;
+        height: 100%;
       }
 
       .email-content {
-        padding: 40px;
+        padding: 36px 40px;
       }
 
       .content-title {
-        font-family: 'Playfair Display', serif;
-        font-size: 26px;
+        font-family: 'League Spartan', sans-serif;
+        font-size: 28px;
         font-weight: 600;
-        color: #0f172a;
+        color: #111827;
         margin-bottom: 12px;
-        text-align: center;
+        line-height: 1.2;
       }
 
       .content-subtitle {
-        font-size: 17px;
-        color: #475569;
-        text-align: center;
-        margin-bottom: 28px;
+        font-size: 16px;
+        color: #4b5563;
+        margin-bottom: 20px;
+        line-height: 1.7;
       }
 
       .hero-card {
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
+        border: 1px solid #e5e7eb;
         overflow: hidden;
-        margin-bottom: 32px;
-        background-color: #f8fafc;
+        margin-bottom: 24px;
+        background-color: #ffffff;
       }
 
       .hero-image {
         width: 100%;
         display: block;
-        max-height: 280px;
+        max-height: 300px;
         object-fit: cover;
       }
 
       .hero-content {
-        padding: 24px;
+        padding: 20px;
       }
 
       .product-name {
+        font-family: 'League Spartan', sans-serif;
         font-size: 20px;
         font-weight: 600;
         color: #111827;
@@ -91,172 +120,246 @@
       }
 
       .product-description {
-        color: #475569;
+        color: #4b5563;
         font-size: 15px;
         line-height: 1.7;
-        margin-bottom: 16px;
+        margin-bottom: 0;
       }
 
       .message-box {
-        background-color: #ecfeff;
-        border: 1px solid #22d3ee;
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 28px;
-        color: #0f172a;
+        background-color: #f9fafb;
+        border-left: 3px solid #00969b;
+        padding: 16px;
+        margin: 16px 0;
       }
 
       .message-box strong {
+        font-family: 'League Spartan', sans-serif;
         display: block;
+        font-size: 16px;
+        font-weight: 600;
+        color: #00969b;
         margin-bottom: 8px;
-        color: #0891b2;
+      }
+
+      .message-box p {
+        color: #374151;
+        font-size: 15px;
+        line-height: 1.6;
+        margin: 0;
       }
 
       .btn {
         display: inline-block;
-        padding: 14px 28px;
-        border-radius: 999px;
+        padding: 14px 32px;
         font-size: 16px;
         font-weight: 600;
         text-decoration: none;
-        transition: all 0.2s ease;
-        border: none;
-        cursor: pointer;
-      }
-
-      .btn-primary {
+        border-radius: 0;
         background-color: #00969b;
-        color: #ffffff !important;
-        box-shadow: 0 10px 20px rgba(0, 150, 155, 0.25);
+        color: #ffffff;
+        transition: background-color 0.2s ease;
       }
 
-      .btn-primary:hover {
-        opacity: 0.92;
+      .btn:hover {
+        background-color: #007a7e;
       }
 
       .cta-container {
         text-align: center;
-        margin-bottom: 36px;
+        margin: 24px 0;
       }
 
       .info-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 16px;
-        margin-bottom: 32px;
+        margin: 20px 0;
       }
 
       .info-card {
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 18px;
-        background-color: #fefce8;
+        border: 1px solid #e5e7eb;
+        padding: 16px;
+        background-color: #f9fafb;
       }
 
       .info-card h4 {
-        font-size: 15px;
-        color: #b45309;
-        margin-bottom: 6px;
+        font-family: 'League Spartan', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 8px;
         text-transform: uppercase;
         letter-spacing: 0.4px;
       }
 
       .info-card p {
-        color: #78350f;
+        color: #374151;
         font-size: 14px;
         line-height: 1.6;
+        margin: 0;
       }
 
       .email-footer {
-        background-color: #0f172a;
-        color: #cbd5f5;
+        background-color: #ffffff;
+        border-top: 1px solid #e5e7eb;
+        padding: 24px 40px;
         text-align: center;
-        padding: 30px;
-        font-size: 13px;
       }
 
-      .email-footer a {
-        color: #a5b4fc;
-        text-decoration: none;
+      .footer-text {
+        font-size: 13px;
+        color: #6b7280;
+        line-height: 1.6;
+        margin-bottom: 0;
+      }
+
+      .footer-copyright {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #e5e7eb;
       }
 
       @media only screen and (max-width: 640px) {
-        body {
-          padding: 0;
+        .email-wrapper {
+          padding: 20px 10px;
+        }
+
+        .email-header {
+          padding: 24px 20px 20px;
+        }
+
+        .logo-img {
+          height: 60px;
+        }
+
+        .social-icons {
+          gap: 8px;
+        }
+
+        .social-icon {
+          width: 18px;
+          height: 18px;
         }
 
         .email-content {
-          padding: 28px 20px;
+          padding: 32px 20px;
+        }
+
+        .content-title {
+          font-size: 24px;
+        }
+
+        .btn {
+          display: block;
+          width: 100%;
+          padding: 16px;
+        }
+
+        .info-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .email-footer {
+          padding: 24px 20px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="email-container">
-      <div class="email-header">
-        <h1>Fifty Firsts Wellness</h1>
-        <p class="tagline">Thoughtfully curated wellness, right on time</p>
-      </div>
+    <div class="email-wrapper">
+      <div class="email-container">
+        <div class="email-header">
+          <div class="logo-container">
+            <img src="https://dev.fiftyfirstswellness.co.uk/assets/logo-with-name.png" alt="Fifty Firsts Wellness" class="logo-img">
+          </div>
+          <div class="social-icons">
+            <a href="https://www.instagram.com/fiftyfirstswellness?igsh=MTVyODk5emhtZnlyMQ==" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+            </a>
+            <a href="https://www.facebook.com/share/1BFKL2XnMg/" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Facebook">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+            </a>
+            <a href="https://www.linkedin.com/company/fifty-firsts-wellness/" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+              </svg>
+            </a>
+            <a href="https://www.tiktok.com/@fiftyfirstswellness?_t=ZN-90gUvPI1xWV&_r=1" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="TikTok">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
 
-      <div class="email-content">
-        <h2 class="content-title">Hi <%= firstName || 'Wellness Friend' %>,</h2>
-        <p class="content-subtitle">
-          The product you asked about is ready whenever you are.
-        </p>
+        <div class="email-content">
+          <h2 class="content-title">Hi <%= firstName || 'Wellness Friend' %>,</h2>
+          <p class="content-subtitle">
+            The product you asked about is ready whenever you are.
+          </p>
 
-        <div class="hero-card">
-          <% if (productImage) { %>
-          <img
-            src="<%= productImage %>"
-            alt="<%= productName %>"
-            class="hero-image"
-          />
-          <% } %>
-          <div class="hero-content">
-            <div class="product-name"><%= productName %></div>
-            <% if (productDescription) { %>
-            <p class="product-description"><%= productDescription %></p>
+          <div class="hero-card">
+            <% if (productImage) { %>
+            <img
+              src="<%= productImage %>"
+              alt="<%= productName %>"
+              class="hero-image"
+            />
             <% } %>
+            <div class="hero-content">
+              <div class="product-name"><%= productName %></div>
+              <% if (productDescription) { %>
+              <p class="product-description"><%= productDescription %></p>
+              <% } %>
+            </div>
+          </div>
+
+          <% if (message) { %>
+          <div class="message-box">
+            <strong>Why we're excited:</strong>
+            <p><%= message %></p>
+          </div>
+          <% } %>
+
+          <div class="cta-container">
+            <a href="<%= productUrl %>" class="btn">
+              <%= ctaText || 'View Product' %>
+            </a>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-card">
+              <h4>What to know</h4>
+              <p>
+                Supplies are limited so we recommend placing your order as soon as you can.
+              </p>
+            </div>
+            <div class="info-card">
+              <h4>Questions?</h4>
+              <p>
+                We're here to help. Reply to this email or reach us at <%= supportEmail || companyEmail || 'info@fiftyfirstswellness.co.uk' %>.
+              </p>
+            </div>
           </div>
         </div>
 
-        <% if (message) { %>
-        <div class="message-box">
-          <strong>Why we're excited:</strong>
-          <p><%= message %></p>
-        </div>
-        <% } %>
-
-        <div class="cta-container">
-          <a href="<%= productUrl %>" class="btn btn-primary">
-            <%= ctaText || 'View Product' %>
-          </a>
-        </div>
-
-        <div class="info-grid">
-          <div class="info-card">
-            <h4>What to know</h4>
-            <p>
-              Supplies are limited so we recommend placing your order as soon as
-              you can.
-            </p>
+        <div class="email-footer">
+          <div class="footer-text">
+            You received this email because you asked us to notify you when this product became available.
           </div>
-          <div class="info-card">
-            <h4>Questions?</h4>
-            <p>
-              We're here to help. Reply to this email or reach us at
-              <%= supportEmail || companyEmail || 'support@fiftyfirstswellness.com' %>.
-            </p>
+
+          <div class="footer-copyright">
+            © <%= new Date().getFullYear() %> Fifty Firsts Wellness. All rights reserved.
           </div>
         </div>
-      </div>
-
-      <div class="email-footer">
-        © <%= new Date().getFullYear() %> Fifty Firsts Wellness.<br />
-        You received this email because you asked us to notify you when this
-        product became available.
       </div>
     </div>
   </body>
 </html>
-

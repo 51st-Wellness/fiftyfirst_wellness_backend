@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Tracking Status Update - Fifty Firsts Wellness</title>
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -16,7 +17,7 @@
             font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
             color: #374151;
-            background-color: #f9fafb;
+            background-color: #f3f4f6;
             margin: 0;
             padding: 0;
             width: 100%;
@@ -24,104 +25,134 @@
 
         .email-wrapper {
             width: 100%;
-            background-color: #f9fafb;
-            padding: 20px 0;
+            background-color: #f3f4f6;
+            padding: 40px 20px;
         }
 
         .email-container {
-            max-width: 720px;
+            max-width: 600px;
             margin: 0 auto;
             background-color: #ffffff;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 10px 40px rgba(15, 23, 42, 0.1);
+            border-radius: 0;
         }
-
-        <% 
-          const statusColors = {
-            pending: '#0ea5e9',
-            notfound: '#6b7280',
-            inforeceived: '#3b82f6',
-            transit: '#f59e0b',
-            pickup: '#8b5cf6',
-            undelivered: '#ef4444',
-            delivered: '#10b981',
-            exception: '#ef4444',
-            expired: '#6b7280'
-          };
-          let headerColor = statusColors[newStatus.toLowerCase()];
-          if (!headerColor) {
-            headerColor = '#00969b';
-          }
-        %>
 
         .email-header {
-            background-color: <%= headerColor %>;
-            color: #ffffff;
-            padding: 36px 42px;
-            text-align: center;
+            padding: 32px 40px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 8px;
+        .logo-container {
+            display: flex;
+            align-items: center;
         }
 
-        .tagline {
-            font-size: 15px;
-            opacity: 0.92;
+        .logo-img {
+            height: 60px;
+            width: auto;
+        }
+
+        .social-icons {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .social-icon {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            color: #6b7280;
+            text-decoration: none;
+        }
+
+        .social-icon svg {
+            width: 100%;
+            height: 100%;
         }
 
         .email-content {
-            padding: 42px;
+            padding: 36px 40px;
         }
 
         .content-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 26px;
+            font-family: 'League Spartan', sans-serif;
+            font-size: 28px;
             font-weight: 600;
             color: #111827;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            line-height: 1.2;
         }
 
         .status-chip {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 16px;
-            border-radius: 999px;
+            display: inline-block;
+            padding: 6px 14px;
             font-size: 13px;
             font-weight: 600;
-            background-color: rgba(0, 0, 0, 0.04);
-            margin-bottom: 24px;
+            background-color: #f3f4f6;
             color: #111827;
+            margin-bottom: 16px;
             text-transform: capitalize;
         }
 
         .content-text {
             font-size: 16px;
             color: #4b5563;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             line-height: 1.7;
+        }
+
+        .status-change-box {
+            background-color: #f9fafb;
+            border-left: 3px solid #00969b;
+            padding: 16px;
+            margin: 16px 0;
+        }
+
+        .status-change-box.delivered {
+            border-left-color: #10b981;
+        }
+
+        .status-change-box.transit {
+            border-left-color: #f59e0b;
+        }
+
+        .status-change-box.warning {
+            border-left-color: #ef4444;
+        }
+
+        .status-change-box strong {
+            font-family: 'League Spartan', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .status-change-box span {
+            color: #374151;
+            font-size: 14px;
+            line-height: 1.6;
         }
 
         .summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin: 28px 0;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin: 20px 0;
         }
 
         .summary-card {
             border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 16px;
+            padding: 14px;
             background-color: #f9fafb;
         }
 
         .summary-label {
-            font-size: 13px;
+            font-size: 12px;
             color: #6b7280;
             margin-bottom: 6px;
             text-transform: uppercase;
@@ -129,155 +160,126 @@
         }
 
         .summary-value {
-            font-size: 18px;
-            font-weight: 600;
-            color: #111827;
-            word-break: break-all;
-        }
-
-        .status-change-box {
-            border-radius: 10px;
-            padding: 22px;
-            margin: 24px 0;
-            background-color: #f0f9ff;
-            border: 1px solid #bae6fd;
-        }
-
-        .status-change-box.delivered {
-            background-color: #ecfdf5;
-            border-color: #d1fae5;
-            color: #065f46;
-        }
-
-        .status-change-box.transit {
-            background-color: #fff7ed;
-            border-color: #fed7aa;
-            color: #92400e;
-        }
-
-        .status-change-box.warning {
-            background-color: #fef2f2;
-            border-color: #fecaca;
-            color: #991b1b;
-        }
-
-        .event-card {
-            background-color: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            border-left: 4px solid <%= headerColor %>;
-        }
-
-        .event-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .event-title {
             font-size: 16px;
             font-weight: 600;
             color: #111827;
-        }
-
-        .event-timestamp {
-            font-size: 13px;
-            color: #6b7280;
-        }
-
-        .event-location {
-            font-size: 14px;
-            color: #4b5563;
-            margin-top: 8px;
-            display: flex;
-            align-items: center;
-        }
-
-        .event-description {
-            font-size: 15px;
-            color: #374151;
-            margin-top: 12px;
-            line-height: 1.6;
+            word-break: break-word;
+            text-transform: capitalize;
         }
 
         .btn-container {
             text-align: center;
-            margin: 36px 0 12px;
+            margin: 24px 0;
         }
 
         .btn {
             display: inline-block;
-            padding: 15px 32px;
+            padding: 14px 32px;
             font-size: 16px;
             font-weight: 600;
             text-decoration: none;
-            border-radius: 999px;
+            border-radius: 0;
+            background-color: #00969b;
             color: #ffffff;
-            background-color: <%= headerColor %>;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: background-color 0.2s ease;
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            background-color: #007a7e;
         }
 
         .support-box {
-            background-color: #f0f9ff;
-            border: 1px solid #bae6fd;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            margin-top: 20px;
+            background-color: #f9fafb;
+            border-left: 3px solid #00969b;
+            padding: 16px;
+            margin: 16px 0;
         }
 
         .support-title {
+            font-family: 'League Spartan', sans-serif;
+            font-size: 16px;
             font-weight: 600;
-            color: #075985;
+            color: #00969b;
             margin-bottom: 8px;
         }
 
         .support-text {
             font-size: 14px;
-            color: #0c4a6e;
+            color: #374151;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .support-text a {
+            color: #00969b;
+            text-decoration: none;
+        }
+
+        .support-text a:hover {
+            text-decoration: underline;
         }
 
         .email-footer {
-            background-color: #111827;
-            color: #d1d5db;
-            padding: 32px 40px;
+            background-color: #ffffff;
+            border-top: 1px solid #e5e7eb;
+            padding: 24px 40px;
             text-align: center;
         }
 
         .footer-text {
             font-size: 14px;
+            color: #6b7280;
             line-height: 1.6;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
         }
 
         .footer-link {
-            color: #9ca3af;
+            color: #00969b;
             text-decoration: none;
-            margin: 0 10px;
-            font-size: 13px;
+            font-size: 14px;
+            margin: 0 8px;
         }
 
         .footer-link:hover {
-            color: #00969b;
+            text-decoration: underline;
+        }
+
+        .footer-copyright {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
         }
 
         @media only screen and (max-width: 640px) {
             .email-wrapper {
-                padding: 10px;
+                padding: 20px 10px;
+            }
+
+            .email-header {
+                padding: 24px 20px 20px;
+            }
+
+            .logo-img {
+                height: 60px;
+            }
+
+            .social-icons {
+                gap: 8px;
+            }
+
+            .social-icon {
+                width: 18px;
+                height: 18px;
             }
 
             .email-content {
-                padding: 24px;
+                padding: 32px 20px;
+            }
+
+            .content-title {
+                font-size: 24px;
             }
 
             .summary-grid {
@@ -285,11 +287,13 @@
             }
 
             .btn {
+                display: block;
                 width: 100%;
+                padding: 16px;
             }
 
-            .event-header {
-                flex-direction: column;
+            .email-footer {
+                padding: 24px 20px;
             }
         }
     </style>
@@ -298,17 +302,38 @@
     <div class="email-wrapper">
         <div class="email-container">
             <div class="email-header">
-                <div class="logo">Fifty Firsts Wellness</div>
-                <div class="tagline">Your Order Tracking Update</div>
+                <div class="logo-container">
+                    <img src="https://dev.fiftyfirstswellness.co.uk/assets/logo-with-name.png" alt="Fifty Firsts Wellness" class="logo-img">
+                </div>
+                <div class="social-icons">
+                    <a href="https://www.instagram.com/fiftyfirstswellness?igsh=MTVyODk5emhtZnlyMQ==" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Instagram">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                        </svg>
+                    </a>
+                    <a href="https://www.facebook.com/share/1BFKL2XnMg/" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="Facebook">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                    </a>
+                    <a href="https://www.linkedin.com/company/fifty-firsts-wellness/" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="LinkedIn">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                        </svg>
+                    </a>
+                    <a href="https://www.tiktok.com/@fiftyfirstswellness?_t=ZN-90gUvPI1xWV&_r=1" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="TikTok">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                        </svg>
+                    </a>
+                </div>
             </div>
 
             <div class="email-content">
-                <div class="content-title">
-                    <%= statusDescription %>
-                </div>
+                <h1 class="content-title"><%= statusDescription %></h1>
 
                 <div class="status-chip">
-                    Status: <span style="margin-left: 6px;"><%= newStatus %></span>
+                    Status: <%= newStatus %>
                 </div>
 
                 <p class="content-text">
@@ -328,7 +353,7 @@
                 %>
                 <div class="<%= statusBoxClass %>">
                     <strong>Current Status:</strong> <%= statusDescription %><br/>
-                    <span style="font-size: 14px; margin-top: 8px; display: block;">
+                    <span>
                         <% if (newStatus.toLowerCase() === 'delivered') { %>
                             Your order has been successfully delivered. Thank you for shopping with us!
                         <% } else if (newStatus.toLowerCase() === 'transit') { %>
@@ -361,29 +386,24 @@
                 </div>
 
                 <div class="btn-container">
-                    <a href="<%= frontendUrl %>/dashboard/orders/<%= orderId %>" class="btn">
-                        View Order Details
-                    </a>
+                    <a href="<%= frontendUrl %>/dashboard/orders/<%= orderId %>" class="btn">View Order Details</a>
                 </div>
 
                 <div class="support-box">
                     <div class="support-title">Need Help?</div>
                     <p class="support-text">
                         If you have any questions about your order or delivery, our support team is here to help.<br/>
-                        Contact us at <a href="mailto:<%= companyEmail %>" style="color: #075985;"><%= companyEmail %></a>
+                        Contact us at <a href="mailto:<%= companyEmail %>"><%= companyEmail %></a>
                     </p>
                 </div>
             </div>
 
             <div class="email-footer">
                 <div class="footer-text">
-                    You're receiving this email because you have an order with Fifty Firsts Wellness.
+                    Questions or FAQ? Contact us at <a href="mailto:info@fiftyfirstswellness.co.uk" class="footer-link">info@fiftyfirstswellness.co.uk</a>
                 </div>
-                <div>
-                    <a href="<%= frontendUrl %>" class="footer-link">Visit Dashboard</a>
-                    <a href="<%= frontendUrl %>/support" class="footer-link">Support Center</a>
-                </div>
-                <div style="font-size: 12px; color: #9ca3af; margin-top: 18px;">
+
+                <div class="footer-copyright">
                     © <%= new Date().getFullYear() %> Fifty Firsts Wellness. All rights reserved.
                 </div>
             </div>
@@ -391,4 +411,3 @@
     </div>
 </body>
 </html>
-
