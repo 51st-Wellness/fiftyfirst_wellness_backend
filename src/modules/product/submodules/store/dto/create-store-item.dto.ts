@@ -67,7 +67,15 @@ export class CreateStoreItemDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return value;
+    }
+    return [value];
+  })
   categories?: string[];
 
   @IsOptional()
@@ -110,7 +118,15 @@ export class CreateStoreItemDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return value;
+    }
+    return [value];
+  })
   productIngredients?: string[];
 
   @IsOptional()
