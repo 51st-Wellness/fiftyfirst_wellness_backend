@@ -309,6 +309,7 @@ export const storeItems = sqliteTable('StoreItem', {
   length: real('length'), // Length in mm for Click & Drop
   width: real('width'), // Width in mm for Click & Drop
   height: real('height'), // Height in mm for Click & Drop
+  deletedAt: integer('deletedAt', { mode: 'timestamp' }),
   createdAt: integer('createdAt', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

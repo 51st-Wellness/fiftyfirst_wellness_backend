@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { eq, desc, like, or, and, count, SQL, sql } from 'drizzle-orm';
+import { eq, desc, like, or, and, count, SQL, sql, isNull } from 'drizzle-orm';
 import {
   storeItems,
   products,
@@ -90,7 +90,12 @@ export class StoreRepository {
         })
         .from(storeItems)
         .leftJoin(reviews, eq(reviews.productId, storeItems.productId))
-        .where(eq(storeItems.productId, id))
+        .where(
+          and(
+            eq(storeItems.productId, id),
+            isNull(storeItems.deletedAt as any),
+          ),
+        )
         .groupBy(storeItems.productId)
         .limit(1);
 
@@ -145,7 +150,7 @@ export class StoreRepository {
   ): Promise<(StoreItem & { averageRating: number; reviewCount: number })[]> {
     try {
       // Build where conditions
-      const conditions: SQL[] = [];
+      const conditions: SQL[] = [isNull(storeItems.deletedAt as any) as any];
       if (filters?.isPublished !== undefined) {
         conditions.push(eq(storeItems.isPublished, filters.isPublished));
       }
@@ -255,7 +260,7 @@ export class StoreRepository {
     minRating?: number;
   }): Promise<number> {
     // Build where conditions
-    const conditions: SQL[] = [];
+    const conditions: SQL[] = [isNull(storeItems.deletedAt as any) as any];
     if (filters?.isPublished !== undefined) {
       conditions.push(eq(storeItems.isPublished, filters.isPublished));
     }
@@ -326,10 +331,15 @@ export class StoreRepository {
     return result[0];
   }
 
-  // Delete store item by ID
+  // Soft delete store item by ID (set deletedAt, keep row for relations)
   async delete(id: string): Promise<StoreItem> {
     const result = await this.database.db
-      .delete(storeItems)
+      .update(storeItems)
+      .set({
+        deletedAt: new Date(),
+        isPublished: false,
+        isFeatured: false,
+      })
       .where(eq(storeItems.productId, id))
       .returning();
     return result[0];
@@ -366,7 +376,11 @@ export class StoreRepository {
       })
       .from(storeItems)
       .where(
-        and(eq(storeItems.isFeatured, true), eq(storeItems.isPublished, true)),
+        and(
+          eq(storeItems.isFeatured, true),
+          eq(storeItems.isPublished, true),
+          isNull(storeItems.deletedAt as any) as any,
+        ),
       )
       .orderBy(desc(storeItems.createdAt));
     return results.map((item) => this.sanitizeStoreItem(item));
@@ -404,6 +418,7 @@ export class StoreRepository {
       .from(storeItems)
       .where(
         and(
+          isNull(storeItems.deletedAt as any) as any,
           or(
             like(storeItems.name, `%${query}%`),
             like(storeItems.description, `%${query}%`),
@@ -428,6 +443,7 @@ export class StoreRepository {
       .from(storeItems)
       .where(
         and(
+          isNull(storeItems.deletedAt as any) as any,
           like(storeItems.name, `%${query}%`),
           eq(storeItems.isPublished, true),
         ),
