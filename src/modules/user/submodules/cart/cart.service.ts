@@ -61,7 +61,8 @@ export class CartService {
       throw new BadRequestException('Product is not available for purchase');
     }
 
-    const isPreOrderItem = Boolean(storeItem.preOrderEnabled);
+    const isPreOrderItem =
+      Boolean(storeItem.preOrderEnabled) && (storeItem.stock ?? 0) < 1;
 
     // Enforce preorder-only cart rules:
     // - If cart already contains a preorder item, it cannot contain any other products
@@ -71,7 +72,8 @@ export class CartService {
         id: cartItems.id,
         productId: cartItems.productId,
         quantity: cartItems.quantity,
-        isPreOrder: storeItems.preOrderEnabled,
+        preOrderEnabled: storeItems.preOrderEnabled,
+        stock: storeItems.stock,
       })
       .from(cartItems)
       .where(eq(cartItems.userId, userId))
@@ -79,9 +81,10 @@ export class CartService {
       .innerJoin(storeItems, eq(products.id, storeItems.productId));
 
     if (existingCartItems.length > 0) {
-      const cartHasPreOrder = existingCartItems.some(
-        (item) => Boolean(item.isPreOrder) === true,
-      );
+      const cartHasPreOrder = existingCartItems.some((item) => {
+        const stock = item.stock ?? 0;
+        return Boolean(item.preOrderEnabled) && stock < 1;
+      });
 
       if (cartHasPreOrder) {
         // Cart already contains a preorder item – only allow updating quantity of the same product
@@ -250,7 +253,8 @@ export class CartService {
     )[0];
 
     // Check stock availability
-    const isPreOrderItem = Boolean(storeItem?.preOrderEnabled);
+    const isPreOrderItem =
+      Boolean(storeItem?.preOrderEnabled) && (storeItem?.stock ?? 0) < 1;
 
     if (!isPreOrderItem && storeItem && storeItem.stock < quantity) {
       throw new BadRequestException('Insufficient stock available');
