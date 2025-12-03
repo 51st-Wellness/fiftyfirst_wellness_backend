@@ -88,16 +88,6 @@ type StripeWebhookMetadata =
   | SubscriptionMetadata
   | (Record<string, any> & { type?: string });
 
-const isStoreCheckoutMetadata = (
-  metadata?: StripeWebhookMetadata,
-): metadata is StoreCheckoutMetadata =>
-  metadata != null && metadata.type === 'store_checkout';
-
-const isSubscriptionMetadata = (
-  metadata?: StripeWebhookMetadata,
-): metadata is SubscriptionMetadata =>
-  metadata != null && metadata.type === 'subscription';
-
 @Injectable()
 export class PaymentService {
   constructor(
@@ -1206,7 +1196,7 @@ export class PaymentService {
             await this.updateOrderStatusForPayment(
               tx,
               payment.id,
-              OrderStatus.PROCESSING,
+              OrderStatus.PAID,
             );
 
             // Finalize store checkout (decrement stock, clear cart)
@@ -1324,7 +1314,7 @@ export class PaymentService {
           await this.updateOrderStatusForPayment(
             tx,
             payment.id,
-            OrderStatus.PROCESSING,
+            OrderStatus.PAID,
           );
           // Clear user's cart for store purchases and decrement stock
           // Use order-based approach (same as webhook handler)
@@ -1585,7 +1575,7 @@ export class PaymentService {
             await this.updateOrderStatusForPayment(
               tx,
               payment.id,
-              OrderStatus.PROCESSING,
+              OrderStatus.PAID,
             );
           }
 
@@ -1907,7 +1897,7 @@ export class PaymentService {
 
   private mapPaymentStatusToOrderStatus(status: PaymentStatus): OrderStatus {
     return status === PaymentStatus.PAID
-      ? OrderStatus.PROCESSING
+      ? OrderStatus.PAID
       : OrderStatus.PENDING;
   }
 
@@ -2717,7 +2707,7 @@ export class PaymentService {
         .update(orders)
         .set({
           preOrderStatus: PreOrderStatus.FULFILLED,
-          status: OrderStatus.PROCESSING,
+          status: OrderStatus.PAID,
         })
         .where(eq(orders.id, orderId));
 

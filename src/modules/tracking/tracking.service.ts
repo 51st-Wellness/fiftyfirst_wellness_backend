@@ -307,19 +307,19 @@ export class TrackingService implements OnModuleInit {
   private mapClickDropStatusToOrderStatus(cdOrder: any): OrderStatus {
     // Check in reverse order of lifecycle (most advanced status first)
     if (cdOrder.shippedOn) {
-      // We'll use TRANSIT for shipped orders
+      // shippedOn means order has been shipped and is in transit
       return OrderStatus.TRANSIT;
     }
     if (cdOrder.manifestedOn) {
-      // manifestedOn means order info received and manifested
+      // manifestedOn means order info received and manifested, ready to be dispatched
       return OrderStatus.DISPATCHED;
     }
     if (cdOrder.printedOn) {
-      // printedOn means label has been printed
+      // printedOn means label has been printed and is being processed
       return OrderStatus.PROCESSING;
     }
-    // No dates set means order is still pending
-    return OrderStatus.PROCESSING;
+    // No dates set means order is still received but not yet processed
+    return OrderStatus.PAID;
   }
 
   // Process tracking check job (called by consumer) - now checks all Click & Drop orders
@@ -455,6 +455,7 @@ export class TrackingService implements OnModuleInit {
   private getStatusDescription(status: string): string {
     const descriptions: Record<OrderStatus, string> = {
       [OrderStatus.PENDING]: 'Your order is being prepared',
+      [OrderStatus.PAID]: 'Your order has been received',
       [OrderStatus.PROCESSING]: 'Your order is being processed',
       [OrderStatus.DISPATCHED]: 'Your order has been dispatched',
       [OrderStatus.TRANSIT]: 'Your order is in transit',

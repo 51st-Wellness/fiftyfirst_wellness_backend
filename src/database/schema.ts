@@ -23,6 +23,7 @@ export type PaymentStatus = (typeof paymentStatuses)[number];
 
 export const orderStatuses = [
   'PENDING',
+  'PAID',
   'PROCESSING',
   'NOTFOUND',
   'DISPATCHED',
@@ -89,8 +90,7 @@ export const PaymentStatus = {
 
 export const OrderStatus = {
   PENDING: 'PENDING' as const,
-  // TODO: make RECEIVED the next after successful payment
-  RECEIVED: 'RECEIVED' as const,
+  PAID: 'PAID' as const,
   PROCESSING: 'PROCESSING' as const,
   DISPATCHED: 'DISPATCHED' as const,
   TRANSIT: 'TRANSIT' as const,
