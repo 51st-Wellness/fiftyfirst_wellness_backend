@@ -465,6 +465,7 @@ export class TrackingService implements OnModuleInit {
       [OrderStatus.EXCEPTION]: 'An exception occurred during delivery',
       [OrderStatus.EXPIRED]: 'Tracking information has expired',
       [OrderStatus.NOTFOUND]: 'Tracking information not found',
+      [OrderStatus.FAILED]: 'Your order delivery has failed',
     };
 
     return descriptions[status as OrderStatus] || 'Status update';
