@@ -53,7 +53,6 @@ export type PaymentMetadata =
 export type StoreCheckoutPaymentMetadata = {
   type: 'store_checkout';
   receiptUrl?: string;
-  paymentIntentId?: string; // Stripe PaymentIntent ID for reference
   lastWebhookEvent?: string; // Last webhook event type received
   lastWebhookAt?: string; // ISO timestamp of last webhook
 };
@@ -1537,7 +1536,6 @@ export class PaymentService {
             ...currentMetadata,
             lastWebhookEvent: webhookResult.eventType,
             lastWebhookAt: new Date().toISOString(),
-            paymentIntentId: webhookResult.providerRef,
           };
 
           // Get the order to check if it's a pre-order
@@ -1555,7 +1553,7 @@ export class PaymentService {
             .update(payments)
             .set({
               status: PaymentStatus.PAID,
-              providerRef: webhookResult.providerRef,
+              // Keep original providerRef (Checkout Session ID) for consistent lookup
               capturedAmount: payment.amount,
               authorizedAmount: payment.amount,
               metadata: updatedMetadata as PaymentMetadata,
@@ -1616,8 +1614,6 @@ export class PaymentService {
 
       case 'charge.succeeded': {
         const receiptUrl = (webhookResult.metadata as any)?.receiptUrl;
-        const paymentIntentId = (webhookResult.metadata as any)
-          ?.paymentIntentId;
         const currentMetadata =
           (payment.metadata as StoreCheckoutPaymentMetadata) || {
             type: 'store_checkout',
@@ -1627,21 +1623,18 @@ export class PaymentService {
           receiptUrl,
           lastWebhookEvent: webhookResult.eventType,
           lastWebhookAt: new Date().toISOString(),
-          ...(paymentIntentId && { paymentIntentId }),
         };
 
-        // Update payment with receipt URL and PaymentIntent ID as providerRef
+        // Update payment with receipt URL (keep original providerRef as Checkout Session ID)
         await this.database.db
           .update(payments)
           .set({
             metadata: updatedMetadata as PaymentMetadata,
-            // Update providerRef to PaymentIntent ID if available (more reliable than session ID)
-            ...(paymentIntentId && { providerRef: paymentIntentId }),
           })
           .where(eq(payments.id, payment.id));
 
         console.log(
-          `[Webhook] Updated payment ${payment.id} with receipt URL and PaymentIntent ID`,
+          `[Webhook] Updated payment ${payment.id} with receipt URL`,
         );
 
         return {
@@ -1667,7 +1660,7 @@ export class PaymentService {
             .update(payments)
             .set({
               status: PaymentStatus.CANCELLED,
-              providerRef: webhookResult.providerRef,
+              // Keep original providerRef (Checkout Session ID)
               metadata: updatedMetadata as PaymentMetadata,
             })
             .where(eq(payments.id, payment.id));
@@ -1715,7 +1708,7 @@ export class PaymentService {
             .update(payments)
             .set({
               status: PaymentStatus.FAILED,
-              providerRef: webhookResult.providerRef,
+              // Keep original providerRef (Checkout Session ID)
               metadata: updatedMetadata as PaymentMetadata,
             })
             .where(eq(payments.id, payment.id));
@@ -2276,7 +2269,7 @@ export class PaymentService {
         .update(payments)
         .set({
           status: webhookResult.status,
-          providerRef: webhookResult.providerRef || payment.providerRef,
+          // Keep original providerRef (Checkout Session ID) for consistent lookup
           metadata: updatedMetadata as PaymentMetadata,
         })
         .where(eq(payments.id, payment.id));
