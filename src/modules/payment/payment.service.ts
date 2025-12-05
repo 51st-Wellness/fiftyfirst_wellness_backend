@@ -1668,7 +1668,7 @@ export class PaymentService {
           await this.updateOrderStatusForPayment(
             tx,
             payment.id,
-            OrderStatus.PENDING,
+            OrderStatus.FAILED,
             [OrderStatus.PENDING, OrderStatus.PROCESSING],
           );
         });
@@ -1716,7 +1716,7 @@ export class PaymentService {
           await this.updateOrderStatusForPayment(
             tx,
             payment.id,
-            OrderStatus.PENDING,
+            OrderStatus.FAILED,
             [OrderStatus.PENDING, OrderStatus.PROCESSING],
           );
         });
@@ -1765,7 +1765,7 @@ export class PaymentService {
         await this.updateOrderStatusForPayment(
           this.database.db,
           payment.id,
-          OrderStatus.PENDING,
+          OrderStatus.FAILED,
           [OrderStatus.PENDING, OrderStatus.PROCESSING],
         );
 
@@ -1889,9 +1889,13 @@ export class PaymentService {
   }
 
   private mapPaymentStatusToOrderStatus(status: PaymentStatus): OrderStatus {
-    return status === PaymentStatus.PAID
-      ? OrderStatus.PAID
-      : OrderStatus.PENDING;
+    if (status === PaymentStatus.PAID) {
+      return OrderStatus.PAID;
+    }
+    if (status === PaymentStatus.FAILED || status === PaymentStatus.CANCELLED) {
+      return OrderStatus.FAILED;
+    }
+    return OrderStatus.PENDING;
   }
 
   // Send payment status update email via notification pipeline
