@@ -370,4 +370,28 @@ export class CartService {
       user,
     } as CartItemWithRelations;
   }
+
+  // Bulk add items to cart (used during login/signup)
+  async bulkAddToCart(
+    userId: string,
+    items: { productId: string; quantity: number }[],
+  ): Promise<void> {
+    if (!items || items.length === 0) return;
+
+    for (const item of items) {
+      try {
+        await this.addToCart(userId, {
+          productId: item.productId,
+          quantity: item.quantity,
+        });
+      } catch (error) {
+        // Ignore errors for individual items (e.g. out of stock, not found)
+        // so that other items can still be added
+        console.warn(
+          `Failed to add item ${item.productId} to cart for user ${userId}:`,
+          error.message,
+        );
+      }
+    }
+  }
 }

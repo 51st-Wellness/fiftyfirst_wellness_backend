@@ -17,6 +17,8 @@ import * as crypto from 'crypto';
 import { DataFormatter } from 'src/lib/helpers/data-formater.helper';
 import { JWT_SERVICE } from 'src/config/constants.config';
 import { SignupDto } from './dto/signup.dto';
+import { CartService } from 'src/modules/user/submodules/cart/cart.service';
+import { AddToCartDto } from 'src/modules/user/submodules/cart/dto/add-to-cart.dto';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +26,7 @@ export class AuthService {
     @Inject(JWT_SERVICE) private readonly jwtService: JwtService,
     private readonly userService: UserService,
     private readonly eventsEmitter: EventsEmitter,
+    private readonly cartService: CartService,
   ) {}
 
   // Validate provided credentials against stored user credentials
@@ -58,16 +61,27 @@ export class AuthService {
 
   // Register a user and return the created user without password
   async register(createUserDto: SignupDto): Promise<Omit<User, 'password'>> {
-    const user = await this.userService.create(createUserDto);
+    const { cartItems, ...userData } = createUserDto;
+    const user = await this.userService.create(userData);
 
     // Generate and send email verification OTP for regular users (not Google OAuth)
     if (!user.googleId) {
       await this.generateEmailVerificationOTP(user.email);
     }
 
+    // Handle bulk cart items if provided
+    if (cartItems && cartItems.length > 0) {
+      await this.handleBulkCartItems(user.id, cartItems);
+    }
+
     // Note: Welcome email is sent after email verification, not on signup
 
     return user;
+  }
+
+  // Helper to handle bulk cart items
+  async handleBulkCartItems(userId: string, items: AddToCartDto[]) {
+    await this.cartService.bulkAddToCart(userId, items);
   }
 
   // Issue a signed JWT access token for the user and set cookie

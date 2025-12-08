@@ -23,6 +23,7 @@ import { ConfigService } from 'src/config/config.service';
 import { ENV } from 'src/config/env.enum';
 import { ResponseDto } from 'src/util/dto/response.dto';
 import { SignupDto } from './dto/signup.dto';
+import { LoginDto } from './dto/login.dto';
 import { AppConfig } from 'src/config/app.config';
 import { OAuth2Client } from 'google-auth-library';
 @Controller('auth')
@@ -59,12 +60,21 @@ export class AuthController {
   // Login with email and password using local strategy
   @UseGuards(AuthGuard('local'))
   @Post('login')
-  async login(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Req() req: Request,
+    @Body() body: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const user = req.user as User;
     const accessToken = await this.authService.issueAccessTokenWithCookie(
       user,
       res,
     );
+
+    // Handle bulk cart items if provided
+    if (body.cartItems && body.cartItems.length > 0) {
+      await this.authService.handleBulkCartItems(user.id, body.cartItems);
+    }
 
     // Send login reminder email (for testing purposes)
     // await this.authService.sendLoginReminder(user);
@@ -171,7 +181,11 @@ export class AuthController {
   // Google One Tap authentication endpoint
   @Post('google/onetap')
   async googleOneTap(
-    @Body() body: { token: string },
+    @Body()
+    body: {
+      token: string;
+      cartItems?: { productId: string; quantity: number }[];
+    },
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
@@ -210,6 +224,11 @@ export class AuthController {
         googleId,
         profilePicture,
       );
+
+      // Handle bulk cart items if provided
+      if (body.cartItems && body.cartItems.length > 0) {
+        await this.authService.handleBulkCartItems(user.id, body.cartItems);
+      }
 
       // Generate access token and set cookie
       const accessToken = await this.authService.issueAccessTokenWithCookie(

@@ -68,6 +68,19 @@ export class CartController {
     );
   }
 
+  // Clear entire cart
+  @Delete('clear')
+  async clearCart(
+    @CurrentUser() user: User,
+  ): Promise<ResponseDto<{ deletedCount: number }>> {
+    const result = await this.cartService.clearCart(user.id);
+
+    return ResponseDto.createSuccessResponse(
+      'Cart cleared successfully',
+      result,
+    );
+  }
+
   @Delete(':productId')
   async removeFromCart(
     @CurrentUser() user: User,
@@ -81,19 +94,6 @@ export class CartController {
     return ResponseDto.createSuccessResponse(
       'Item removed from cart successfully',
       deletedItem,
-    );
-  }
-
-  // Clear entire cart
-  @Delete()
-  async clearCart(
-    @CurrentUser() user: User,
-  ): Promise<ResponseDto<{ deletedCount: number }>> {
-    const result = await this.cartService.clearCart(user.id);
-
-    return ResponseDto.createSuccessResponse(
-      'Cart cleared successfully',
-      result,
     );
   }
 }
