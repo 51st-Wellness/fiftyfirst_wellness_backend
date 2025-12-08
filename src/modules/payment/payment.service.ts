@@ -1633,9 +1633,7 @@ export class PaymentService {
           })
           .where(eq(payments.id, payment.id));
 
-        console.log(
-          `[Webhook] Updated payment ${payment.id} with receipt URL`,
-        );
+        console.log(`[Webhook] Updated payment ${payment.id} with receipt URL`);
 
         return {
           processed: true,
@@ -2036,7 +2034,7 @@ export class PaymentService {
           'We wanted to keep you updated on your recent transaction.',
         nextSteps: copy.nextSteps || '',
         paymentType: isStoreOrder ? 'Store Order' : 'Subscription',
-        paymentId: paymentRecord.id,
+
         providerRef: paymentRecord.providerRef || '',
         orderId: orderDetails?.orderId || '',
         subscriptionId: subscriptionDetails?.subscriptionId || '',

@@ -433,7 +433,7 @@ export class TrackingService implements OnModuleInit {
           firstName: userData.firstName || 'Customer',
           lastName: userData.lastName || '',
           orderId: data.orderId,
-          trackingReference: data.trackingReference,
+
           previousStatus: data.previousStatus || 'Unknown',
           newStatus: data.newStatus,
           statusDescription: this.getStatusDescription(data.newStatus),
