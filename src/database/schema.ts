@@ -22,7 +22,7 @@ export const paymentStatuses = [
 export type PaymentStatus = (typeof paymentStatuses)[number];
 
 export const orderStatuses = [
-  "FAILED",
+  'FAILED',
   'PENDING',
   'PAID',
   'PROCESSING',

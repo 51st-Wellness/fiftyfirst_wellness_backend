@@ -28,7 +28,7 @@ import {
   PaymentProvider as PaymentProviderEnum,
   PreOrderStatus,
 } from 'src/database/schema';
-import { generateId } from 'src/database/utils';
+import { generateId, generateOrderId } from 'src/database/utils';
 import { User } from 'src/database/types';
 import { SQL } from 'drizzle-orm';
 import {
@@ -904,7 +904,7 @@ export class PaymentService {
     }
 
     // Create order in database with shipping details
-    const orderId = generateId();
+    const orderId = generateOrderId();
     await this.database.db.insert(orders).values({
       id: orderId,
       userId,
