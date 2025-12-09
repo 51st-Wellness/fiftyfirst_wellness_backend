@@ -902,7 +902,7 @@ export class OrderService {
         // Update order with Click & Drop details
         const statusHistory = (order.statusHistory as any[]) || [];
         statusHistory.push({
-          status: 'DISPATCHED',
+          status: order.status,
           timestamp: new Date().toISOString(),
           note: 'Order submitted to Click & Drop',
           clickDropOrderIdentifier: createdOrder.orderIdentifier,
@@ -913,7 +913,7 @@ export class OrderService {
           .set({
             clickDropOrderIdentifier: createdOrder.orderIdentifier,
             labelBase64: createdOrder.label,
-            status: OrderStatus.DISPATCHED,
+            // Keep status unchanged; tracking cron will advance to DISPATCHED/TRANSIT
             statusHistory,
           })
           .where(eq(orders.id, orderId));
@@ -930,8 +930,6 @@ export class OrderService {
           `Failed to submit order ${orderRef} to Click & Drop:`,
           JSON.stringify(errors, null, 2),
         );
-        // Don't throw - allow manual retry by admin
-        // Log error prominently for admin review
       } else {
         console.warn(
           `Click & Drop API response for order ${orderId} had no created or failed orders`,

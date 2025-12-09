@@ -116,6 +116,23 @@ export class PaymentService {
     return PaymentProviderEnum.STRIPE;
   }
 
+  // Generate a unique 5-char order id by checking collisions in DB
+  private async generateUniqueOrderId(): Promise<string> {
+    const maxAttempts = 5;
+    for (let i = 0; i < maxAttempts; i += 1) {
+      const candidate = generateOrderId();
+      const existing = await this.database.db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(eq(orders.id, candidate))
+        .limit(1);
+      if (existing.length === 0) {
+        return candidate;
+      }
+    }
+    throw new Error('Unable to generate unique order id after retries');
+  }
+
   // Find payment using Stripe metadata as primary method (most reliable per Stripe docs)
   private async findPaymentForWebhook(metadata?: StripeWebhookMetadata) {
     // Primary: Use paymentId from metadata (set during checkout initialization)
@@ -768,6 +785,7 @@ export class PaymentService {
     };
   }
 
+  // Handle checkout for cart items and create payment intent/order
   async checkoutCartItems(userProfile: User, cartCheckoutDto: CartCheckoutDto) {
     // Create order and initialize payment for store items
     const description = `Cart Checkout for ${userProfile.firstName}`;
@@ -904,7 +922,7 @@ export class PaymentService {
     }
 
     // Create order in database with shipping details
-    const orderId = generateOrderId();
+    const orderId = await this.generateUniqueOrderId();
     await this.database.db.insert(orders).values({
       id: orderId,
       userId,
