@@ -96,7 +96,7 @@ export class StatsService {
     // Initialize map for the date range
     for (let i = 0; i < 30; i++) {
       const d = new Date(endDate);
-      d.setDate(d.getDate() - i);
+      d.setDate(endDate.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       growthMap.set(dateStr, 0);
     }
