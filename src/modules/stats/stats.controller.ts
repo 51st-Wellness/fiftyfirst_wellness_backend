@@ -1,4 +1,10 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  Query,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { StatsService } from './stats.service';
 
 import { RolesGuard } from 'src/common/gaurds/roles.guard';
@@ -17,6 +23,18 @@ export class StatsController {
     const stats = await this.statsService.getOverviewStats();
     return ResponseDto.createSuccessResponse(
       'Overview statistics retrieved successfully',
+      stats,
+    );
+  }
+
+  @Get('user-growth')
+  @Roles(UserRole.ADMIN)
+  async getUserGrowth(
+    @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
+  ) {
+    const stats = await this.statsService.getUserGrowthStats(offset || 0);
+    return ResponseDto.createSuccessResponse(
+      'User growth statistics retrieved successfully',
       stats,
     );
   }

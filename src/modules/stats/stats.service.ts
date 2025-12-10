@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { eq, and, count, sql, gte, isNull, ne } from 'drizzle-orm';
+import { eq, and, count, sql, gte, isNull, ne, lt, lte } from 'drizzle-orm';
 import {
   products,
   programmes,
@@ -58,10 +58,23 @@ export class StatsService {
     };
   }
 
+  // Helper to calculate percentage growth
+  private calculateGrowth(current: number, previous: number): number {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Number((((current - previous) / previous) * 100).toFixed(1));
+  }
+
   // Helper to get user growth over last 30 days
-  async getUserGrowthStats() {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  async getUserGrowthStats(offset = 0) {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const endDate = new Date(today);
+    endDate.setDate(today.getDate() - offset * 30);
+
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - 29); // 30 days inclusive (0 to 29)
+    startDate.setHours(0, 0, 0, 0);
 
     const userSignups = await this.database.db
       .select({
@@ -70,7 +83,8 @@ export class StatsService {
       .from(users)
       .where(
         and(
-          gte(users.createdAt, thirtyDaysAgo),
+          gte(users.createdAt, startDate),
+          lte(users.createdAt, endDate),
           eq(users.role, UserRole.USER),
           isNull(users.deletedAt),
         ),
@@ -78,9 +92,10 @@ export class StatsService {
 
     // Group by date
     const growthMap = new Map<string, number>();
-    // Initialize last 30 days with 0
+
+    // Initialize map for the date range
     for (let i = 0; i < 30; i++) {
-      const d = new Date();
+      const d = new Date(endDate);
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       growthMap.set(dateStr, 0);
@@ -103,9 +118,11 @@ export class StatsService {
 
   // Get comprehensive overview statistics
   async getOverviewStats(): Promise<OverviewStatsDto> {
-    const startOfWeek = new Date();
-    startOfWeek.setHours(0, 0, 0, 0);
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday as start
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date(thirtyDaysAgo);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 30);
 
     const [
       programmeStats,
@@ -115,6 +132,10 @@ export class StatsService {
       reviewsThisWeek,
       totalPreOrders,
       userGrowth,
+      prevPeriodUsers,
+      prevPeriodOrders,
+      currentPeriodUsers,
+      currentPeriodOrders,
     ] = await Promise.all([
       this.getProgrammeStats(),
 
@@ -168,8 +189,65 @@ export class StatsService {
         .where(eq(orders.isPreOrder, true)),
 
       // User Growth Data
-      this.getUserGrowthStats(),
+      this.getUserGrowthStats(0),
+
+      // Previous Period Users (for trend)
+      this.database.db
+        .select({ count: count() })
+        .from(users)
+        .where(
+          and(
+            gte(users.createdAt, sixtyDaysAgo),
+            lt(users.createdAt, thirtyDaysAgo),
+            eq(users.role, UserRole.USER),
+            isNull(users.deletedAt),
+          ),
+        ),
+
+      // Previous Period Orders (for trend)
+      this.database.db
+        .select({ count: count() })
+        .from(orders)
+        .where(
+          and(
+            gte(orders.createdAt, sixtyDaysAgo),
+            lt(orders.createdAt, thirtyDaysAgo),
+            ne(orders.status, OrderStatus.FAILED),
+            ne(orders.status, OrderStatus.NOTFOUND),
+            ne(orders.status, OrderStatus.EXPIRED),
+          ),
+        ),
+
+      // Current Period Users (Last 30 days)
+      this.database.db
+        .select({ count: count() })
+        .from(users)
+        .where(
+          and(
+            gte(users.createdAt, thirtyDaysAgo),
+            eq(users.role, UserRole.USER),
+            isNull(users.deletedAt),
+          ),
+        ),
+
+      // Current Period Orders (Last 30 days)
+      this.database.db
+        .select({ count: count() })
+        .from(orders)
+        .where(
+          and(
+            gte(orders.createdAt, thirtyDaysAgo),
+            ne(orders.status, OrderStatus.FAILED),
+            ne(orders.status, OrderStatus.NOTFOUND),
+            ne(orders.status, OrderStatus.EXPIRED),
+          ),
+        ),
     ]);
+
+    const currentUsers = currentPeriodUsers[0]?.count || 0;
+    const prevUsers = prevPeriodUsers[0]?.count || 0;
+    const currentOrders = currentPeriodOrders[0]?.count || 0;
+    const prevOrders = prevPeriodOrders[0]?.count || 0;
 
     return {
       ...programmeStats,
@@ -179,6 +257,8 @@ export class StatsService {
       reviewsThisWeek: reviewsThisWeek[0]?.count || 0,
       totalPreOrders: totalPreOrders[0]?.count || 0,
       userGrowth,
+      userGrowthPercentage: this.calculateGrowth(currentUsers, prevUsers),
+      orderGrowthPercentage: this.calculateGrowth(currentOrders, prevOrders),
     };
   }
 }
