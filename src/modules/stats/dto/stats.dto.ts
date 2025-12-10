@@ -6,6 +6,9 @@ export class OverviewStatsDto {
   totalUsers: number;
   totalOrders: number;
   totalRevenue: number;
+  reviewsThisWeek: number;
+  totalPreOrders: number;
+  userGrowth: { date: string; count: number }[];
 }
 
 export class ProgrammeStatsDto {
