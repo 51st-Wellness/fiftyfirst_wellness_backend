@@ -1,6 +1,6 @@
 # Cloudinary Storage Provider
 
-This document describes how to use the Cloudinary storage provider in the Fifty First Wellness application.
+This document describes how to use the Cloudinary storage provider in the Fifty Firsts Wellness application.
 
 ## Environment Variables
 

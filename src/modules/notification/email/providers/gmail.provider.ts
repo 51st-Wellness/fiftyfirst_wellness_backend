@@ -76,7 +76,7 @@ export default class GmailProvider implements EmailSenderProvider {
       this.transporter.sendMail(
         {
           from: {
-            name: this.companyName || 'Fifty First Wellness',
+            name: this.companyName || 'Fifty Firsts Wellness',
             address: this.companyEmail,
           },
           to: renderedEmail.to,
