@@ -1,5 +1,5 @@
-import { drizzle } from 'drizzle-orm/libsql';
-import { createClient } from '@libsql/client';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 
 import * as schema from './schema';
 import * as bcrypt from 'bcrypt';
@@ -47,10 +47,9 @@ type SeederName = keyof typeof SEEDERS;
 
 async function createDbConnection(): Promise<Database> {
   const url = process.env.DATABASE_URL || 'file:./database/dev.db';
-  const authToken = process.env.TURSO_AUTH_TOKEN;
 
-  const client = createClient({ url, authToken });
-  return drizzle(client, { schema });
+  const pool = new Pool({ connectionString: url });
+  return drizzle(pool, { schema });
 }
 
 async function main() {

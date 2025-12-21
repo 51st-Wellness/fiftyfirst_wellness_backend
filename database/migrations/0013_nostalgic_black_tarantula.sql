@@ -1,1 +1,0 @@
-ALTER TABLE `StoreItem` ADD `deletedAt` integer;

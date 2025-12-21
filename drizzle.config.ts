@@ -7,10 +7,9 @@ config();
 export default defineConfig({
   schema: './src/database/schema.ts',
   out: './database/migrations',
-  dialect: 'turso',
+  dialect: 'postgresql',
   dbCredentials: {
     url: process.env.DATABASE_URL!,
-    authToken: process.env.TURSO_AUTH_TOKEN,
   },
   verbose: true,
   strict: true,

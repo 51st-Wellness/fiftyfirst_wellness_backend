@@ -12,17 +12,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     // Initialize the database connection
     this._db = createDatabaseConnection(
       this.configService.get(ENV.DATABASE_URL),
-      this.configService.get(ENV.TURSO_AUTH_TOKEN),
     );
   }
 
   async onModuleInit() {
     try {
       // Check if the database connection is alive
-      await this._db.run(sql`select 1`);
+      await this._db.execute(sql`select 1`);
       console.log('✅ Database connection is healthy');
     } catch (error) {
-      console.error('❌ Failed to connect to Turso database:', error);
+      console.error('❌ Failed to connect to Database:', error);
       throw new Error(`Database connection failed: ${error.message}`);
     }
   }

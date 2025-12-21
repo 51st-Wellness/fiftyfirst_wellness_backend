@@ -1,15 +1,18 @@
 import {
-  sqliteTable,
+  pgTable,
   text,
   integer,
-  real,
-  blob,
-} from 'drizzle-orm/sqlite-core';
+  doublePrecision,
+  timestamp,
+  boolean,
+  jsonb,
+  pgEnum,
+} from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-// Enums as const assertions for type safety
-// Enums and constants - exported for use throughout the app
+// Enums as const assertions for type safety and Postgres Enums
 export const userRoles = ['USER', 'ADMIN', 'MODERATOR'] as const;
+export const userRoleEnum = pgEnum('user_role', userRoles);
 export type UserRole = (typeof userRoles)[number];
 
 export const paymentStatuses = [
@@ -19,6 +22,7 @@ export const paymentStatuses = [
   'CANCELLED',
   'REFUNDED',
 ] as const;
+export const paymentStatusEnum = pgEnum('payment_status', paymentStatuses);
 export type PaymentStatus = (typeof paymentStatuses)[number];
 
 export const orderStatuses = [
@@ -35,12 +39,15 @@ export const orderStatuses = [
   'EXCEPTION',
   'EXPIRED',
 ] as const;
+export const orderStatusEnum = pgEnum('order_status', orderStatuses);
 export type OrderStatus = (typeof orderStatuses)[number];
 
 export const paymentProviders = ['PAYPAL', 'STRIPE', 'FLUTTERWAVE'] as const;
+export const paymentProviderEnum = pgEnum('payment_provider', paymentProviders);
 export type PaymentProvider = (typeof paymentProviders)[number];
 
 export const currencies = ['USD', 'NGN', 'EUR', 'GBP'] as const;
+export const currencyEnum = pgEnum('currency', currencies);
 export type Currency = (typeof currencies)[number];
 
 export const accessItems = [
@@ -48,18 +55,23 @@ export const accessItems = [
   'PROGRAMME_ACCESS',
   'ALL_ACCESS',
 ] as const;
+export const accessItemEnum = pgEnum('access_item', accessItems);
 export type AccessItem = (typeof accessItems)[number];
 
 export const productTypes = ['STORE', 'PROGRAMME', 'PODCAST'] as const;
+export const productTypeEnum = pgEnum('product_type', productTypes);
 export type ProductType = (typeof productTypes)[number];
 
 export const categoryServices = ['store', 'programme', 'podcast'] as const;
+export const categoryServiceEnum = pgEnum('category_service', categoryServices);
 export type CategoryService = (typeof categoryServices)[number];
 
 export const pricingModels = ['ONE_TIME', 'SUBSCRIPTION', 'FREE'] as const;
+export const pricingModelEnum = pgEnum('pricing_model', pricingModels);
 export type PricingModel = (typeof pricingModels)[number];
 
 export const reviewStatuses = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+export const reviewStatusEnum = pgEnum('review_status', reviewStatuses);
 export type ReviewStatus = (typeof reviewStatuses)[number];
 
 export const preOrderStatuses = [
@@ -68,11 +80,20 @@ export const preOrderStatuses = [
   'FULFILLED',
   'CANCELLED',
 ] as const;
+export const preOrderStatusEnum = pgEnum('pre_order_status', preOrderStatuses);
 export type PreOrderStatus = (typeof preOrderStatuses)[number];
 
 export const productSubscriberStatuses = ['PENDING', 'NOTIFIED'] as const;
+export const productSubscriberStatusEnum = pgEnum(
+  'product_subscriber_status',
+  productSubscriberStatuses,
+);
 export type ProductSubscriberStatus =
   (typeof productSubscriberStatuses)[number];
+
+export const discountTypes = ['NONE', 'PERCENTAGE', 'FLAT'] as const;
+export const discountTypeEnum = pgEnum('discount_type', discountTypes);
+export type DiscountType = (typeof discountTypes)[number];
 
 // Enum objects for backwards compatibility with Prisma code
 export const UserRole = {
@@ -154,222 +175,173 @@ export const ProductSubscriberStatus = {
 };
 
 // Core tables
-export const users = sqliteTable('User', {
-  id: text('id').primaryKey(),
+export const users = pgTable('User', {
+  id: text('id').primaryKey(), // Keeping text to match previous behavior
   email: text('email').notNull().unique(),
-  password: text('password'), // Optional for Google OAuth users
+  password: text('password'),
   firstName: text('firstName').notNull(),
   lastName: text('lastName').notNull(),
-  phone: text('phone'), // Optional for Google OAuth users
-  googleId: text('googleId').unique(), // Google OAuth ID
-  role: text('role', { enum: userRoles }).notNull().default('USER'),
+  phone: text('phone'),
+  googleId: text('googleId').unique(),
+  role: userRoleEnum('role').notNull().default('USER'),
   bio: text('bio'),
   profilePicture: text('profilePicture'),
-  isActive: integer('isActive', { mode: 'boolean' }).notNull().default(true),
-  isEmailVerified: integer('isEmailVerified', { mode: 'boolean' })
-    .notNull()
-    .default(false), // Email verification status
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  isActive: boolean('isActive').notNull().default(true),
+  isEmailVerified: boolean('isEmailVerified').notNull().default(false),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
-  deletedAt: integer('deletedAt', { mode: 'timestamp' }),
+  deletedAt: timestamp('deletedAt'),
 });
 
-export const passwordResetOTPs = sqliteTable('PasswordResetOTP', {
+export const passwordResetOTPs = pgTable('PasswordResetOTP', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull().unique(),
   otp: text('otp').notNull(),
-  expiresAt: integer('expiresAt', { mode: 'timestamp' }).notNull(),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
+  expiresAt: timestamp('expiresAt').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
 
-export const emailVerificationOTPs = sqliteTable('EmailVerificationOTP', {
+export const emailVerificationOTPs = pgTable('EmailVerificationOTP', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull().unique(),
   otp: text('otp').notNull(),
-  expiresAt: integer('expiresAt', { mode: 'timestamp' }).notNull(),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
+  expiresAt: timestamp('expiresAt').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
 
-export const subscriptionPlans = sqliteTable('SubscriptionPlan', {
+export const subscriptionPlans = pgTable('SubscriptionPlan', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
-  price: real('price').notNull(),
-  duration: integer('duration').notNull(), // in days
-  isActive: integer('isActive', { mode: 'boolean' }).notNull().default(true),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  price: doublePrecision('price').notNull(),
+  duration: integer('duration').notNull(),
+  isActive: boolean('isActive').notNull().default(true),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const subscriptionAccess = sqliteTable('SubscriptionAccess', {
+export const subscriptionAccess = pgTable('SubscriptionAccess', {
   id: text('id').primaryKey(),
   planId: text('planId').notNull(),
-  accessItem: text('accessItem', { enum: accessItems }).notNull(),
+  accessItem: accessItemEnum('accessItem').notNull(),
 });
 
-export const subscriptions = sqliteTable('Subscription', {
-  id: text('id').primaryKey(), // Use payment_intent ID or checkout_session ID directly
+export const subscriptions = pgTable('Subscription', {
+  id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   planId: text('planId').notNull(),
-  status: text('status', { enum: paymentStatuses })
-    .notNull()
-    .default('PENDING'),
-  startDate: integer('startDate', { mode: 'timestamp' }).notNull(),
-  endDate: integer('endDate', { mode: 'timestamp' }).notNull(),
-  autoRenew: integer('autoRenew', { mode: 'boolean' }).notNull().default(true),
-  paymentId: text('paymentId'), // Link to payments table
-  providerSubscriptionId: text('providerSubscriptionId'), // Stripe subscription ID for grouping
-  invoiceId: text('invoiceId'), // Invoice ID for recurring payments
-  billingCycle: integer('billingCycle').notNull().default(1), // Which billing cycle this is
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
+  status: paymentStatusEnum('status').notNull().default('PENDING'),
+  startDate: timestamp('startDate').notNull(),
+  endDate: timestamp('endDate').notNull(),
+  autoRenew: boolean('autoRenew').notNull().default(true),
+  paymentId: text('paymentId'),
+  providerSubscriptionId: text('providerSubscriptionId'),
+  invoiceId: text('invoiceId'),
+  billingCycle: integer('billingCycle').notNull().default(1),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
 
-export const payments = sqliteTable('Payment', {
+export const payments = pgTable('Payment', {
   id: text('id').primaryKey(),
-  provider: text('provider', { enum: paymentProviders }).notNull(),
-  providerRef: text('providerRef'), // Stripe payment intent/charge id
-  status: text('status', { enum: paymentStatuses })
-    .notNull()
-    .default('PENDING'),
-  currency: text('currency', { enum: currencies }).notNull(),
-  amount: real('amount').notNull(),
-  capturedAmount: real('capturedAmount').notNull().default(0), // For pre-orders: amount actually captured
-  authorizedAmount: real('authorizedAmount').notNull().default(0), // For pre-orders: amount authorized but not captured
-  isPreOrderPayment: integer('isPreOrderPayment', { mode: 'boolean' })
-    .notNull()
-    .default(false),
-  finalPaymentId: text('finalPaymentId'), // Link to final payment if this is a deposit
-  metadata: text('metadata', { mode: 'json' }), // JSON field
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  provider: paymentProviderEnum('provider').notNull(),
+  providerRef: text('providerRef'),
+  status: paymentStatusEnum('status').notNull().default('PENDING'),
+  currency: currencyEnum('currency').notNull(),
+  amount: doublePrecision('amount').notNull(),
+  capturedAmount: doublePrecision('capturedAmount').notNull().default(0),
+  authorizedAmount: doublePrecision('authorizedAmount').notNull().default(0),
+  isPreOrderPayment: boolean('isPreOrderPayment').notNull().default(false),
+  finalPaymentId: text('finalPaymentId'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const products = sqliteTable('Product', {
+export const products = pgTable('Product', {
   id: text('id').primaryKey(),
-  type: text('type', { enum: productTypes }).notNull(),
-  pricingModel: text('pricingModel', { enum: pricingModels }).notNull(),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  type: productTypeEnum('type').notNull(),
+  pricingModel: pricingModelEnum('pricingModel').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const discountTypes = ['NONE', 'PERCENTAGE', 'FLAT'] as const;
-export type DiscountType = (typeof discountTypes)[number];
-
-export const storeItems = sqliteTable('StoreItem', {
+export const storeItems = pgTable('StoreItem', {
   productId: text('productId').primaryKey().unique(),
   name: text('name').notNull(),
   description: text('description'),
   productUsage: text('productUsage'),
   productBenefits: text('productBenefits'),
-  productIngredients: text('productIngredients', { mode: 'json' }), // [string] -> serialized as JSON
-  price: real('price').notNull(),
+  productIngredients: jsonb('productIngredients'),
+  price: doublePrecision('price').notNull(),
   stock: integer('stock').notNull().default(0),
-  display: text('display', { mode: 'json' }).notNull(), // {url: string, type: image/video}
-  images: text('images', { mode: 'json' }).notNull(), // [string] -> urls
-  categories: text('categories', { mode: 'json' }).notNull(), // [string] -> category names
-  isFeatured: integer('isFeatured', { mode: 'boolean' })
-    .notNull()
-    .default(false),
-  isPublished: integer('isPublished', { mode: 'boolean' })
-    .notNull()
-    .default(true),
-  discountType: text('discountType', { enum: discountTypes })
-    .notNull()
-    .default('NONE'),
-  discountValue: real('discountValue').notNull().default(0),
-  discountActive: integer('discountActive', { mode: 'boolean' })
-    .notNull()
-    .default(false),
-  discountStart: integer('discountStart', { mode: 'timestamp' }),
-  discountEnd: integer('discountEnd', { mode: 'timestamp' }),
-  preOrderEnabled: integer('preOrderEnabled', { mode: 'boolean' })
-    .notNull()
-    .default(false),
-  weight: real('weight'), // Weight in grams for Click & Drop
-  length: real('length'), // Length in mm for Click & Drop
-  width: real('width'), // Width in mm for Click & Drop
-  height: real('height'), // Height in mm for Click & Drop
-  deletedAt: integer('deletedAt', { mode: 'timestamp' }),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  display: jsonb('display').notNull(),
+  images: jsonb('images').notNull(),
+  categories: jsonb('categories').notNull(),
+  isFeatured: boolean('isFeatured').notNull().default(false),
+  isPublished: boolean('isPublished').notNull().default(true),
+  discountType: discountTypeEnum('discountType').notNull().default('NONE'),
+  discountValue: doublePrecision('discountValue').notNull().default(0),
+  discountActive: boolean('discountActive').notNull().default(false),
+  discountStart: timestamp('discountStart'),
+  discountEnd: timestamp('discountEnd'),
+  preOrderEnabled: boolean('preOrderEnabled').notNull().default(false),
+  weight: doublePrecision('weight'),
+  length: doublePrecision('length'),
+  width: doublePrecision('width'),
+  height: doublePrecision('height'),
+  deletedAt: timestamp('deletedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const programmes = sqliteTable('Programme', {
+export const programmes = pgTable('Programme', {
   productId: text('productId').primaryKey().unique(),
   title: text('title').notNull(),
   description: text('description'),
   muxAssetId: text('muxAssetId').unique(),
   muxPlaybackId: text('muxPlaybackId').unique(),
-  isPublished: integer('isPublished', { mode: 'boolean' })
-    .notNull()
-    .default(false),
-  isFeatured: integer('isFeatured', { mode: 'boolean' })
-    .notNull()
-    .default(false),
+  isPublished: boolean('isPublished').notNull().default(false),
+  isFeatured: boolean('isFeatured').notNull().default(false),
   thumbnail: text('thumbnail'),
-  requiresAccess: text('requiresAccess', { enum: accessItems }).notNull(),
-  duration: integer('duration').notNull(), // in seconds
-  categories: text('categories', { mode: 'json' }), // [string] -> category names
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  requiresAccess: accessItemEnum('requiresAccess').notNull(),
+  duration: integer('duration').notNull(),
+  categories: jsonb('categories'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const podcasts = sqliteTable('Podcast', {
+export const podcasts = pgTable('Podcast', {
   productId: text('productId').primaryKey().unique(),
   title: text('title').notNull(),
   description: text('description'),
   muxAssetId: text('muxAssetId').notNull().unique(),
   muxPlaybackId: text('muxPlaybackId').notNull().unique(),
-  isPublished: integer('isPublished', { mode: 'boolean' })
-    .notNull()
-    .default(true),
-  isFeatured: integer('isFeatured', { mode: 'boolean' })
-    .notNull()
-    .default(false),
+  isPublished: boolean('isPublished').notNull().default(true),
+  isFeatured: boolean('isFeatured').notNull().default(false),
   thumbnail: text('thumbnail'),
-  requiresAccess: text('requiresAccess', { enum: accessItems }).notNull(), // Always PODCAST_ACCESS
-  duration: integer('duration').notNull(), // in seconds
-  categories: text('categories', { mode: 'json' }), // [string] -> category names
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  requiresAccess: accessItemEnum('requiresAccess').notNull(),
+  duration: integer('duration').notNull(),
+  categories: jsonb('categories'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
   podcastProductId: text('podcastProductId').notNull(),
 });
 
-export const deliveryAddresses = sqliteTable('DeliveryAddress', {
+export const deliveryAddresses = pgTable('DeliveryAddress', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   recipientName: text('recipientName').notNull(),
@@ -378,171 +350,136 @@ export const deliveryAddresses = sqliteTable('DeliveryAddress', {
   postTown: text('postTown').notNull(),
   postcode: text('postcode').notNull().default('NOT SET'),
   deliveryInstructions: text('deliveryInstructions'),
-  isDefault: integer('isDefault', { mode: 'boolean' }).notNull().default(false),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  isDefault: boolean('isDefault').notNull().default(false),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
-  deletedAt: integer('deletedAt', { mode: 'timestamp' }),
+  deletedAt: timestamp('deletedAt'),
 });
 
-export const settings = sqliteTable('Setting', {
+export const settings = pgTable('Setting', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
   description: text('description'),
   category: text('category'),
-  isEditable: integer('isEditable', { mode: 'boolean' })
-    .notNull()
-    .default(true),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  isEditable: boolean('isEditable').notNull().default(true),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const orders = sqliteTable('Order', {
+export const orders = pgTable('Order', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
-  status: text('status', { enum: orderStatuses }).notNull().default('PENDING'),
-  totalAmount: real('totalAmount').notNull(),
+  status: orderStatusEnum('status').notNull().default('PENDING'),
+  totalAmount: doublePrecision('totalAmount').notNull(),
   previewImage: text('previewImage'),
   paymentId: text('paymentId'),
-  deliveryAddressId: text('deliveryAddressId'), // Foreign key to deliveryAddresses
-  isPreOrder: integer('isPreOrder', { mode: 'boolean' })
-    .notNull()
-    .default(false),
-  preOrderStatus: text('preOrderStatus', { enum: preOrderStatuses }),
-  expectedFulfillmentDate: integer('expectedFulfillmentDate', {
-    mode: 'timestamp',
-  }),
+  deliveryAddressId: text('deliveryAddressId'),
+  isPreOrder: boolean('isPreOrder').notNull().default(false),
+  preOrderStatus: preOrderStatusEnum('preOrderStatus'),
+  expectedFulfillmentDate: timestamp('expectedFulfillmentDate'),
   fulfillmentNotes: text('fulfillmentNotes'),
-  // Click & Drop fields
-  clickDropOrderIdentifier: integer('clickDropOrderIdentifier'), // Order identifier from Click & Drop API
-  packageFormatIdentifier: text('packageFormatIdentifier'), // 'smallParcel', 'mediumParcel', 'largeParcel', etc.
-  serviceCode: text('serviceCode'), // Royal Mail service code (account-specific)
-  shippingCost: real('shippingCost'), // Shipping cost charged to customer
-  parcelWeight: integer('parcelWeight'), // Total weight in grams
-  parcelDimensions: text('parcelDimensions', { mode: 'json' }), // {height, width, depth} in mm
-  labelBase64: text('labelBase64'), // Base64 encoded PDF label
-  trackingNumber: text('trackingNumber'), // Royal Mail tracking number (from Click & Drop / Tracking API)
-  statusHistory: text('statusHistory', { mode: 'json' }), // Array of status changes for audit
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  clickDropOrderIdentifier: integer('clickDropOrderIdentifier'),
+  packageFormatIdentifier: text('packageFormatIdentifier'),
+  serviceCode: text('serviceCode'),
+  shippingCost: doublePrecision('shippingCost'),
+  parcelWeight: integer('parcelWeight'),
+  parcelDimensions: jsonb('parcelDimensions'),
+  labelBase64: text('labelBase64'),
+  trackingNumber: text('trackingNumber'),
+  statusHistory: jsonb('statusHistory'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const orderItems = sqliteTable('OrderItem', {
+export const orderItems = pgTable('OrderItem', {
   id: text('id').primaryKey(),
   orderId: text('orderId').notNull(),
   productId: text('productId').notNull(),
   quantity: integer('quantity').notNull(),
-  price: real('price').notNull(),
-  preOrderReleaseDate: integer('preOrderReleaseDate', { mode: 'timestamp' }),
+  price: doublePrecision('price').notNull(),
+  preOrderReleaseDate: timestamp('preOrderReleaseDate'),
 });
 
-export const reviews = sqliteTable('Review', {
+export const reviews = pgTable('Review', {
   id: text('id').primaryKey(),
   productId: text('productId').notNull(),
   userId: text('userId').notNull(),
   orderId: text('orderId').notNull().default('LEGACY_ORDER_LINK'),
   orderItemId: text('orderItemId').notNull().default('LEGACY_ORDER_ITEM_LINK'),
-  status: text('status', { enum: reviewStatuses }).notNull().default('PENDING'),
-  rating: integer('rating').notNull(), // 1-5 scale
+  status: reviewStatusEnum('status').notNull().default('PENDING'),
+  rating: integer('rating').notNull(),
   comment: text('comment'),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const blogs = sqliteTable('Blogs', {
+export const blogs = pgTable('Blogs', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
-  contentKey: text('contentKey').notNull(), // storage bucket file key
-  isFeatured: integer('isFeatured', { mode: 'boolean' })
-    .notNull()
-    .default(false),
-  isPublished: integer('isPublished', { mode: 'boolean' })
-    .notNull()
-    .default(true),
-  categories: text('categories', { mode: 'json' }).notNull(),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  contentKey: text('contentKey').notNull(),
+  isFeatured: boolean('isFeatured').notNull().default(false),
+  isPublished: boolean('isPublished').notNull().default(true),
+  categories: jsonb('categories').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const cartItems = sqliteTable('CartItem', {
+export const cartItems = pgTable('CartItem', {
   id: text('id').primaryKey(),
   productId: text('productId').notNull(),
   quantity: integer('quantity').notNull(),
   userId: text('userId').notNull(),
 });
 
-export const bookmarks = sqliteTable('Bookmark', {
+export const bookmarks = pgTable('Bookmark', {
   id: text('id').primaryKey(),
   productId: text('productId').notNull(),
   userId: text('userId').notNull(),
 });
 
-export const aiConversations = sqliteTable('AIConversation', {
+export const aiConversations = pgTable('AIConversation', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   title: text('title').notNull(),
-  messages: text('messages', { mode: 'json' }).notNull(),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  messages: jsonb('messages').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const categories = sqliteTable('Category', {
+export const categories = pgTable('Category', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
-  service: text('service', { enum: categoryServices }).notNull(),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  service: categoryServiceEnum('service').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
 
-export const productSubscribers = sqliteTable('ProductSubscriber', {
+export const productSubscribers = pgTable('ProductSubscriber', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),
   productId: text('productId').notNull(),
-  status: text('status', { enum: productSubscriberStatuses })
-    .notNull()
-    .default('PENDING'),
-  createdAt: integer('createdAt', { mode: 'timestamp' })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+  status: productSubscriberStatusEnum('status').notNull().default('PENDING'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  updatedAt: timestamp('updatedAt')
     .notNull()
     .$onUpdateFn(() => new Date()),
 });
-// export const blogs = sqliteTable('Blogs', {
-//   id: text('id').primaryKey(),
-//   title: text('title').notNull(),
-//   contentKey: text('contentKey').notNull(),
-//   isFeatured: integer('isFeatured', { mode: 'boolean' }).notNull().default(false),
-//   isPublished: integer('isPublished', { mode: 'boolean' }).notNull().default(true),
-// });
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   passwordResetOTP: one(passwordResetOTPs, {

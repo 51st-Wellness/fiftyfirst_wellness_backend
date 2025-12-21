@@ -1,15 +1,14 @@
-import { createClient } from '@libsql/client';
-import { drizzle } from 'drizzle-orm/libsql';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema';
 
 // Create the database connection
-export function createDatabaseConnection(url: string, authToken?: string) {
-  const client = createClient({
-    url,
-    authToken,
+export function createDatabaseConnection(url: string) {
+  const pool = new Pool({
+    connectionString: url,
   });
 
-  return drizzle(client, { schema });
+  return drizzle(pool, { schema });
 }
 
 // Export the database type for dependency injection

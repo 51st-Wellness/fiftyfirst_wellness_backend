@@ -1,1 +1,0 @@
-ALTER TABLE `CartItem` ADD `updatedAt` integer;

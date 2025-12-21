@@ -1,1 +1,0 @@
-ALTER TABLE `Order` ADD `previewImage` text;
