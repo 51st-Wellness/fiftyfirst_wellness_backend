@@ -184,10 +184,7 @@ export class StoreRepository {
           description: storeItems.description,
           productUsage: storeItems.productUsage,
           productBenefits: storeItems.productBenefits,
-          productIngredients: sql<string[] | null>`CASE 
-            WHEN json_valid(${storeItems.productIngredients}) THEN ${storeItems.productIngredients}
-            ELSE NULL
-          END`,
+          productIngredients: storeItems.productIngredients,
           price: storeItems.price,
           stock: storeItems.stock,
           display: storeItems.display,

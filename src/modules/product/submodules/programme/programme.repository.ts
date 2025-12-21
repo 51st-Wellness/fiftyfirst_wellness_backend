@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { eq, desc, like, or, and, count, SQL } from 'drizzle-orm';
+import { eq, desc, like, ilike, or, and, count, SQL, sql } from 'drizzle-orm';
 import { programmes } from 'src/database/schema';
 import { Programme } from 'src/database/types';
 
@@ -29,32 +29,29 @@ export class ProgrammeRepository {
     const conditions: SQL[] = [];
     console.log(' filters', filters);
     if (filters?.isPublished !== undefined) {
-      // Explicitly convert boolean to integer for LibSQL/SQLite compatibility
-      conditions.push(
-        eq(
-          programmes.isPublished,
-          filters.isPublished ? (1 as any) : (0 as any),
-        ),
-      );
+      conditions.push(eq(programmes.isPublished, filters.isPublished));
     }
     if (filters?.isFeatured !== undefined) {
-      // Explicitly convert boolean to integer for LibSQL/SQLite compatibility
-      conditions.push(
-        eq(programmes.isFeatured, filters.isFeatured ? (1 as any) : (0 as any)),
-      );
+      conditions.push(eq(programmes.isFeatured, filters.isFeatured));
     }
     if (filters?.search) {
       const searchCondition = or(
-        like(programmes.title, `%${filters.search}%`),
-        like(programmes.description, `%${filters.search}%`),
+        ilike(programmes.title, `%${filters.search}%`),
+        ilike(programmes.description, `%${filters.search}%`),
       );
       if (searchCondition) {
         conditions.push(searchCondition);
       }
     }
     if (filters?.categories && filters.categories.length > 0) {
-      const categoryConditions = filters.categories.map((category) =>
-        like(programmes.categories, `%"${category}"%`),
+      // Use Postgres JSONB containment. We check if any of the requested categories exist in the categories array.
+      // Since @> checks if the left JSON contains the right JSON, we iterate and combine with OR.
+      // A better way for "any of these" in Postgres JSONB arrays is slightly complex with ORM,
+      // but OR-ing containment checks works reliably:
+      // categories @> '["Cat1"]' OR categories @> '["Cat2"]'
+      const categoryConditions = filters.categories.map(
+        (category) =>
+          sql`${programmes.categories} @> ${JSON.stringify([category])}`,
       );
       conditions.push(or(...categoryConditions) as any);
     }
@@ -89,16 +86,17 @@ export class ProgrammeRepository {
     }
     if (filters?.search) {
       const searchCondition = or(
-        like(programmes.title, `%${filters.search}%`),
-        like(programmes.description, `%${filters.search}%`),
+        ilike(programmes.title, `%${filters.search}%`),
+        ilike(programmes.description, `%${filters.search}%`),
       );
       if (searchCondition) {
         conditions.push(searchCondition);
       }
     }
     if (filters?.categories && filters.categories.length > 0) {
-      const categoryConditions = filters.categories.map((category) =>
-        like(programmes.categories, `%"${category}"%`),
+      const categoryConditions = filters.categories.map(
+        (category) =>
+          sql`${programmes.categories} @> ${JSON.stringify([category])}`,
       );
       conditions.push(or(...categoryConditions) as any);
     }

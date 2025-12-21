@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { eq, desc, like, or, and, count, SQL } from 'drizzle-orm';
+import { eq, desc, like, or, and, count, SQL, sql } from 'drizzle-orm';
 import { podcasts } from 'src/database/schema';
 import { Podcast } from 'src/database/types';
 
@@ -34,8 +34,9 @@ export class PodcastRepository {
     }
 
     if (filters?.categories && filters.categories.length > 0) {
-      const categoryConditions = filters.categories.map((category) =>
-        like(podcasts.categories, `%"${category}"%`),
+      const categoryConditions = filters.categories.map(
+        (category) =>
+          sql`${podcasts.categories} @> ${JSON.stringify([category])}`,
       );
       conditions.push(or(...categoryConditions) as any);
     }
@@ -69,8 +70,9 @@ export class PodcastRepository {
     }
 
     if (filters?.categories && filters.categories.length > 0) {
-      const categoryConditions = filters.categories.map((category) =>
-        like(podcasts.categories, `%"${category}"%`),
+      const categoryConditions = filters.categories.map(
+        (category) =>
+          sql`${podcasts.categories} @> ${JSON.stringify([category])}`,
       );
       conditions.push(or(...categoryConditions) as any);
     }

@@ -4,7 +4,18 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, like, or, SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  like,
+  ilike,
+  or,
+  SQL,
+  sql,
+} from 'drizzle-orm';
 import { DatabaseService } from 'src/database/database.service';
 import {
   orders,
@@ -561,10 +572,10 @@ export class ReviewService {
       const searchTerm = `%${query.search.trim()}%`;
       clauses.push(
         or(
-          like(reviews.comment, searchTerm),
-          like(users.firstName, searchTerm),
-          like(users.lastName, searchTerm),
-          like(users.email, searchTerm),
+          ilike(reviews.comment, searchTerm),
+          ilike(users.firstName, searchTerm),
+          ilike(users.lastName, searchTerm),
+          ilike(users.email, searchTerm),
         ) as SQL,
       );
     }
