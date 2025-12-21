@@ -14,7 +14,7 @@ import {
   AdminOrderDetail,
   OrderCustomerDto,
 } from './dto/order-response.dto';
-import { eq, desc, inArray, sql, and, or, SQL } from 'drizzle-orm';
+import { eq, desc, inArray, sql, and, or, ilike, SQL } from 'drizzle-orm';
 import {
   orders,
   orderItems,
@@ -331,9 +331,9 @@ export class OrderService {
       const likeQuery = `%${params.search}%`;
       filters.push(
         or(
-          sql`${orders.id} LIKE ${likeQuery}`,
-          sql`LOWER(${users.firstName} || ' ' || ${users.lastName}) LIKE LOWER(${likeQuery})`,
-          sql`${users.email} LIKE ${likeQuery}`,
+          ilike(orders.id, likeQuery),
+          sql`${users.firstName} || ' ' || ${users.lastName} ILIKE ${likeQuery}`,
+          ilike(users.email, likeQuery),
         ) as SQL<unknown>,
       );
     }
@@ -531,9 +531,9 @@ export class OrderService {
       const likeQuery = `%${params.search}%`;
       filters.push(
         or(
-          sql`${orders.id} LIKE ${likeQuery}`,
-          sql`LOWER(${users.firstName} || ' ' || ${users.lastName}) LIKE LOWER(${likeQuery})`,
-          sql`${users.email} LIKE ${likeQuery}`,
+          ilike(orders.id, likeQuery),
+          sql`${users.firstName} || ' ' || ${users.lastName} ILIKE ${likeQuery}`,
+          ilike(users.email, likeQuery),
         ) as SQL<unknown>,
       );
     }

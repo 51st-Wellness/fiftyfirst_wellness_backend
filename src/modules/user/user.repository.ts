@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { eq, like, or, and, count, desc, SQL } from 'drizzle-orm';
+import { eq, like, ilike, or, and, count, desc, SQL } from 'drizzle-orm';
 import {
   users,
   passwordResetOTPs,
@@ -278,9 +278,9 @@ export class UserRepository {
 
     if (filters.search) {
       const searchCondition = or(
-        like(users.email, `%${filters.search}%`),
-        like(users.firstName, `%${filters.search}%`),
-        like(users.lastName, `%${filters.search}%`),
+        ilike(users.email, `%${filters.search}%`),
+        ilike(users.firstName, `%${filters.search}%`),
+        ilike(users.lastName, `%${filters.search}%`),
       );
       if (searchCondition) {
         conditions.push(searchCondition);

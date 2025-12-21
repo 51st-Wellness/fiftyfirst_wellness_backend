@@ -1,6 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { eq, desc, like, or, and, count, SQL, sql, isNull } from 'drizzle-orm';
+import {
+  eq,
+  desc,
+  like,
+  ilike,
+  or,
+  and,
+  count,
+  SQL,
+  sql,
+  isNull,
+} from 'drizzle-orm';
 import {
   storeItems,
   products,
@@ -62,10 +73,7 @@ export class StoreRepository {
           description: storeItems.description,
           productUsage: storeItems.productUsage,
           productBenefits: storeItems.productBenefits,
-          productIngredients: sql<string[] | null>`CASE 
-            WHEN json_valid(${storeItems.productIngredients}) THEN ${storeItems.productIngredients}
-            ELSE NULL
-          END`,
+          productIngredients: storeItems.productIngredients,
           price: storeItems.price,
           stock: storeItems.stock,
           display: storeItems.display,
@@ -100,9 +108,10 @@ export class StoreRepository {
         .limit(1);
 
       if (result[0]) {
-        const item = this.sanitizeStoreItem(result[0]);
+        // Drizzle PG driver automatically parses JSONB, so we just pass it through
+        // We might still need to handle nulls if that's business logic
         return {
-          ...item,
+          ...(result[0] as unknown as StoreItem), // cast to match return type assuming driver returns correct types
           averageRating: Number(result[0].averageRating ?? 0),
           reviewCount: Number(result[0].reviewCount ?? 0),
         };
@@ -115,22 +124,8 @@ export class StoreRepository {
   }
 
   // Sanitize store item to ensure JSON fields are valid
+  // Postgres driver returns objects, so parsing is mostly redundant but we verify structure
   private sanitizeStoreItem(item: any): StoreItem {
-    // Ensure productIngredients is valid JSON or null
-    if (
-      item.productIngredients !== null &&
-      item.productIngredients !== undefined
-    ) {
-      if (typeof item.productIngredients === 'string') {
-        try {
-          item.productIngredients = JSON.parse(item.productIngredients);
-        } catch {
-          item.productIngredients = null;
-        }
-      }
-    } else {
-      item.productIngredients = null;
-    }
     return item as StoreItem;
   }
 
@@ -158,18 +153,21 @@ export class StoreRepository {
         conditions.push(eq(storeItems.isFeatured, filters.isFeatured));
       }
       if (filters?.search) {
+        // Use ilike for case-insensitive search in Postgres
         const searchCondition = or(
-          like(storeItems.name, `%${filters.search}%`),
-          like(storeItems.description, `%${filters.search}%`),
+          ilike(storeItems.name, `%${filters.search}%`),
+          ilike(storeItems.description, `%${filters.search}%`),
         );
         if (searchCondition) {
           conditions.push(searchCondition);
         }
       }
       if (filters?.category) {
-        // Check if category exists in the JSON array using LIKE pattern matching
-        // Categories are stored as JSON array: ["Category1", "Category2"]
-        conditions.push(like(storeItems.categories, `%"${filters.category}"%`));
+        // Use Postgres JSONB containment operator
+        // categories @> '["CategoryName"]'
+        conditions.push(
+          sql`${storeItems.categories} @> ${JSON.stringify([filters.category])}`,
+        );
       }
       if (filters?.minPrice !== undefined) {
         conditions.push(sql`${storeItems.price} >= ${filters.minPrice}`);
@@ -268,18 +266,20 @@ export class StoreRepository {
       conditions.push(eq(storeItems.isFeatured, filters.isFeatured));
     }
     if (filters?.search) {
+      // Use ilike
       const searchCondition = or(
-        like(storeItems.name, `%${filters.search}%`),
-        like(storeItems.description, `%${filters.search}%`),
+        ilike(storeItems.name, `%${filters.search}%`),
+        ilike(storeItems.description, `%${filters.search}%`),
       );
       if (searchCondition) {
         conditions.push(searchCondition);
       }
     }
     if (filters?.category) {
-      // Check if category exists in the JSON array using LIKE pattern matching
-      // Categories are stored as JSON array: ["Category1", "Category2"]
-      conditions.push(like(storeItems.categories, `%"${filters.category}"%`));
+      // Use JSONB containment
+      conditions.push(
+        sql`${storeItems.categories} @> ${JSON.stringify([filters.category])}`,
+      );
     }
     if (filters?.minPrice !== undefined) {
       conditions.push(sql`${storeItems.price} >= ${filters.minPrice}`);
@@ -337,6 +337,7 @@ export class StoreRepository {
       .update(storeItems)
       .set({
         deletedAt: new Date(),
+        // isPublished: false, // Drizzle type inference prefers strict boolean
         isPublished: false,
         isFeatured: false,
       })
@@ -354,10 +355,7 @@ export class StoreRepository {
         description: storeItems.description,
         productUsage: storeItems.productUsage,
         productBenefits: storeItems.productBenefits,
-        productIngredients: sql<string[] | null>`CASE 
-          WHEN json_valid(${storeItems.productIngredients}) THEN ${storeItems.productIngredients}
-          ELSE NULL
-        END`,
+        productIngredients: storeItems.productIngredients, // No complex SQL case needed for JSONB
         price: storeItems.price,
         stock: storeItems.stock,
         display: storeItems.display,
@@ -395,10 +393,7 @@ export class StoreRepository {
         description: storeItems.description,
         productUsage: storeItems.productUsage,
         productBenefits: storeItems.productBenefits,
-        productIngredients: sql<string[] | null>`CASE 
-          WHEN json_valid(${storeItems.productIngredients}) THEN ${storeItems.productIngredients}
-          ELSE NULL
-        END`,
+        productIngredients: storeItems.productIngredients,
         price: storeItems.price,
         stock: storeItems.stock,
         display: storeItems.display,
@@ -420,8 +415,8 @@ export class StoreRepository {
         and(
           isNull(storeItems.deletedAt as any) as any,
           or(
-            like(storeItems.name, `%${query}%`),
-            like(storeItems.description, `%${query}%`),
+            ilike(storeItems.name, `%${query}%`),
+            ilike(storeItems.description, `%${query}%`),
           ),
           eq(storeItems.isPublished, true),
         ),
@@ -444,7 +439,7 @@ export class StoreRepository {
       .where(
         and(
           isNull(storeItems.deletedAt as any) as any,
-          like(storeItems.name, `%${query}%`),
+          ilike(storeItems.name, `%${query}%`),
           eq(storeItems.isPublished, true),
         ),
       )

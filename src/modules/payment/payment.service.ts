@@ -296,7 +296,7 @@ export class PaymentService {
             .where(
               and(
                 eq(payments.provider, 'STRIPE'),
-                sql`JSON_EXTRACT(${payments.metadata}, '$.subscriptionId') = ${webhookResult.metadata.subscriptionId}`,
+                sql`${payments.metadata}->>'subscriptionId' = ${webhookResult.metadata.subscriptionId}`,
               ),
             )
             .orderBy(desc(subscriptions.createdAt))
